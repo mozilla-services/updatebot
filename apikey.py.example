@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+BUGZILLA_URL = "https://bugzilla-dev.allizom.org/rest/"
+APIKEY = "<foobar>"
+
+#BUGZILLA_URL = "https://bugzilla.mozilla.org/rest/"
+#APIKEY = "<foobar>"

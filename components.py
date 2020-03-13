@@ -36,7 +36,7 @@ def run(args, shell=False, clean_return=True):
 	print("----------------------------------------------")
 	start = time.time()
 	print("Running", args)
-	ret = subprocess.run(args, shell=shell, capture_output=True)
+	ret = subprocess.run(args, shell=shell, capture_output=True, timeout=60*10)
 	print("Return:", ret.returncode, "Runtime (s):", int(time.time() - start))
 	print("-------")
 	print("stdout:")
@@ -106,11 +106,20 @@ def commit(library, bug_id, new_release_version):
 #----------------
 
 @logEntryExit
+def _vcs_setup():
+	if not _vcs_setup.initialized:
+		run(["./mach", "vcs-setup", "--update"])
+		_vcs_setup.initialized = True
+_vcs_setup.initialized = False
+
+@logEntryExit
 def submit_to_try(library):
+	_vcs_setup()
 	ret = run(["./mach", "try", "fuzzy", "--query", library.fuzzy_query])
 	output = ret.stdout.decode()
 
 	isNext = False
+	try_link = "Unknown"
 	for l in output.split("\n"):
 		if isNext:
 			try_link = l.replace("remote:", "").strip()
@@ -126,5 +135,5 @@ def submit_to_try(library):
 def commentOnBug(bug_id, try_run):
 	comment = "I've submitted a try run for this commit: " + try_run
 	commentID = commentBug.commentOnBug(bug_id, comment)
-	print("Filed Comment with ID %s on Bug %s" % (commentID, bugID))
+	print("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))
 

@@ -7,8 +7,8 @@ from component.hg import commit
 from apis.taskcluster import submit_to_try
 
 class Updatebot:
-	def __init__(self):
-		self.db = Database()
+	def __init__(self, database_config):
+		self.db = Database(database_config)
 
 	def run(self):
 		libraries = self.db.get_libraries():
@@ -41,7 +41,7 @@ class Updatebot:
 		pass
 
 	
-def run():
-	u = Updatebot()
+def run(database_config=None):
+	u = Updatebot(database_config)
 	u.run()
 

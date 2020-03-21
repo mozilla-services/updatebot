@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from utilities import Struct
+from components.utilities import Struct, logEntryExit
 
 import pymysql
 
@@ -19,12 +19,13 @@ class HardcodedDatabase:
 		return self.libraries
 
 class MySQLDatabase:
+	@logEntryExit
 	def __init__(self, database_config):
 		self.connection = pymysql.connect(
 			host=database_config['host'],
 			user=database_config['user'],
 			password=database_config['password'],
-			db=database_config['database'],
+			db=database_config['db'],
 			charset='utf8',
 			cursorclass=pymysql.cursors.DictCursor)
 

@@ -8,7 +8,7 @@ import argparse
 import traceback
 import subprocess
 
-from utilities import logEntryExit, run_command
+from components.utilities import logEntryExit, run_command
 
 @logEntryExit
 def _vcs_setup():

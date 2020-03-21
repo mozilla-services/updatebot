@@ -2,16 +2,14 @@
 
 
 
-class logEntryExit(object):
-	def __init__(self, f):
-		self.f = f
-
-	def __call__(self, *args):
+def logEntryExit(func):
+	def func_wrapper(*args, **kwargs):
 		print("================================================")
-		print("Beginning", self.f.__name__)
-		ret = self.f(*args)
-		print("Ending", self.f.__name__)
+		print("Beginning", func.__qualname__)
+		ret = func(*args, **kwargs)
+		print("Ending", func.__qualname__)
 		return ret
+	return func_wrapper
 
 
 class Struct:

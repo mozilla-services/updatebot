@@ -6,6 +6,7 @@ import argparse
 import requests
 
 from apis.bugzilla_api import fileBug, commentOnBug
+from components.utilities import logEntryExit
 
 @logEntryExit
 def file_bug(library, new_release_version):

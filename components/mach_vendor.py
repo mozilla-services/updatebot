@@ -1,3 +1,5 @@
+from components.utilities import logEntryExit
+
 @logEntryExit
 def check_for_update(library):
 	run(["./mach", "vendor", "--check-for-update", library.shortname])

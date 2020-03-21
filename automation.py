@@ -3,7 +3,7 @@
 from components.dbc import Database
 from components.mach_vendor import check_for_update, vendor
 from components.bugzilla import file_bug, comment_on_bug
-from component.hg import commit
+from components.hg import commit
 from apis.taskcluster import submit_to_try
 
 class Updatebot:
@@ -11,16 +11,17 @@ class Updatebot:
 		self.db = Database(database_config)
 
 	def run(self):
-		libraries = self.db.get_libraries():
+		libraries = self.db.get_libraries()
 		for l in libraries:
 			try:
 				self.process_library(l)
-			except:
+			except Exception as e:
+				print(e)
 				pass
 				# Output some information here....
 
 
-	def process_library(library):
+	def process_library(self, library):
 		new_version = check_for_update(library)
 		if not new_version:
 			return
@@ -45,3 +46,5 @@ def run(database_config=None):
 	u = Updatebot(database_config)
 	u.run()
 
+if __name__ == "__main__":
+	run()

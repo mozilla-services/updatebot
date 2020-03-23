@@ -1,39 +1,24 @@
-## TODO
+<h1 align="center">
+  Updatebot
+</h1>
 
- - Easy
-   - Go through and fix all the imports (add missing, remove unused)
-   - Add copyright and license
-   - Rename the github repo to 'updatebot' and [update the holly job](https://hg.mozilla.org/projects/holly/diff/bb8213d30c2a209facb5d459a00c8e683599e062/taskcluster/docker/updatebot/run.py#l1.51)
-   - Update the holly job to [import automation and then call run](https://hg.mozilla.org/projects/holly/diff/bb8213d30c2a209facb5d459a00c8e683599e062/taskcluster/docker/updatebot/run.py#l1.67)
-   - Implement ./mach vendor --check-for-update which returns nothing if the library is up to date, or the new version identifier (commit hash probably) if there is a new version
-     - We're going to rewrite most of ./mach vendor, so this is primarily a stopgap/testing exercise. Implement it for [dav1d](https://searchfox.org/mozilla-central/source/python/mozbuild/mozbuild/mach_commands.py#1349-1361) by adding a new CommandArgument, and then [figure out if the new version is different from the current version, and return it if so](https://searchfox.org/mozilla-central/source/python/mozbuild/mozbuild/vendor_dav1d.py#154-155).
-   - Fix [mach_vendor.check_for_update](https://github.com/mozilla-services/third-party-library-update/blob/master/components/mach_vendor.py#L3) to return the information gathered (this is probably just adding 'return')
-   - Update [run_command](https://github.com/mozilla-services/third-party-library-update/blob/master/components/utilities.py#L22-L42) to catch the timeout exception and grab the output per https://stackoverflow.com/questions/60675828/ and then output it and raise an Exception to be handled at the [per-library-level](https://github.com/mozilla-services/third-party-library-update/blob/master/automation.py#L16-L20)
-   - Update [run_command](https://github.com/mozilla-services/third-party-library-update/blob/master/components/utilities.py#L22-L42) to raise an Exception if [we don't return correctly](https://github.com/mozilla-services/third-party-library-update/blob/master/components/utilities.py#L35-L41) to be handled at the [per-library-level](https://github.com/mozilla-services/third-party-library-update/blob/master/automation.py#L16-L20)
-   - Fix the [per-library Except Block](https://github.com/mozilla-services/third-party-library-update/blob/master/automation.py#L16-L20) to catch all Exceptions and then output them in a useful manner
-   - Add a description of the project in the README file
- - Medium
-   - Come up with a better naming convention that file_bug/fileBug in bugzilla.py/bugzilla_api.py
-   - Everyone should [Get a Google Cloud account](https://mana.mozilla.org/wiki/pages/viewpage.action?spaceKey=SVCOPS&title=Google+Cloud+Platform+%28GCP%29+For+Firefox+Organization)
-   - Someone should then set up a Google Cloud SQL databse
-   - Create a MySQLDatabase in [components/db.py](https://github.com/mozilla-services/third-party-library-update/blob/master/components/db.py)
-   - After creating the Cloud SQL database, store the password to it in the taskcluster secret
-   - [Retrieve the mysql database password from taskcluster secret](https://hg.mozilla.org/projects/holly/diff/bb8213d30c2a209facb5d459a00c8e683599e062/taskcluster/docker/updatebot/run.py#l1.45) and pass it through to the database (by passing it through automation.run, then dbc, then db)
-   - Implement the database function calls in automation that [don't](https://github.com/mozilla-services/third-party-library-update/blob/master/automation.py#L27) [exist](https://github.com/mozilla-services/third-party-library-update/blob/master/automation.py#L38)
-     - For Hardcoded Database, they're just going to do nothing...
-   - Figure out how we're going to figure out who to needinfo/flag for review for the libraries
-     - Can this be determined from moz.build files? Or do we need to hardcode it in the database?
-   - Handle if [./mach vendor](https://github.com/mozilla-services/third-party-library-update/blob/master/components/mach_vendor.py#L6) fails, and then handle it
-     - We'll probably need to catch the Exception that's raised by run_command and then re-throw a more intelligent exception indicating the merge conflicts, ideally with detailed output.
-     - Before we re-throw the exception (so still inside mach_vendor.py.vendor), we should file a bug about the conflicts and then save the job to the database indicating this commit failed with a note about merge conflicts
- - Complicated
-   - Attach the phabricator patch. ([There's stuff that does this already in-tree, so there's something to vaguely copy or look at for reference.](https://searchfox.org/mozilla-central/source/taskcluster/docker/python-dependency-update/runme.sh))
-   - Figure out how real python applications are made these days and make this look like them. Something about requirements.txt?
-   - somewhere around [db.has_job](https://github.com/mozilla-services/third-party-library-update/blob/master/automation.py#L27) we should see if we had a job that failed due to merge conflicts, and if the bug we filed for those merge conflicts has been closed. If it hasn't, we should assume that future jobs would also fail, and skip this library.
- - Very Complicated
-   - Create process_existing_job
-     - Going to need to read the failed jobs off taskcluster
-     - Handle if the build job failed
-     - Handle if tests failed
-     - File comments on the bug and place a needinfo
-     - If stuff succeeded flag the patch for review
+[![<mozilla-services>](https://img.shields.io/circleci/build/gh/mozilla-services/updatebot?label=tests&style=flat-square)](https://circleci.com/gh/mozilla-services/updatebot)
+[![codecov](https://img.shields.io/codecov/c/gh/mozilla-services/updatebot?style=flat-square)](https://codecov.io/gh/mozilla-services/updatebot)
+
+Automated detection, patching, testing, and bug filing for updates in third-party libraries for Firefox.
+
+This project requires [Poetry](https://python-poetry.org/docs/) and a version of [Python](https://www.python.org/downloads/release/python-359/) at least greater than 3.5.
+
+We talk to a database; currently [MySQL](https://www.mysql.com/downloads/) is supported. Copy the local config file with `cp localconfig.py.example localconfig.py` and configure the database connection parameters. Updatebot will automatically create and populate the database with its structure and required data.
+
+To get started developing updatebot, or to run it locally you'll need to run `poetry install` and then `poetry run ./automation.py`
+
+Testing is handled in a single step of `poetry run ./test.py`
+
+For formatting code automatically please use `poetry run autopep8 --in-place --recursive --ignore E501,E402 .`
+
+For linting the codebase run `poetry run flake8 --ignore=E501,E402 .`
+
+Updatebot is currently in early, active development with a lot of churn.
+
+This repo is subject to [our quality standards and practices](https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Committing_Rules_and_Responsibilities) and any interaction here is governed by the [Mozilla Community Participation Guidelines.](https://www.mozilla.org/en-US/about/governance/policies/participation/)

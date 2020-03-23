@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 from components.dbc import Database
 from components.mach_vendor import check_for_update, vendor
 from components.bugzilla import file_bug, comment_on_bug
@@ -41,7 +45,7 @@ class Updatebot:
 	def process_existing_job(library, new_version):
 		pass
 
-	
+
 def run(database_config=None):
 	u = Updatebot(database_config)
 	u.run()

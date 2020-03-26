@@ -29,8 +29,10 @@ class Updatebot:
 		new_version = check_for_update(library)
 		if not new_version:
 			return
-		if self.db.have_job(library, new_version):
-			self.process_existing_job(library, new_version)
+
+		existing_job = self.db.get_job(library, new_version)
+		if existing_job:
+			self.process_existing_job(existing_job)
 		else:
 			self.process_new_job(library, new_version)
 
@@ -42,7 +44,7 @@ class Updatebot:
 		comment_on_bug(bug_id, try_run)
 		self.db.save_job(library, new_version, bug_id, try_run)
 
-	def process_existing_job(library, new_version):
+	def process_existing_job(existing_job):
 		pass
 
 

@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+
+database_config = {
+	'host': 'localhost',
+	'user': 'username',
+	'password': 'p4ssw0rd',
+	'db': 'updatebot'
+}

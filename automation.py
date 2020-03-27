@@ -53,4 +53,18 @@ def run(database_config=None):
 	u.run()
 
 if __name__ == "__main__":
-	run()
+	import argparse
+	from localconfig import database_config
+
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--dbcheck', help="Check the config level of the database", action="store_true")
+	parser.add_argument('--delete', help="Delete the database", action="store_true")
+	args = parser.parse_args()
+
+	if args.delete:
+		print("Not Implemented")
+	elif args.dbcheck:
+		db = Database(database_config)
+		db.check_database()
+	else:
+		run(database_config)

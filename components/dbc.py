@@ -11,6 +11,9 @@ class Database:
 	def __init__(self, database_config):
 		self.db = MySQLDatabase(database_config)
 
+	def check_database(self):
+		return self.db.check_database()
+
 	def get_libraries(self):
 		return self.db.get_libraries()
 

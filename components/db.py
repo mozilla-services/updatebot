@@ -20,6 +20,9 @@ class HardcodedDatabase:
 			})
 		]
 
+	def check_database(self):
+		return 1
+
 	def get_libraries(self):
 		return self.libraries
 

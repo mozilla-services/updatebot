@@ -2,12 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import logEntryExit
+from components.utilities import logEntryExit, run_command
 
 @logEntryExit
 def check_for_update(library):
-	run(["./mach", "vendor", "--check-for-update", library.shortname])
+	run_command(["./mach", "vendor", "--check-for-update", library.shortname])
 
 @logEntryExit
 def vendor(library):
-	run(["./mach", "vendor", library.shortname])
+	run_command(["./mach", "vendor", library.shortname])

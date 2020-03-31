@@ -14,6 +14,9 @@ class Database:
 	def check_database(self):
 		return self.db.check_database()
 
+	def delete_database(self):
+		return self.db.delete_database()
+
 	def get_libraries(self):
 		return self.db.get_libraries()
 

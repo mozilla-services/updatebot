@@ -53,17 +53,23 @@ def run(database_config=None):
 	u.run()
 
 if __name__ == "__main__":
+	import sys
 	import argparse
-	from localconfig import database_config
+	try:
+		from localconfig import database_config
+	except:
+		print("Unit tests require a local database configuration to be defined.")
+		sys.exit(1)
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--dbcheck', help="Check the config level of the database", action="store_true")
-	parser.add_argument('--delete', help="Delete the database", action="store_true")
+	parser.add_argument('--check-database', help="Check the config level of the database", action="store_true")
+	parser.add_argument('--delete-database', help="Delete the database", action="store_true")
 	args = parser.parse_args()
 
-	if args.delete:
-		print("Not Implemented")
-	elif args.dbcheck:
+	if args.delete_database:
+		db = Database(database_config)
+		db.delete_database()
+	elif args.check_database:
 		db = Database(database_config)
 		db.check_database()
 	else:

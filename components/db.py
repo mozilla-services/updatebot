@@ -5,20 +5,24 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.utilities import Struct, logEntryExit
-from components.dbmodels import Job
+from components.dbmodels import Job, Library
 
 import pymysql
 
+LIBRARIES = [
+	Struct(**{
+		'shortname': 'dav1d',
+		'bugzilla_product' : 'Core',
+		'bugzilla_component' : 'ImageLib',
+		'fuzzy_query' : "'test 'gtest | 'media !'asan"
+	})
+]
+
+# ==================================================================================
+
 class HardcodedDatabase:
 	def __init__(self, database_config):
-		self.libraries = [
-			Struct(**{
-				'shortname': 'dav1d',
-				'product' : 'Core',
-				'component' : 'ImageLib',
-				'fuzzy_query' : "'test 'gtest | 'media !'asan"
-			})
-		]
+		self.libraries = LIBRARIES
 
 	def check_database(self):
 		return 1
@@ -32,20 +36,22 @@ class HardcodedDatabase:
 	def save_job(self, library, new_version, bug_id, try_run):
 		pass
 
-CREATION_QUERIES = [
-	"""
+# ==================================================================================
+
+CREATION_QUERIES = {
+	"config" : """
 	CREATE TABLE `config` (
 	  `k` varchar(255) NOT NULL,
 	  `v` varchar(255) NOT NULL
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 	""",
-	"""
+	"status_types" : """
 	CREATE TABLE `status_types` (
 	  `id` TINYINT NOT NULL,
 	  `name` VARCHAR(255) NOT NULL
 	) ENGINE = InnoDB;
 	""",
-	"""
+	"jobs" : """
 	CREATE TABLE `jobs` (
 	  `id` INT NOT NULL AUTO_INCREMENT,
 	  `library` VARCHAR(255) NOT NULL,
@@ -55,16 +61,37 @@ CREATION_QUERIES = [
 	  `try_revision` VARCHAR(64) NULL,
 	  PRIMARY KEY (`id`)
 	) ENGINE = InnoDB;
+	""",
+	"libraries" : """
+	CREATE TABLE `libraries` (
+	  `id` INT NOT NULL AUTO_INCREMENT,
+	  `shortname` VARCHAR(255) NOT NULL,
+	  `bugzilla_product` VARCHAR(255) NOT NULL ,
+	  `bugzilla_component` VARCHAR(255) NOT NULL,
+	  `fuzzy_query` VARCHAR(255) NULL,
+	  PRIMARY KEY (`id`)
+	) ENGINE = InnoDB;
 	"""
-]
+}
 
 CURRENT_DATABASE_CONFIG_VERSION = 1
 
 INSERTION_QUERIES = [
-	"""
-	INSERT INTO `config` (`k`, `v`) VALUES ('database_version', '{0}');
-	""".format(CURRENT_DATABASE_CONFIG_VERSION)
+	Struct(**{
+		'query' : "INSERT INTO `config` (`k`, `v`) VALUES ('database_version', %s)",
+		'args' : (CURRENT_DATABASE_CONFIG_VERSION)
+	})
 ]
+
+for l in LIBRARIES:
+	INSERTION_QUERIES.append(
+		Struct(**{
+			'query': "INSERT INTO `libraries` (`shortname`, `bugzilla_product`, `bugzilla_component`, `fuzzy_query`) \
+					  VALUES (%s, %s, %s, %s)",
+			'args': (l.shortname, l.bugzilla_product, l.bugzilla_component, l.fuzzy_query)
+		}))
+
+# ==================================================================================
 
 class MySQLDatabase:
 	@logEntryExit
@@ -77,14 +104,7 @@ class MySQLDatabase:
 			charset='utf8',
 			cursorclass=pymysql.cursors.DictCursor)
 
-		self.libraries = [
-			Struct(**{
-				'shortname': 'dav1d',
-				'product' : 'Core',
-				'component' : 'ImageLib',
-				'fuzzy_query' : "'test 'gtest | 'media !'asan"
-			})
-		]
+		self.libraries = None
 
 	def _query_get_single(self, query):
 		with self.connection.cursor() as cursor:
@@ -96,7 +116,7 @@ class MySQLDatabase:
 				raise Exception("get_single database query returned multiple columns")
 			return list(results[0].values())[0]
 
-	def _query_get_results(self, query, args):
+	def _query_get_results(self, query, args=()):
 		with self.connection.cursor() as cursor:
 			cursor.execute(query, args)
 			results = cursor.fetchall()
@@ -131,11 +151,12 @@ class MySQLDatabase:
 	@logEntryExit
 	def _create_database(self):
 		try:
-			for q in CREATION_QUERIES:
-				self._query_execute(q)
+			for table_name in CREATION_QUERIES:
+				self._query_execute(CREATION_QUERIES[table_name])
 			for q in INSERTION_QUERIES:
-				self._query_execute(q)
+				self._query_execute(q.query, q.args)
 		except Exception as e:
+			print(e)
 			print("We don't handle exceptions raised during database creation elegantly. Your database is in an unknown state.")
 			raise e
 
@@ -143,7 +164,21 @@ class MySQLDatabase:
 	def check_database(self):
 		return self._check_and_get_configuration()
 
+	@logEntryExit
+	def delete_database(self):
+		try:
+			for table_name in CREATION_QUERIES:
+				self._query_execute("DROP TABLE " + table_name)
+		except Exception as e:
+			print("We don't handle exceptions raised during database deletion elegantly. Your database is in an unknown state.")
+			raise e
+
 	def get_libraries(self):
+		if not self.libraries:
+			query = "SELECT * FROM libraries"
+			results = self._query_get_results(query)
+			self.libraries = [Library(r) for r in results]
+
 		return self.libraries
 
 	def get_job(self, library, new_version):

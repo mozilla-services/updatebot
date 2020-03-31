@@ -8,18 +8,19 @@ class JOBSTATUS:
 	COULD_NOT_UPDATE = 1
 	SUBMITTED_TRY = 1
 
-JOB_COLUMN_ID 			= 0
-JOB_COLUMN_LIBRARY 		= 1
-JOB_COLUMN_VERSION 		= 2
-JOB_COLUMN_STATUS 		= 3
-JOB_COLUMN_BUGZILLA_ID 	= 4
-JOB_COLUMN_TRY_REVISION = 5
-
 class Job:
 	def __init__(self, row):
-		self.id = row[JOB_COLUMN_ID]
-		self.library = row[JOB_COLUMN_LIBRARY]
-		self.version = row[JOB_COLUMN_VERSION]
-		self.status = row[JOB_COLUMN_STATUS]
-		self.bugzilla_id = row[JOB_COLUMN_BUGZILLA_ID]
-		self.try_revision = row[JOB_COLUMN_TRY_REVISION]
+		self.id = row['id']
+		self.library = row['library']
+		self.version = row['version']
+		self.status = row['status']
+		self.bugzilla_id = row['bugzilla_id']
+		self.try_revision = row['try_revision']
+
+class Library:
+	def __init__(self, row):
+		self.id = row['id']
+		self.shortname = row['shortname']
+		self.bugzilla_product = row['bugzilla_product']
+		self.bugzilla_component = row['bugzilla_component']
+		self.fuzzy_query = row['fuzzy_query']

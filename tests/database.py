@@ -10,6 +10,7 @@ import unittest
 
 from components.dbc import Database
 from components.db import LIBRARIES
+from components.dbmodels import JOBSTATUS
 try:
 	from localconfig import database_config
 except:
@@ -49,7 +50,26 @@ class TestDatabaeQueries(unittest.TestCase):
 		check_list(libs, LIBRARIES, "original")
 		check_list(LIBRARIES, libs, "database's")
 
+	def testJobs(self):
+		library = "test_library"
+		version = "test_new_version"
+		bugid = 50
+		try_link = "test_try_link"
 
+		try:
+			self.assertEqual(None, self.db.get_job(library, version))
+
+			self.db.save_job(library, version, bugid, try_link)
+
+			newJob = self.db.get_job(library, version)
+			self.assertNotEqual(None, newJob)
+			self.assertEqual(newJob.library, library)
+			self.assertEqual(newJob.version, version)
+			self.assertEqual(newJob.status, JOBSTATUS.SUBMITTED_TRY)
+			self.assertEqual(newJob.bugzilla_id, bugid)
+			self.assertEqual(newJob.try_revision, try_link)
+		finally:
+			self.db.delete_job(library, version)
 
 if __name__ == '__main__':
     unittest.main()

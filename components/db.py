@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.utilities import Struct, logEntryExit
-from components.dbmodels import Job, Library
+from components.dbmodels import Job, Library, JOBSTATUS
 
 import pymysql
 
@@ -190,4 +190,9 @@ class MySQLDatabase:
 	def save_job(self, library, new_version, bug_id, try_run):
 		query = "INSERT INTO jobs(library, version, status, bugzilla_id, try_revision) VALUES(%s, %s, %s, %s, %s)"
 		args = (library, new_version, JOBSTATUS.SUBMITTED_TRY, bug_id, try_run)
+		self._query_execute(query, args)
+
+	def delete_job(self, library, new_version):
+		query = "DELETE FROM jobs WHERE library = %s AND version = %s"
+		args = (library, new_version)
 		self._query_execute(query, args)

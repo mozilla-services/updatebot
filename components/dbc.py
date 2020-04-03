@@ -23,5 +23,11 @@ class Database:
 	def get_job(self, library, new_version):
 		return self.db.get_job(library, new_version)
 
+	"""
+	Only used for testing purposes, in the real database, we don't delete records.
+	"""
+	def delete_job(self, library, new_version):
+		return self.db.delete_job(library, new_version)
+
 	def save_job(self, library, new_version, bug_id, try_run):
 		return self.db.save_job(library, new_version, bug_id, try_run)

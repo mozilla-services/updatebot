@@ -11,4 +11,4 @@ def check_for_update(library):
 
 @logEntryExit
 def vendor(library):
-	run_command(["./mach", "vendor", library.shortname])
+	run_command(["./mach", "vendor", library.shortname, "--ignore-modified"])

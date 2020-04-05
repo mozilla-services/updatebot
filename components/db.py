@@ -117,14 +117,14 @@ class MySQLDatabase:
 				raise Exception("get_single database query returned multiple columns")
 			return list(results[0].values())[0]
 
-	def _query_get_results(self, query, args=()):
+	def _query_get_rows(self, query, args=()):
 		with self.connection.cursor() as cursor:
 			cursor.execute(query, args)
 			results = cursor.fetchall()
 			return results
 
 	def _query_get_row_maybe(self, query, args=()):
-		results = self._query_get_results(query, args)
+		results = self._query_get_rows(query, args)
 		if len(results) > 1:
 			raise Exception("get_row_maybe database query returned multiple rows")
 		return results[0] if results else None
@@ -177,10 +177,16 @@ class MySQLDatabase:
 	def get_libraries(self):
 		if not self.libraries:
 			query = "SELECT * FROM libraries"
-			results = self._query_get_results(query)
+			results = self._query_get_rows(query)
 			self.libraries = [Library(r) for r in results]
 
 		return self.libraries
+
+	@logEntryExit
+	def get_all_jobs(self):
+		query = "SELECT * FROM jobs ORDER BY id ASC"
+		results = self._query_get_rows(query)
+		return [Job(r) for r in results]
 
 	@logEntryExit
 	def get_job(self, library, new_version):

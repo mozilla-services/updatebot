@@ -69,10 +69,14 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--check-database', help="Check the config level of the database", action="store_true")
+	parser.add_argument('--print-database', help="Print the database", action="store_true")
 	parser.add_argument('--delete-database', help="Delete the database", action="store_true")
 	args = parser.parse_args()
 
-	if args.delete_database:
+	if args.print_database:
+		db = Database(database_config)
+		db.print()
+	elif args.delete_database:
 		db = Database(database_config)
 		db.delete_database()
 	elif args.check_database:

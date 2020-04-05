@@ -9,18 +9,20 @@ class JOBSTATUS:
 	SUBMITTED_TRY = 1
 
 class Job:
-	def __init__(self, row):
-		self.id = row['id']
-		self.library = row['library']
-		self.version = row['version']
-		self.status = row['status']
-		self.bugzilla_id = row['bugzilla_id']
-		self.try_revision = row['try_revision']
+	def __init__(self, row=None):
+		if row:
+			self.id = row['id']
+			self.library_shortname = row['library']
+			self.version = row['version']
+			self.status = row['status']
+			self.bugzilla_id = row['bugzilla_id']
+			self.try_revision = row['try_revision']
 
 class Library:
-	def __init__(self, row):
-		self.id = row['id']
-		self.shortname = row['shortname']
-		self.bugzilla_product = row['bugzilla_product']
-		self.bugzilla_component = row['bugzilla_component']
-		self.fuzzy_query = row['fuzzy_query']
+	def __init__(self, row=None):
+		if row:
+			self.id = row['id']
+			self.shortname = row['shortname']
+			self.bugzilla_product = row['bugzilla_product']
+			self.bugzilla_component = row['bugzilla_component']
+			self.fuzzy_query = row['fuzzy_query']

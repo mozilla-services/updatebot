@@ -17,7 +17,7 @@ def file_bug(library, new_release_version):
 	summary = "Update %s to new version %s" % (library.shortname, new_release_version)
 	description = ""
 
-	bugID = fileBug(library.product, library.component, summary, description)
+	bugID = fileBug(library.bugzilla_product, library.bugzilla_component, summary, description)
 	print("Filed Bug with ID", bugID)
 	return bugID
 

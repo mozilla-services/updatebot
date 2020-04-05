@@ -15,12 +15,16 @@ class Updatebot:
 		self.db = Database(database_config)
 
 	def run(self):
+		self.db.check_database()
 		libraries = self.db.get_libraries()
 		for l in libraries:
 			try:
 				self.process_library(l)
 			except Exception as e:
 				print(e)
+				# For now, re-raise the exception so the job fails and can be re-triggered.
+				# In the future we will log the exception and continue to the next library.
+				raise e
 				pass
 				# Output some information here....
 
@@ -38,8 +42,8 @@ class Updatebot:
 
 	def process_new_job(self, library, new_version):
 		vendor(library)
-		bug_id = file_bug(library, new_release_version)
-		commit(library, bug_id, new_release_version)
+		bug_id = file_bug(library, new_version)
+		commit(library, bug_id, new_version)
 		try_run = submit_to_try(library)
 		comment_on_bug(bug_id, try_run)
 		self.db.save_job(library, new_version, bug_id, try_run)

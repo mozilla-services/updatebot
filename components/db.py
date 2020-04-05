@@ -181,18 +181,20 @@ class MySQLDatabase:
 
 		return self.libraries
 
+	@logEntryExit
 	def get_job(self, library, new_version):
 		query = "SELECT * FROM jobs WHERE library = %s AND version = %s"
-		args = (library, new_version)
+		args = (library.shortname, new_version)
 		results = self._query_get_row_maybe(query, args)
 		return Job(results) if results else None
 
+	@logEntryExit
 	def save_job(self, library, new_version, bug_id, try_run):
 		query = "INSERT INTO jobs(library, version, status, bugzilla_id, try_revision) VALUES(%s, %s, %s, %s, %s)"
-		args = (library, new_version, JOBSTATUS.SUBMITTED_TRY, bug_id, try_run)
+		args = (library.shortname, new_version, JOBSTATUS.SUBMITTED_TRY, bug_id, try_run)
 		self._query_execute(query, args)
 
 	def delete_job(self, library, new_version):
 		query = "DELETE FROM jobs WHERE library = %s AND version = %s"
-		args = (library, new_version)
+		args = (library.shortname, new_version)
 		self._query_execute(query, args)

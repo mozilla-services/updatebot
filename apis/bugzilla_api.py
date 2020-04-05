@@ -9,10 +9,7 @@ import json
 import argparse
 import requests
 
-try:
-	from apikey import BUGZILLA_URL, APIKEY
-except:
-	APIKEY = None
+from apis.apikey import BUGZILLA_URL, APIKEY
 
 def sq(s):
 	return '[' + s + ']'

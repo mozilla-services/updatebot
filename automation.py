@@ -9,6 +9,7 @@ from components.mach_vendor import check_for_update, vendor
 from components.bugzilla import file_bug, comment_on_bug
 from components.hg import commit
 from apis.taskcluster import submit_to_try
+from apis.phabricator import submit_patch
 
 class Updatebot:
 	def __init__(self, database_config):
@@ -46,6 +47,7 @@ class Updatebot:
 		commit(library, bug_id, new_version)
 		try_run = submit_to_try(library)
 		comment_on_bug(bug_id, try_run)
+		submit_patch()
 		self.db.save_job(library, new_version, bug_id, try_run)
 
 	def process_existing_job(existing_job):

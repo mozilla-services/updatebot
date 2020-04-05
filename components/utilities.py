@@ -28,6 +28,7 @@ def run_command(args, shell=False, clean_return=True):
     ran_successfully = False
     stdout = None
     stderr = None
+    exception = None
 
     print("----------------------------------------------")
     start = time.time()
@@ -39,17 +40,14 @@ def run_command(args, shell=False, clean_return=True):
         ran_successfully = False
         stdout = e.stdout
         stderr = e.stderr
-    except Exception as e:
-        print("Command Failed with a different exception. Exiting.")
-        print(e)
-        sys.exit(1)
+        exception = e
     else:
         ran_successfully = True
         stdout = ret.stdout.decode()
         stderr = ret.stderr.decode()
 
     if not ran_successfully:
-        print("Command Timed Out. Will abort.")
+        print("Command Timed Out. Will abort....")
     else:
         print("Return:", ret.returncode,
               "Runtime (s):", int(time.time() - start))
@@ -61,13 +59,11 @@ def run_command(args, shell=False, clean_return=True):
     print(stderr)
     print("----------------------------------------------")
     if not ran_successfully:
-        print("Command timed out. Finally failing.")
-        sys.exit(1)
+        raise exception
     if ran_successfully and clean_return:
         if ret.returncode:
             print("Expected a clean process return but got:", ret.returncode)
             print("   (", *args, ")")
             print("Exiting application...")
             ret.check_returncode()
-            sys.exit(1)
     return ret

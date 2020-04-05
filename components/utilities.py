@@ -24,19 +24,43 @@ class Struct:
 
 
 def run_command(args, shell=False, clean_return=True):
+	ran_successfully = False
+	stdout = None
+	stderr = None
+
 	print("----------------------------------------------")
 	start = time.time()
 	print("Running", args)
-	ret = subprocess.run(args, shell=shell, capture_output=True, timeout=60*10)
-	print("Return:", ret.returncode, "Runtime (s):", int(time.time() - start))
+	try:
+		ret = subprocess.run(args, shell=shell, capture_output=True, timeout=60*10)
+	except subprocess.TimeoutExpired as e:
+		ran_successfully = False
+		stdout = e.stdout
+		stderr = e.stderr
+	except Exception as e:
+		print("Command Failed with a different exception. Exiting.")
+		print(e)
+		sys.exit(1)
+	else:
+		ran_successfully = True
+		stdout = ret.stdout.decode()
+		stderr = ret.stderr.decode()
+
+	if not ran_successfully:
+		print("Command Timed Out. Will abort.")
+	else:
+		print("Return:", ret.returncode, "Runtime (s):", int(time.time() - start))
 	print("-------")
 	print("stdout:")
-	print(ret.stdout.decode())
+	print(stdout)
 	print("-------")
 	print("stderr:")
-	print(ret.stderr.decode())
+	print(stderr)
 	print("----------------------------------------------")
-	if clean_return:
+	if not ran_successfully:
+		print("Command timed out. Finally failing.")
+		sys.exit(1)
+	if ran_successfully and clean_return:
 		if ret.returncode:
 			print("Expected a clean process return but got:", ret.returncode)
 			print("   (", *args, ")")

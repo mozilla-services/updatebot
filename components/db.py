@@ -14,7 +14,8 @@ LIBRARIES = [
 		'shortname': 'dav1d',
 		'bugzilla_product' : 'Core',
 		'bugzilla_component' : 'ImageLib',
-		'fuzzy_query' : "'test 'gtest | 'media !'asan"
+		'fuzzy_query' : "'build-linux64/debug"
+		# 'fuzzy_query' : "'test 'gtest | 'media !'asan"
 	})
 ]
 

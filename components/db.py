@@ -94,6 +94,14 @@ for l in LIBRARIES:
             'args': (l.shortname, l.bugzilla_product, l.bugzilla_component, l.fuzzy_query)
         }))
 
+for p in dir(JOBSTATUS):
+    if p[0] != '_':
+        INSERTION_QUERIES.append(
+            Struct(**{
+                'query': "INSERT INTO `status_types` (`id`, `name`) VALUES (%s, %s)",
+                'args': (getattr(JOBSTATUS, p), p)
+            }))
+
 # ==================================================================================
 
 
@@ -189,6 +197,11 @@ class MySQLDatabase:
             self.libraries = [Library(r) for r in results]
 
         return self.libraries
+
+    def get_all_statuses(self):
+        query = "SELECT * FROM status_types ORDER BY id ASC"
+        results = self._query_get_rows(query)
+        return [Struct(**r) for r in results]
 
     @logEntryExit
     def get_all_jobs(self):

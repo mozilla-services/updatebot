@@ -4,11 +4,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from components.utilities import Struct
 
-class JOBSTATUS:
-    COULD_NOT_UPDATE = 1
-    SUBMITTED_TRY = 1
-
+JOBSTATUS = Struct(**{
+    'COULD_NOT_VENDOR': 1,
+    'VENDORED': 2,
+    'SUBMITTED_TRY': 3
+})
 
 class Job:
     def __init__(self, row=None):

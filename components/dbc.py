@@ -20,6 +20,9 @@ class Database:
     def get_libraries(self):
         return self.db.get_libraries()
 
+    def get_all_statuses(self):
+        return self.db.get_all_statuses()
+
     def get_all_jobs(self):
         return self.db.get_all_jobs()
 
@@ -74,6 +77,9 @@ class Database:
             for o in objects:
                 print_object_values(o, columns, widths)
                 print_line(widths)
+
+        status_columns = ['id', 'name']
+        print_objects("STATUSES", self.get_all_statuses(), status_columns)
 
         job_columns = ['id', 'library_shortname', 'version',
                        'status', 'bugzilla_id', 'try_revision']

@@ -33,4 +33,5 @@ def submit_to_try(library):
         if "Follow the progress of your build on Treeherder:" in l:
             isNext = True
 
+    try_link = try_link.replace("https://treeherder.mozilla.org/#/jobs?repo=try&revision=", "")
     return try_link

@@ -62,7 +62,7 @@ CREATION_QUERIES = {
         `version` VARCHAR(64) NOT NULL ,
         `status` TINYINT NOT NULL,
         `bugzilla_id` INT NULL,
-        `try_revision` VARCHAR(2048) NULL,
+        `try_revision` VARCHAR(40) NULL,
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,

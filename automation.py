@@ -10,7 +10,7 @@ from components.mach_vendor import DefaultVendorProvider
 from components.bugzilla import DefaultBugzillaProvider
 from components.hg import DefaultMercurialProvider
 from apis.taskcluster import DefaultTaskclusterProvider
-from apis.phabricator import submit_patch
+from apis.phabricator import DefaultPhabricatorProvider
 
 
 class Updatebot:
@@ -23,6 +23,7 @@ class Updatebot:
         self.bugzillaProvider = getOr('BugzillaProvider', DefaultBugzillaProvider)
         self.mercurialProvider = getOr('MercurialProvider', DefaultMercurialProvider)
         self.taskclusterProvider = getOr('TaskclusterProvider', DefaultTaskclusterProvider)
+        self.phabricatorProvider = getOr('PhabricatorProvider', DefaultPhabricatorProvider)
 
     def run(self):
         self.dbProvider.check_database()
@@ -69,7 +70,7 @@ class Updatebot:
 
         status = JOBSTATUS.SUBMITTED_TRY
         self.bugzillaProvider.comment_on_bug(bug_id, status, try_run)
-        submit_patch()
+        self.phabricatorProvider.submit_patch()
         self.dbProvider.save_job(library, new_version, status, bug_id, try_run)
 
     def process_existing_job(self, existing_job):

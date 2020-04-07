@@ -8,19 +8,20 @@ from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import DefaultVendorProvider
 from components.bugzilla import DefaultBugzillaProvider
-from components.hg import commit
+from components.hg import DefaultMercurialProvider
 from apis.taskcluster import submit_to_try
 from apis.phabricator import submit_patch
 
 
 class Updatebot:
-    def __init__(self, database_config, object_dictionary):
+    def __init__(self, database_config, object_dictionary={}):
         def getOr(name, ctor, config_arg=None):
             return object_dictionary[name](config_arg) if name in object_dictionary else ctor(config_arg)
 
         self.dbProvider = getOr('DatabaseProvider', DefaultDatabaseProvider, database_config)
         self.vendorProvider = getOr('VendorProvider', DefaultVendorProvider)
         self.bugzillaProvider = getOr('BugzillaProvider', DefaultBugzillaProvider)
+        self.mercurialProvider = getOr('MercurialProvider', DefaultMercurialProvider)
 
     def run(self):
         self.dbProvider.check_database()
@@ -62,7 +63,7 @@ class Updatebot:
             self.bugzillaProvider.comment_on_bug(bug_id, status)
             return
 
-        commit(library, bug_id, new_version)
+        self.mercurialProvider.commit(library, bug_id, new_version)
         try_run = submit_to_try(library)
 
         status = JOBSTATUS.SUBMITTED_TRY

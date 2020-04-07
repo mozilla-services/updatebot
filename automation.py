@@ -6,7 +6,7 @@
 
 from components.dbc import Database
 from components.dbmodels import JOBSTATUS
-from components.mach_vendor import check_for_update, vendor
+from components.mach_vendor import DefaultVendorProvider
 from components.bugzilla import file_bug, comment_on_bug
 from components.hg import commit
 from apis.taskcluster import submit_to_try
@@ -14,8 +14,12 @@ from apis.phabricator import submit_patch
 
 
 class Updatebot:
-    def __init__(self, database_config):
+    def __init__(self, database_config, object_dictionary):
+        def getOr(name, obj):
+            return object_dictionary[name] if name in object_dictionary else obj
+
         self.db = Database(database_config)
+        self.vendorProvider = getOr('VendorProvider', DefaultVendorProvider())
 
     def run(self):
         self.db.check_database()
@@ -31,8 +35,9 @@ class Updatebot:
                 pass
                 # Output some information here....
 
+
     def process_library(self, library):
-        new_version = check_for_update(library)
+        new_version = self.vendorProvider.check_for_update(library)
         if not new_version:
             return
 
@@ -47,7 +52,7 @@ class Updatebot:
 
         status = None
         try:
-            vendor(library)
+            self.vendorProvider.vendor(library)
             status = JOBSTATUS.VENDORED
         except:
             # Handle `./mach vendor` failing

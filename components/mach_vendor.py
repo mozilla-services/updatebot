@@ -4,13 +4,15 @@
 
 from components.utilities import logEntryExit, run_command
 
+class DefaultVendorProvider:
+    def __init__(self, config):
+        pass
 
-@logEntryExit
-def check_for_update(library):
-    return "<new version>"
-    # run_command(["./mach", "vendor", "--check-for-update", library.shortname])
+    @logEntryExit
+    def check_for_update(self, library):
+        return "<new version>"
+        # run_command(["./mach", "vendor", "--check-for-update", library.shortname])
 
-
-@logEntryExit
-def vendor(library):
-    run_command(["./mach", "vendor", library.shortname, "--ignore-modified"])
+    @logEntryExit
+    def vendor(self, library):
+        run_command(["./mach", "vendor", library.shortname, "--ignore-modified"])

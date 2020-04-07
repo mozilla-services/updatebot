@@ -6,7 +6,10 @@
 
 from components.utilities import logEntryExit, run_command
 
+class DefaultPhabricatorProvider:
+    def __init__(self, config):
+        pass
 
-@logEntryExit
-def submit_patch():
-    run_command(["arc", "diff", "--verbatim"])
+    @logEntryExit
+    def submit_patch(self):
+        run_command(["arc", "diff", "--verbatim"])

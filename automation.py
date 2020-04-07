@@ -7,7 +7,7 @@
 from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import DefaultVendorProvider
-from components.bugzilla import file_bug, comment_on_bug
+from components.bugzilla import DefaultBugzillaProvider
 from components.hg import commit
 from apis.taskcluster import submit_to_try
 from apis.phabricator import submit_patch
@@ -20,6 +20,7 @@ class Updatebot:
 
         self.dbProvider = getOr('DatabaseProvider', DefaultDatabaseProvider, database_config)
         self.vendorProvider = getOr('VendorProvider', DefaultVendorProvider)
+        self.bugzillaProvider = getOr('BugzillaProvider', DefaultBugzillaProvider)
 
     def run(self):
         self.dbProvider.check_database()
@@ -48,7 +49,7 @@ class Updatebot:
             self.process_new_job(library, new_version)
 
     def process_new_job(self, library, new_version):
-        bug_id = file_bug(library, new_version)
+        bug_id = self.bugzillaProvider.file_bug(library, new_version)
 
         status = None
         try:
@@ -58,14 +59,14 @@ class Updatebot:
             # Handle `./mach vendor` failing
             status = JOBSTATUS.COULD_NOT_VENDOR
             self.dbProvider.save_job(library, new_version, status, bug_id)
-            comment_on_bug(bug_id, status)
+            self.bugzillaProvider.comment_on_bug(bug_id, status)
             return
 
         commit(library, bug_id, new_version)
         try_run = submit_to_try(library)
 
         status = JOBSTATUS.SUBMITTED_TRY
-        comment_on_bug(bug_id, status, try_run)
+        self.bugzillaProvider.comment_on_bug(bug_id, status, try_run)
         submit_patch()
         self.dbProvider.save_job(library, new_version, status, bug_id, try_run)
 

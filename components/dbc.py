@@ -33,8 +33,8 @@ class Database:
     def delete_job(self, library, new_version):
         return self.db.delete_job(library, new_version)
 
-    def save_job(self, library, new_version, bug_id, try_run):
-        return self.db.save_job(library, new_version, bug_id, try_run)
+    def save_job(self, library, new_version, status, bug_id, try_run=None):
+        return self.db.save_job(library, new_version, status, bug_id, try_run)
 
     def print(self):
         def get_column_widths(objects, columns):

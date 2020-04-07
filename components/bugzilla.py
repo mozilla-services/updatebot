@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from apis.bugzilla_api import fileBug, commentOnBug
+from components.dbmodels import JOBSTATUS
 from components.utilities import logEntryExit
 
 
@@ -21,7 +22,10 @@ def file_bug(library, new_release_version):
 
 
 @logEntryExit
-def comment_on_bug(bug_id, try_run):
-    comment = "I've submitted a try run for this commit: " + try_run
+def comment_on_bug(bug_id, status, try_run=None):
+    if status == JOBSTATUS.COULD_NOT_VENDOR:
+        comment = "./mach vendor failed with the following message: <TODO>"
+    else:
+        comment = "I've submitted a try run for this commit: " + try_run
     commentID = commentOnBug(bug_id, comment)
     print("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))

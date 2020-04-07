@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.dbc import Database
+from components.dbmodels import JOBSTATUS
 from components.mach_vendor import check_for_update, vendor
 from components.bugzilla import file_bug, comment_on_bug
 from components.hg import commit
@@ -42,13 +43,26 @@ class Updatebot:
             self.process_new_job(library, new_version)
 
     def process_new_job(self, library, new_version):
-        vendor(library)
         bug_id = file_bug(library, new_version)
+
+        status = None
+        try:
+            vendor(library)
+            status = JOBSTATUS.VENDORED
+        except:
+            # Handle `./mach vendor` failing
+            status = JOBSTATUS.COULD_NOT_VENDOR
+            self.db.save_job(library, new_version, status, bug_id)
+            comment_on_bug(bug_id, status)
+            return
+
         commit(library, bug_id, new_version)
         try_run = submit_to_try(library)
-        comment_on_bug(bug_id, try_run)
+
+        status = JOBSTATUS.SUBMITTED_TRY
+        comment_on_bug(bug_id, status, try_run)
         submit_patch()
-        self.db.save_job(library, new_version, bug_id, try_run)
+        self.db.save_job(library, new_version, status, bug_id, try_run)
 
     def process_existing_job(self, existing_job):
         pass

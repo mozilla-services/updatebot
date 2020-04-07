@@ -65,7 +65,7 @@ class TestDatabaeQueries(unittest.TestCase):
         try:
             self.assertEqual(None, self.db.get_job(library, version))
 
-            self.db.save_job(library, version, bugid, try_link)
+            self.db.save_job(library, version, JOBSTATUS.SUBMITTED_TRY, bugid, try_link)
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
@@ -76,7 +76,6 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(newJob.try_revision, try_link)
         finally:
             self.db.delete_job(library, version)
-
 
 if __name__ == '__main__':
     unittest.main()

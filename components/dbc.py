@@ -7,7 +7,7 @@
 from components.db import MySQLDatabase
 
 
-class Database:
+class DefaultDatabaseProvider:
     def __init__(self, database_config):
         self.db = MySQLDatabase(database_config)
 

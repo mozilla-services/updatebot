@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.dbc import Database
+from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import DefaultVendorProvider
 from components.bugzilla import file_bug, comment_on_bug
@@ -15,15 +15,15 @@ from apis.phabricator import submit_patch
 
 class Updatebot:
     def __init__(self, database_config, object_dictionary):
-        def getOr(name, obj):
-            return object_dictionary[name] if name in object_dictionary else obj
+        def getOr(name, ctor, config_arg=None):
+            return object_dictionary[name](config_arg) if name in object_dictionary else ctor(config_arg)
 
-        self.db = Database(database_config)
-        self.vendorProvider = getOr('VendorProvider', DefaultVendorProvider())
+        self.dbProvider = getOr('DatabaseProvider', DefaultDatabaseProvider, database_config)
+        self.vendorProvider = getOr('VendorProvider', DefaultVendorProvider)
 
     def run(self):
-        self.db.check_database()
-        libraries = self.db.get_libraries()
+        self.dbProvider.check_database()
+        libraries = self.dbProvider.get_libraries()
         for l in libraries:
             try:
                 self.process_library(l)
@@ -41,7 +41,7 @@ class Updatebot:
         if not new_version:
             return
 
-        existing_job = self.db.get_job(library, new_version)
+        existing_job = self.dbProvider.get_job(library, new_version)
         if existing_job:
             self.process_existing_job(existing_job)
         else:
@@ -57,7 +57,7 @@ class Updatebot:
         except:
             # Handle `./mach vendor` failing
             status = JOBSTATUS.COULD_NOT_VENDOR
-            self.db.save_job(library, new_version, status, bug_id)
+            self.dbProvider.save_job(library, new_version, status, bug_id)
             comment_on_bug(bug_id, status)
             return
 
@@ -67,7 +67,7 @@ class Updatebot:
         status = JOBSTATUS.SUBMITTED_TRY
         comment_on_bug(bug_id, status, try_run)
         submit_patch()
-        self.db.save_job(library, new_version, status, bug_id, try_run)
+        self.dbProvider.save_job(library, new_version, status, bug_id, try_run)
 
     def process_existing_job(self, existing_job):
         pass
@@ -97,13 +97,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.print_database:
-        db = Database(database_config)
+        db = DefaultDatabaseProvider(database_config)
         db.print()
     elif args.delete_database:
-        db = Database(database_config)
+        db = DefaultDatabaseProvider(database_config)
         db.delete_database()
     elif args.check_database:
-        db = Database(database_config)
+        db = DefaultDatabaseProvider(database_config)
         db.check_database()
     else:
         run(database_config)

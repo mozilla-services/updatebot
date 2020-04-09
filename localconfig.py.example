@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 
-database_config = {
-    'host': 'localhost',
-    'user': 'username',
-    'password': 'p4ssw0rd',
-    'db': 'updatebot'
+localconfigs = {
+    'Database' : {
+        'host': 'localhost',
+        'user': 'username',
+        'password': 'p4ssw0rd',
+        'db': 'updatebot'
+    },
+    'Bugzilla' : {
+        'url': 'https://bugzilla-dev.allizom.org/rest/',
+        # 'url': "https://bugzilla.mozilla.org/rest/"
+        'apikey': '<foobar>'
+    }
 }

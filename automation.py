@@ -12,18 +12,33 @@ from components.hg import DefaultMercurialProvider
 from apis.taskcluster import DefaultTaskclusterProvider
 from apis.phabricator import DefaultPhabricatorProvider
 
+DEFAULT_OBJECTS = {
+    'Database': DefaultDatabaseProvider,
+    'Vendor': DefaultVendorProvider,
+    'Bugzilla': DefaultBugzillaProvider,
+    'Mercurial': DefaultMercurialProvider,
+    'Taskcluster': DefaultTaskclusterProvider,
+    'Phabricator': DefaultPhabricatorProvider,
+}
 
 class Updatebot:
-    def __init__(self, database_config, object_dictionary={}):
-        def getOr(name, ctor, config_arg=None):
-            return object_dictionary[name](config_arg) if name in object_dictionary else ctor(config_arg)
+    def __init__(self, config_dictionary={}, object_dictionary={}):
+        def _getOrImpl(dictionary, name, default):
+            return dictionary[name] if name in dictionary else default
+        def _getObjOr(name):
+            assert(name in DEFAULT_OBJECTS)
+            return _getOrImpl(object_dictionary, name, DEFAULT_OBJECTS[name])
+        def _getConfigOr(name):
+            return _getOrImpl(config_dictionary, name, {})
+        def getOr(name):
+            return _getObjOr(name)(_getConfigOr(name))
 
-        self.dbProvider = getOr('DatabaseProvider', DefaultDatabaseProvider, database_config)
-        self.vendorProvider = getOr('VendorProvider', DefaultVendorProvider)
-        self.bugzillaProvider = getOr('BugzillaProvider', DefaultBugzillaProvider)
-        self.mercurialProvider = getOr('MercurialProvider', DefaultMercurialProvider)
-        self.taskclusterProvider = getOr('TaskclusterProvider', DefaultTaskclusterProvider)
-        self.phabricatorProvider = getOr('PhabricatorProvider', DefaultPhabricatorProvider)
+        self.dbProvider = getOr('Database')
+        self.vendorProvider = getOr('Vendor')
+        self.bugzillaProvider = getOr('Bugzilla')
+        self.mercurialProvider = getOr('Mercurial')
+        self.taskclusterProvider = getOr('Taskcluster')
+        self.phabricatorProvider = getOr('Phabricator')
 
     def run(self):
         self.dbProvider.check_database()
@@ -77,23 +92,23 @@ class Updatebot:
         pass
 
 
-def run(database_config=None):
-    u = Updatebot(database_config)
+def run(configs=None):
+    u = Updatebot(configs)
     u.run()
-
 
 if __name__ == "__main__":
     import sys
     import argparse
     try:
-        from localconfig import database_config
+        from localconfig import localconfigs
     except ImportError:
-        print("Unit tests require a local database configuration to be defined.")
+        print("Unit tests require a local configuration to be defined.")
         sys.exit(1)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--check-database', help="Check the config level of the database", action="store_true")
+    parser.add_argument('--check-database',
+                        help="Check the config level of the database",
+                        action="store_true")
     parser.add_argument('--print-database',
                         help="Print the database", action="store_true")
     parser.add_argument('--delete-database',
@@ -101,13 +116,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.print_database:
-        db = DefaultDatabaseProvider(database_config)
+        db = DefaultDatabaseProvider(localconfigs['Database'])
         db.print()
     elif args.delete_database:
-        db = DefaultDatabaseProvider(database_config)
+        db = DefaultDatabaseProvider(localconfigs['Database'])
         db.delete_database()
     elif args.check_database:
-        db = DefaultDatabaseProvider(database_config)
+        db = DefaultDatabaseProvider(localconfigs['Database'])
         db.check_database()
     else:
-        run(database_config)
+        run(localconfigs)

@@ -10,7 +10,9 @@ from components.utilities import logEntryExit
 
 class DefaultBugzillaProvider:
     def __init__(self, config):
-        pass
+        self.config = config
+        assert 'url' in self.config, "URL must be provided in the Bugzilla Configration"
+        assert 'apikey' in self.config, "apikey must be provided in the Bugzilla Configration"
 
     @logEntryExit
     def file_bug(self, library, new_release_version):
@@ -18,8 +20,8 @@ class DefaultBugzillaProvider:
             library.shortname, new_release_version)
         description = ""
 
-        bugID = fileBug(library.bugzilla_product,
-                        library.bugzilla_component, summary, description)
+        bugID = fileBug(self.config['url'], self.config['apikey'],
+            library.bugzilla_product, library.bugzilla_component, summary, description)
         print("Filed Bug with ID", bugID)
         return bugID
 
@@ -29,6 +31,6 @@ class DefaultBugzillaProvider:
             comment = "./mach vendor failed with the following message: <TODO>"
         else:
             comment = "I've submitted a try run for this commit: " + try_run
-        commentID = commentOnBug(bug_id, comment)
+        commentID = commentOnBug(self.config['url'], self.config['apikey'], bug_id, comment)
         print("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))
 

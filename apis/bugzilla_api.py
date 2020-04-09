@@ -7,9 +7,6 @@
 import json
 import requests
 
-from apis.apikey import BUGZILLA_URL, APIKEY
-
-
 def sq(s):
     return '[' + s + ']'
 
@@ -18,7 +15,7 @@ def kw(s):
     return sq('3pl-' + s)
 
 
-def fileBug(product, component, summary, description):
+def fileBug(url, apikey, product, component, summary, description):
     data = {
         'version': "unspecified",
         'op_sys': "unspecified",
@@ -32,21 +29,20 @@ def fileBug(product, component, summary, description):
         'cc': ['tom@mozilla.com']
     }
 
-    r = requests.post(BUGZILLA_URL + "bug?api_key=" + APIKEY, json=data)
+    r = requests.post(url + "bug?api_key=" + apikey, json=data)
     j = json.loads(r.text)
     if 'id' in j:
         return j['id']
 
     raise Exception(j)
 
-
-def commentOnBug(bugID, comment):
+def commentOnBug(url, apikey, bugID, comment):
     data = {
         'comment': comment
     }
 
     r = requests.post(
-        BUGZILLA_URL + "bug/" + str(bugID) + "/comment?api_key=" + APIKEY,
+        url + "bug/" + str(bugID) + "/comment?api_key=" + apikey,
         json=data
     )
     j = json.loads(r.text)

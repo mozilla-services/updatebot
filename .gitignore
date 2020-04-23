@@ -2,3 +2,6 @@ apis/apikey.py*
 localconfig.py*
 *.pyc
 __pycache__
+
+htmlcov
+.coverage

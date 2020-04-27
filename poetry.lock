@@ -87,6 +87,17 @@ python-versions = "*"
 version = "0.6.1"
 
 [[package]]
+category = "main"
+description = "Library for Hawk HTTP authorization"
+name = "mohawk"
+optional = false
+python-versions = "*"
+version = "1.1.0"
+
+[package.dependencies]
+six = "*"
+
+[[package]]
 category = "dev"
 description = "Python style guide checker"
 name = "pycodestyle"
@@ -133,6 +144,48 @@ socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7)", "win-inet-pton"]
 
 [[package]]
 category = "main"
+description = "Python 2 and 3 compatibility utilities"
+name = "six"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
+version = "1.14.0"
+
+[[package]]
+category = "main"
+description = "Base64 encoded uuid v4 slugs"
+name = "slugid"
+optional = false
+python-versions = "*"
+version = "2.0.0"
+
+[[package]]
+category = "main"
+description = "Python client for Taskcluster"
+name = "taskcluster"
+optional = false
+python-versions = "*"
+version = "29.1.3"
+
+[package.dependencies]
+mohawk = ">=0.3.4"
+requests = ">=2.4.3"
+six = ">=1.10.0"
+slugid = ">=2"
+taskcluster-urls = ">=12.1.0"
+
+[package.extras]
+test = ["pytest", "pytest-cov", "pytest-mock", "httmock", "mock", "setuptools-lint", "flake8", "psutil", "hypothesis", "tox", "coverage", "python-dateutil", "subprocess32"]
+
+[[package]]
+category = "main"
+description = "Standardized url generator for taskcluster resources."
+name = "taskcluster-urls"
+optional = false
+python-versions = "*"
+version = "12.1.0"
+
+[[package]]
+category = "main"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
 name = "urllib3"
 optional = false
@@ -145,7 +198,7 @@ secure = ["certifi", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "pyOpenSSL (>=0
 socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7,<2.0)"]
 
 [metadata]
-content-hash = "96afe7df049d468089253915c61c442e0e37be2a95c315caa67062a30cd0d8f0"
+content-hash = "1e0fa7f193fff8edbfdc6f8c21c50ce9ff783fd565275bdce2181180e51e638f"
 python-versions = "^3.5"
 
 [metadata.files]
@@ -213,6 +266,10 @@ mccabe = [
     {file = "mccabe-0.6.1-py2.py3-none-any.whl", hash = "sha256:ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42"},
     {file = "mccabe-0.6.1.tar.gz", hash = "sha256:dd8d182285a0fe56bace7f45b5e7d1a6ebcbf524e8f3bd87eb0f125271b8831f"},
 ]
+mohawk = [
+    {file = "mohawk-1.1.0-py3-none-any.whl", hash = "sha256:3ed296a30453d0b724679e0fd41e4e940497f8e461a9a9c3b7f36e43bab0fa09"},
+    {file = "mohawk-1.1.0.tar.gz", hash = "sha256:d2a0e3ab10a209cc79e95e28f2dd54bd4a73fd1998ffe27b7ba0f962b6be9723"},
+]
 pycodestyle = [
     {file = "pycodestyle-2.5.0-py2.py3-none-any.whl", hash = "sha256:95a2219d12372f05704562a14ec30bc76b05a5b297b21a5dfe3f6fac3491ae56"},
     {file = "pycodestyle-2.5.0.tar.gz", hash = "sha256:e40a936c9a450ad81df37f549d676d127b1b66000a6c500caa2b085bc0ca976c"},
@@ -228,6 +285,23 @@ pymysql = [
 requests = [
     {file = "requests-2.23.0-py2.py3-none-any.whl", hash = "sha256:43999036bfa82904b6af1d99e4882b560e5e2c68e5c4b0aa03b655f3d7d73fee"},
     {file = "requests-2.23.0.tar.gz", hash = "sha256:b3f43d496c6daba4493e7c431722aeb7dbc6288f52a6e04e7b6023b0247817e6"},
+]
+six = [
+    {file = "six-1.14.0-py2.py3-none-any.whl", hash = "sha256:8f3cd2e254d8f793e7f3d6d9df77b92252b52637291d0f0da013c76ea2724b6c"},
+    {file = "six-1.14.0.tar.gz", hash = "sha256:236bdbdce46e6e6a3d61a337c0f8b763ca1e8717c03b369e87a7ec7ce1319c0a"},
+]
+slugid = [
+    {file = "slugid-2.0.0-py2.py3-none-any.whl", hash = "sha256:aec8b0e01c4ad32e38e12d609eab3ec912fd129aaf6b2ded0199b56a5f8fd67c"},
+    {file = "slugid-2.0.0.tar.gz", hash = "sha256:a950d98b72691178bdd4d6c52743c4a2aa039207cf7a97d71060a111ff9ba297"},
+]
+taskcluster = [
+    {file = "taskcluster-29.1.3-py2-none-any.whl", hash = "sha256:1ac2d3fc59bbc6a804153f04df35d205343c816593fbd3945697accfa65225c4"},
+    {file = "taskcluster-29.1.3-py3-none-any.whl", hash = "sha256:124b02679fb143bbdbdb8471c2c780761b1e83a690ac4880abc2540e0c93992c"},
+    {file = "taskcluster-29.1.3.tar.gz", hash = "sha256:83777a374f6541f7aaf96fa6d512916a0b91dd2a154c9922ae435708add2eff7"},
+]
+taskcluster-urls = [
+    {file = "taskcluster-urls-12.1.0.tar.gz", hash = "sha256:1dc740c32c7beb31e11ed7ccf9da2d47a504acdb3170c8900649433b0fd16fb2"},
+    {file = "taskcluster_urls-12.1.0-py2-none-any.whl", hash = "sha256:4a62c776aeba6d45044789a8845ec4d8521bc1bb6ebfc86d79ee759bcdd4f2f7"},
 ]
 urllib3 = [
     {file = "urllib3-1.25.9-py2.py3-none-any.whl", hash = "sha256:88206b0eb87e6d677d424843ac5209e3fb9d0190d0ee169599165ec25e9d9115"},

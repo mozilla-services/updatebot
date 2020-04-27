@@ -34,7 +34,7 @@ def run_command(args, shell=False, clean_return=True):
     print("Running", args)
     try:
         ret = subprocess.run(
-            args, shell=shell, capture_output=True, timeout=60*10)
+            args, shell=shell, capture_output=True, timeout=60 * 10)
     except subprocess.TimeoutExpired as e:
         ran_successfully = False
         stdout = e.stdout

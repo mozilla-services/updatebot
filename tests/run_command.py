@@ -12,7 +12,7 @@ sys.path.append("..")
 
 class TestCommandRunner(unittest.TestCase):
     def testCommand(self):
-        ret = run_command(["echo", "Test"])
+        return run_command(["echo", "Test"])
 
 
 if __name__ == '__main__':

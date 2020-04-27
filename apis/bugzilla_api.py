@@ -4,9 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import sys
 import json
-import argparse
 import requests
 
 from apis.apikey import BUGZILLA_URL, APIKEY
@@ -47,8 +45,10 @@ def commentOnBug(bugID, comment):
         'comment': comment
     }
 
-    r = requests.post(BUGZILLA_URL + "bug/" + str(bugID) +
-                      "/comment?api_key=" + APIKEY, json=data)
+    r = requests.post(
+        BUGZILLA_URL + "bug/" + str(bugID) + "/comment?api_key=" + APIKEY,
+        json=data
+    )
     j = json.loads(r.text)
     if 'id' in j:
         return j['id']

@@ -13,7 +13,7 @@ sys.path.append("..")
 
 try:
     from localconfig import database_config
-except:
+except ImportError:
     print("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
 
@@ -22,9 +22,9 @@ class TestDatabaseCreation(unittest.TestCase):
     pass
     # Commented out to avoid the test harness from deleting your database.
     # def test_creation_deletion(self):
-    #	db = Database(database_config)
-    #	db.check_database()
-    #	db.delete_database()
+    # db = Database(database_config)
+    # db.check_database()
+    # db.delete_database()
 
 
 class TestDatabaeQueries(unittest.TestCase):
@@ -45,10 +45,10 @@ class TestDatabaeQueries(unittest.TestCase):
                             try:
                                 self.assertTrue(
                                     getattr(b, prop), getattr(a, prop))
-                            except AttributeError as e:
+                            except AttributeError:
                                 self.assertTrue(
                                     False, "The attribute {0} was not found on the {1} list's object".format(prop, list_name))
-                except StopIteration as e:
+                except StopIteration:
                     self.assertTrue(False, "{0} was not found in the {1} list of libraries".format(
                         a.shortname, list_name))
 

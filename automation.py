@@ -64,7 +64,7 @@ if __name__ == "__main__":
     import argparse
     try:
         from localconfig import database_config
-    except:
+    except ImportError:
         print("Unit tests require a local database configuration to be defined.")
         sys.exit(1)
 

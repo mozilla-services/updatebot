@@ -14,6 +14,7 @@ import subprocess
 
 from components.utilities import logEntryExit, run_command
 
+
 @logEntryExit
 def submit_patch():
-	run_command(["arc", "diff", "--verbatim"])
+    run_command(["arc", "diff", "--verbatim"])

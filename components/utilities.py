@@ -8,14 +8,15 @@ import sys
 import time
 import subprocess
 
+
 def logEntryExit(func):
-	def func_wrapper(*args, **kwargs):
-		print("================================================")
-		print("Beginning", func.__qualname__)
-		ret = func(*args, **kwargs)
-		print("Ending", func.__qualname__)
-		return ret
-	return func_wrapper
+    def func_wrapper(*args, **kwargs):
+        print("================================================")
+        print("Beginning", func.__qualname__)
+        ret = func(*args, **kwargs)
+        print("Ending", func.__qualname__)
+        return ret
+    return func_wrapper
 
 
 class Struct:
@@ -24,47 +25,49 @@ class Struct:
 
 
 def run_command(args, shell=False, clean_return=True):
-	ran_successfully = False
-	stdout = None
-	stderr = None
+    ran_successfully = False
+    stdout = None
+    stderr = None
 
-	print("----------------------------------------------")
-	start = time.time()
-	print("Running", args)
-	try:
-		ret = subprocess.run(args, shell=shell, capture_output=True, timeout=60*10)
-	except subprocess.TimeoutExpired as e:
-		ran_successfully = False
-		stdout = e.stdout
-		stderr = e.stderr
-	except Exception as e:
-		print("Command Failed with a different exception. Exiting.")
-		print(e)
-		sys.exit(1)
-	else:
-		ran_successfully = True
-		stdout = ret.stdout.decode()
-		stderr = ret.stderr.decode()
+    print("----------------------------------------------")
+    start = time.time()
+    print("Running", args)
+    try:
+        ret = subprocess.run(
+            args, shell=shell, capture_output=True, timeout=60*10)
+    except subprocess.TimeoutExpired as e:
+        ran_successfully = False
+        stdout = e.stdout
+        stderr = e.stderr
+    except Exception as e:
+        print("Command Failed with a different exception. Exiting.")
+        print(e)
+        sys.exit(1)
+    else:
+        ran_successfully = True
+        stdout = ret.stdout.decode()
+        stderr = ret.stderr.decode()
 
-	if not ran_successfully:
-		print("Command Timed Out. Will abort.")
-	else:
-		print("Return:", ret.returncode, "Runtime (s):", int(time.time() - start))
-	print("-------")
-	print("stdout:")
-	print(stdout)
-	print("-------")
-	print("stderr:")
-	print(stderr)
-	print("----------------------------------------------")
-	if not ran_successfully:
-		print("Command timed out. Finally failing.")
-		sys.exit(1)
-	if ran_successfully and clean_return:
-		if ret.returncode:
-			print("Expected a clean process return but got:", ret.returncode)
-			print("   (", *args, ")")
-			print("Exiting application...")
-			ret.check_returncode()
-			sys.exit(1)
-	return ret
+    if not ran_successfully:
+        print("Command Timed Out. Will abort.")
+    else:
+        print("Return:", ret.returncode,
+              "Runtime (s):", int(time.time() - start))
+    print("-------")
+    print("stdout:")
+    print(stdout)
+    print("-------")
+    print("stderr:")
+    print(stderr)
+    print("----------------------------------------------")
+    if not ran_successfully:
+        print("Command timed out. Finally failing.")
+        sys.exit(1)
+    if ran_successfully and clean_return:
+        if ret.returncode:
+            print("Expected a clean process return but got:", ret.returncode)
+            print("   (", *args, ")")
+            print("Exiting application...")
+            ret.check_returncode()
+            sys.exit(1)
+    return ret

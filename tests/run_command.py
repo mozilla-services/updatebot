@@ -4,15 +4,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from components.utilities import run_command
+import unittest
 import sys
 sys.path.append("..")
-import unittest
 
-from components.utilities import run_command
 
 class TestCommandRunner(unittest.TestCase):
-	def testCommand(self):
-		ret = run_command(["echo", "Test"])
+    def testCommand(self):
+        return run_command(["echo", "Test"])
+
 
 if __name__ == '__main__':
     unittest.main()

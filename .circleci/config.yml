@@ -43,7 +43,7 @@ jobs:
           command: poetry check
           name: dependencies
       - run:
-          command: poetry run flake8 .
+          command: poetry run flake8 --ignore=E501 .
           name: lint
 
 workflows:

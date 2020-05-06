@@ -4,11 +4,13 @@
 
 from components.utilities import logEntryExit, run_command
 
+
 @logEntryExit
 def check_for_update(library):
-	return "<new version>"
-	# run_command(["./mach", "vendor", "--check-for-update", library.shortname])
+    return "<new version>"
+    # run_command(["./mach", "vendor", "--check-for-update", library.shortname])
+
 
 @logEntryExit
 def vendor(library):
-	run_command(["./mach", "vendor", library.shortname, "--ignore-modified"])
+    run_command(["./mach", "vendor", library.shortname, "--ignore-modified"])

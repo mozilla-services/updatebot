@@ -8,6 +8,7 @@ from apis.bugzilla_api import fileBug, commentOnBug
 from components.dbmodels import JOBSTATUS
 from components.utilities import logEntryExit
 
+
 class DefaultBugzillaProvider:
     def __init__(self, config):
         self.config = config
@@ -21,7 +22,8 @@ class DefaultBugzillaProvider:
         description = ""
 
         bugID = fileBug(self.config['url'], self.config['apikey'],
-            library.bugzilla_product, library.bugzilla_component, summary, description)
+                        library.bugzilla_product, library.bugzilla_component,
+                        summary, description)
         print("Filed Bug with ID", bugID)
         return bugID
 
@@ -33,4 +35,3 @@ class DefaultBugzillaProvider:
             comment = "I've submitted a try run for this commit: " + try_run
         commentID = commentOnBug(self.config['url'], self.config['apikey'], bug_id, comment)
         print("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))
-

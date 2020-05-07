@@ -10,40 +10,48 @@ import unittest
 
 from automation import Updatebot
 
+
 class BaseTestConfigProvider:
     def __init__(self, config):
         assert('specialkey' in config)
         assert(self.expected == config['specialkey'])
+
 
 class TestConfigDatabaseProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'database!'
         super(TestConfigDatabaseProvider, self).__init__(config)
 
+
 class TestConfigVendorProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'vendor!'
         super(TestConfigVendorProvider, self).__init__(config)
+
 
 class TestConfigBugzillaProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'bugzilla!'
         super(TestConfigBugzillaProvider, self).__init__(config)
 
+
 class TestConfigMercurialProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'mercurial!'
         super(TestConfigMercurialProvider, self).__init__(config)
+
 
 class TestConfigTaskclusterProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'taskcluster!'
         super(TestConfigTaskclusterProvider, self).__init__(config)
 
+
 class TestConfigPhabricatorProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'phab!'
         super(TestConfigPhabricatorProvider, self).__init__(config)
+
 
 class TestCommandRunner(unittest.TestCase):
     def testConfigurationPassing(self):
@@ -63,7 +71,8 @@ class TestCommandRunner(unittest.TestCase):
             'Taskcluster': TestConfigTaskclusterProvider,
             'Phabricator': TestConfigPhabricatorProvider,
         }
-        u = Updatebot(configs, providers)
+        Updatebot(configs, providers)
+
 
 if __name__ == '__main__':
     unittest.main()

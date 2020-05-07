@@ -4,6 +4,7 @@
 
 from components.utilities import logEntryExit, run_command
 
+
 class DefaultVendorProvider:
     def __init__(self, config):
         pass

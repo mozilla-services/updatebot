@@ -10,12 +10,12 @@ import unittest
 
 from threading import Thread
 from http import server
-from io import BytesIO as IO
 import json
 
 from components.utilities import Struct
 from components.dbmodels import JOBSTATUS
 from components.bugzilla import DefaultBugzillaProvider
+
 
 class MockBugzillaServer(server.BaseHTTPRequestHandler):
     def do_POST(self):
@@ -40,11 +40,11 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
 
                 'product': 'Core',
                 'component': 'ImageLib',
-                'type' : "enhancement",
+                'type': "enhancement",
                 'summary': 'Update dav1d to new version V1',
                 'description': '',
                 'whiteboard': '[3pl-filed]',
-                'cc' : ['tom@mozilla.com']
+                'cc': ['tom@mozilla.com']
             }
             for k in expectedContent:
                 assert k in content
@@ -55,7 +55,6 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
             self.wfile.write("{\"id\":456}".encode())
         else:
             assert False, "Got a path I didn't expect"
-
 
 
 class TestBugzillaProvider(unittest.TestCase):
@@ -74,8 +73,8 @@ class TestBugzillaProvider(unittest.TestCase):
     def testFile(self):
         library = Struct(**{
             'shortname': 'dav1d',
-            'bugzilla_product' : 'Core',
-            'bugzilla_component' : 'ImageLib',
+            'bugzilla_product': 'Core',
+            'bugzilla_component': 'ImageLib',
         })
         t = Thread(target=self.server.handle_request)
         t.start()
@@ -87,6 +86,7 @@ class TestBugzillaProvider(unittest.TestCase):
         t.start()
         self.bugzillaProvider.comment_on_bug(123, JOBSTATUS.SUBMITTED_TRY, "this-is-my-try-link")
         t.join()
+
 
 if __name__ == '__main__':
     unittest.main()

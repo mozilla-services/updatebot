@@ -7,6 +7,7 @@
 import json
 import requests
 
+
 def sq(s):
     return '[' + s + ']'
 
@@ -35,6 +36,7 @@ def fileBug(url, apikey, product, component, summary, description):
         return j['id']
 
     raise Exception(j)
+
 
 def commentOnBug(url, apikey, bugID, comment):
     data = {

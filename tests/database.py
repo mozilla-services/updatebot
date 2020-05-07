@@ -4,12 +4,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import sys
+import unittest
+
+sys.path.append("..")
 from components.dbmodels import Library, JOBSTATUS
 from components.db import LIBRARIES
 from components.dbc import DefaultDatabaseProvider
-import unittest
-import sys
-sys.path.append("..")
 
 try:
     from localconfig import localconfigs

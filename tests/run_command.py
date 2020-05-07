@@ -4,10 +4,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import run_command
-import unittest
 import sys
+import unittest
+
 sys.path.append("..")
+from components.utilities import run_command
 
 
 class TestCommandRunner(unittest.TestCase):

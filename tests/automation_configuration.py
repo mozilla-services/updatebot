@@ -5,9 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import sys
-sys.path.append("..")
 import unittest
 
+sys.path.append("..")
 from automation import Updatebot
 
 

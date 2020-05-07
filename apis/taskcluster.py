@@ -6,6 +6,7 @@
 
 from components.utilities import logEntryExit, run_command
 
+
 class DefaultTaskclusterProvider:
     def __init__(self, config):
         self._vcs_setup_initialized = False

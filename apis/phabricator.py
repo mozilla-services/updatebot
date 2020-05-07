@@ -6,6 +6,7 @@
 
 from components.utilities import logEntryExit, run_command
 
+
 class DefaultPhabricatorProvider:
     def __init__(self, config):
         pass

@@ -21,15 +21,19 @@ DEFAULT_OBJECTS = {
     'Phabricator': DefaultPhabricatorProvider,
 }
 
+
 class Updatebot:
     def __init__(self, config_dictionary={}, object_dictionary={}):
         def _getOrImpl(dictionary, name, default):
             return dictionary[name] if name in dictionary else default
+
         def _getObjOr(name):
             assert(name in DEFAULT_OBJECTS)
             return _getOrImpl(object_dictionary, name, DEFAULT_OBJECTS[name])
+
         def _getConfigOr(name):
             return _getOrImpl(config_dictionary, name, {})
+
         def getOr(name):
             return _getObjOr(name)(_getConfigOr(name))
 
@@ -54,7 +58,6 @@ class Updatebot:
                 pass
                 # Output some information here....
 
-
     def process_library(self, library):
         new_version = self.vendorProvider.check_for_update(library)
         if not new_version:
@@ -73,7 +76,7 @@ class Updatebot:
         try:
             self.vendorProvider.vendor(library)
             status = JOBSTATUS.VENDORED
-        except:
+        except Exception:
             # Handle `./mach vendor` failing
             status = JOBSTATUS.COULD_NOT_VENDOR
             self.dbProvider.save_job(library, new_version, status, bug_id)
@@ -95,6 +98,7 @@ class Updatebot:
 def run(configs=None):
     u = Updatebot(configs)
     u.run()
+
 
 if __name__ == "__main__":
     import sys

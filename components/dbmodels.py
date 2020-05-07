@@ -12,6 +12,7 @@ JOBSTATUS = Struct(**{
     'SUBMITTED_TRY': 3
 })
 
+
 class Job:
     def __init__(self, row=None):
         if row:

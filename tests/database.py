@@ -77,5 +77,6 @@ class TestDatabaeQueries(unittest.TestCase):
         finally:
             self.db.delete_job(library, version)
 
+
 if __name__ == '__main__':
     unittest.main()

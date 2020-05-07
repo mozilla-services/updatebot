@@ -6,12 +6,16 @@
 
 import unittest
 import tests.database
+import tests.bugzilla
+import tests.automation_configuration
 import tests.run_command
 
 loader = unittest.TestLoader()
 suite = unittest.TestSuite()
 
 suite.addTests(loader.loadTestsFromModule(tests.database))
+suite.addTests(loader.loadTestsFromModule(tests.bugzilla))
+suite.addTests(loader.loadTestsFromModule(tests.automation_configuration))
 suite.addTests(loader.loadTestsFromModule(tests.run_command))
 
 runner = unittest.TextTestRunner(verbosity=3)

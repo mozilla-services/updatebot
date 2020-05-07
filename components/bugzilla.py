@@ -33,5 +33,6 @@ class DefaultBugzillaProvider:
             comment = "./mach vendor failed with the following message: <TODO>"
         else:
             comment = "I've submitted a try run for this commit: " + try_run
-        commentID = commentOnBug(self.config['url'], self.config['apikey'], bug_id, comment)
+        commentID = commentOnBug(
+            self.config['url'], self.config['apikey'], bug_id, comment)
         print("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))

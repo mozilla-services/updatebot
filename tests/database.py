@@ -6,13 +6,13 @@
 
 from components.dbmodels import Library, JOBSTATUS
 from components.db import LIBRARIES
-from components.dbc import Database
+from components.dbc import DefaultDatabaseProvider
 import unittest
 import sys
 sys.path.append("..")
 
 try:
-    from localconfig import database_config
+    from localconfig import localconfigs
 except ImportError:
     print("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
@@ -22,7 +22,7 @@ class TestDatabaseCreation(unittest.TestCase):
     pass
     # Commented out to avoid the test harness from deleting your database.
     # def test_creation_deletion(self):
-    # db = Database(database_config)
+    # db = DefaultDatabaseProvider(localconfigs['Database'])
     # db.check_database()
     # db.delete_database()
 
@@ -30,7 +30,7 @@ class TestDatabaseCreation(unittest.TestCase):
 class TestDatabaeQueries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.db = Database(database_config)
+        cls.db = DefaultDatabaseProvider(localconfigs['Database'])
         cls.db.check_database()
 
     def testLibraries(self):

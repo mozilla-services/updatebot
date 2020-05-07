@@ -16,4 +16,5 @@ class DefaultVendorProvider:
 
     @logEntryExit
     def vendor(self, library):
-        run_command(["./mach", "vendor", library.shortname, "--ignore-modified"])
+        run_command(
+            ["./mach", "vendor", library.shortname, "--ignore-modified"])

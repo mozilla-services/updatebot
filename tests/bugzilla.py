@@ -5,13 +5,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import sys
-sys.path.append("..")
 import unittest
 
 from threading import Thread
 from http import server
 import json
 
+sys.path.append("..")
 from components.utilities import Struct
 from components.dbmodels import JOBSTATUS
 from components.bugzilla import DefaultBugzillaProvider

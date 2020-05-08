@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from components.utilities import DefaultCommandProvider
 from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import DefaultVendorProvider
@@ -13,6 +14,7 @@ from apis.taskcluster import DefaultTaskclusterProvider
 from apis.phabricator import DefaultPhabricatorProvider
 
 DEFAULT_OBJECTS = {
+    'Command' : DefaultCommandProvider,
     'Database': DefaultDatabaseProvider,
     'Vendor': DefaultVendorProvider,
     'Bugzilla': DefaultBugzillaProvider,
@@ -32,11 +34,15 @@ class Updatebot:
             return _getOrImpl(object_dictionary, name, DEFAULT_OBJECTS[name])
 
         def _getConfigOr(name):
-            return _getOrImpl(config_dictionary, name, {})
+            result = _getOrImpl(config_dictionary, name, {})
+            if name != 'Command':
+                result.update({'CommandProvider' : self.cmdProvider})
+            return result
 
         def getOr(name):
             return _getObjOr(name)(_getConfigOr(name))
 
+        self.cmdProvider = getOr('Command')
         self.dbProvider = getOr('Database')
         self.vendorProvider = getOr('Vendor')
         self.bugzillaProvider = getOr('Bugzilla')

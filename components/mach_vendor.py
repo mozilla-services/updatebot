@@ -2,19 +2,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import logEntryExit, run_command
+from components.utilities import logEntryExit, INeedsCommandProvider
 
 
-class DefaultVendorProvider:
+class DefaultVendorProvider(INeedsCommandProvider):
     def __init__(self, config):
-        pass
+        super().__init__(config)
 
     @logEntryExit
     def check_for_update(self, library):
         return "<new version>"
-        # run_command(["./mach", "vendor", "--check-for-update", library.shortname])
+        # self.run(["./mach", "vendor", "--check-for-update", library.shortname])
 
     @logEntryExit
     def vendor(self, library):
-        run_command(
+        self.run(
             ["./mach", "vendor", library.shortname, "--ignore-modified"])

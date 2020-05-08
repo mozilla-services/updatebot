@@ -4,13 +4,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import logEntryExit, run_command
+from components.utilities import logEntryExit, INeedsCommandProvider
 
 
-class DefaultPhabricatorProvider:
+class DefaultPhabricatorProvider(INeedsCommandProvider):
     def __init__(self, config):
-        pass
+        super().__init__(config)
 
     @logEntryExit
     def submit_patch(self):
-        run_command(["arc", "diff", "--verbatim"])
+        self.run(["arc", "diff", "--verbatim"])

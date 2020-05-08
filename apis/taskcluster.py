@@ -4,24 +4,25 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import logEntryExit, run_command
+from components.utilities import logEntryExit, INeedsCommandProvider
 
 
-class DefaultTaskclusterProvider:
+class DefaultTaskclusterProvider(INeedsCommandProvider):
     def __init__(self, config):
         self._vcs_setup_initialized = False
+        super().__init__(config)
 
     @logEntryExit
     def _vcs_setup(self):
         if not self._vcs_setup_initialized:
-            run_command(["./mach", "vcs-setup", "--update"])
+            self.run(["./mach", "vcs-setup", "--update"])
             self._vcs_setup_initialized = True
         self._vcs_setup_initialized = False
 
     @logEntryExit
     def submit_to_try(self, library):
         self._vcs_setup()
-        ret = run_command(
+        ret = self.run(
             ["./mach", "try", "fuzzy", "--query", library.fuzzy_query])
         output = ret.stdout.decode()
 

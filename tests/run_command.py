@@ -8,12 +8,13 @@ import sys
 import unittest
 
 sys.path.append("..")
-from components.utilities import run_command
+from components.utilities import DefaultCommandProvider
 
 
 class TestCommandRunner(unittest.TestCase):
     def testCommand(self):
-        return run_command(["echo", "Test"])
+        runner = DefaultCommandProvider({})
+        return runner.run(["echo", "Test"])
 
 
 if __name__ == '__main__':

@@ -4,15 +4,36 @@ jobs:
   build:
     docker:
       - image: circleci/python:3.5-buster
+      - image: circleci/mysql:8.0.19
+        command: [--default-authentication-plugin=mysql_native_password]
+        environment:
+          MYSQL_DATABASE: updatebot
+          MYSQL_USER: username
+          MYSQL_PASSWORD: p4ssw0rd
     steps:
       - checkout
       - restore_cache:
           keys:
             - deps-{{ checksum "poetry.lock" }}
       - run:
-          command: |
-            poetry install
+          command: poetry install
           name: dependencies
+      - run:
+          # Our primary container isn't MySQL so run a sleep command until it's ready.
+          command: |
+            for i in `seq 1 10`;
+            do
+              nc -z 127.0.0.1 3306 && echo Success && exit 0
+              echo -n .
+              sleep 1
+            done
+            echo Failed waiting for MySQL && exit 1
+          name: Waiting for MySQL to be ready
+      - run:
+          name: Install MySQL CLI; Create updatebot db and localconfig
+          command: |
+            sudo apt-get install default-mysql-client
+            mysql -h 127.0.0.1 -u username -pp4ssw0rd -e 'CREATE DATABASE IF NOT EXISTS updatebot;'
       - save_cache:
           key: deps-{{ checksum "poetry.lock" }}
           paths:
@@ -26,7 +47,9 @@ jobs:
           keys:
             - deps-{{ checksum "poetry.lock" }}
       - run:
-          command: poetry run coverage run test.py
+          command: |
+            cp localconfig.py.example localconfig.py
+            poetry run coverage run test.py
           name: test
       - run:
           command: poetry run codecov
@@ -45,6 +68,14 @@ jobs:
       - run:
           command: poetry run flake8 --ignore=E501,E402 .
           name: lint
+
+  cleanup:
+    docker:
+      - image: circleci/python:3.5-buster
+    steps:
+      - run:
+          command: mysql -h 127.0.0.1 -u username -pp4ssw0rd -e 'DROP DATABASE IF EXISTS updatebot;'
+          name: clear database
 
 workflows:
   version: 2

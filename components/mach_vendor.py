@@ -11,8 +11,10 @@ class DefaultVendorProvider(INeedsCommandProvider):
 
     @logEntryExit
     def check_for_update(self, library):
-        return "<new version>"
-        # self.run(["./mach", "vendor", "--check-for-update", library.shortname])
+        # This hack-return is needed to work for real, where "--check-for-update" isn't implemented yet
+        # return "<new version>"
+        # But this command is needed for the ./functionality unit test to work.
+        return self.run(["./mach", "vendor", "--check-for-update", library.shortname]).stdout.decode()
 
     @logEntryExit
     def vendor(self, library):

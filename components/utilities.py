@@ -11,6 +11,7 @@ def logEntryExit(func):
     def func_wrapper(*args, **kwargs):
         print("================================================")
         print("Beginning", func.__qualname__)
+        print(" Arguments:", *args)
         ret = func(*args, **kwargs)
         print("Ending", func.__qualname__)
         return ret

@@ -7,6 +7,7 @@
 import time
 import subprocess
 
+
 def logEntryExit(func):
     def func_wrapper(*args, **kwargs):
         print("================================================")
@@ -22,9 +23,11 @@ class Struct:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
+
 class INeedsCommandProvider:
     def __init__(self, config):
         self.run = config['CommandProvider'].run
+
 
 class DefaultCommandProvider:
     def __init__(self, config):

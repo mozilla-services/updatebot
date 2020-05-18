@@ -14,7 +14,7 @@ from apis.taskcluster import DefaultTaskclusterProvider
 from apis.phabricator import DefaultPhabricatorProvider
 
 DEFAULT_OBJECTS = {
-    'Command' : DefaultCommandProvider,
+    'Command': DefaultCommandProvider,
     'Database': DefaultDatabaseProvider,
     'Vendor': DefaultVendorProvider,
     'Bugzilla': DefaultBugzillaProvider,
@@ -36,7 +36,7 @@ class Updatebot:
         def _getConfigOr(name):
             result = _getOrImpl(config_dictionary, name, {})
             if name != 'Command':
-                result.update({'CommandProvider' : self.cmdProvider})
+                result.update({'CommandProvider': self.cmdProvider})
             return result
 
         def getOr(name):

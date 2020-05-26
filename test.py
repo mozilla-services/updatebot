@@ -22,3 +22,5 @@ suite.addTests(loader.loadTestsFromModule(tests.functionality))
 
 runner = unittest.TextTestRunner(verbosity=3)
 result = runner.run(suite)
+
+raise ValueError('A very specific bad thing happened.')

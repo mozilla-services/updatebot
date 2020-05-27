@@ -52,17 +52,17 @@ jobs:
       - restore_cache:
           keys:
             - deps-{{ checksum "poetry.lock" }}
-      - run:
-          # Our primary container isn't MySQL so run a sleep command until it's ready.
-          command: |
-            for i in `seq 1 10`;
-            do
-              nc -z 127.0.0.1 3306 && echo Success && exit 0
-              echo -n .
-              sleep 1
-            done
-            echo Failed waiting for MySQL && exit 1
-          name: Waiting for MySQL to be ready
+      # - run:
+      #     # Our primary container isn't MySQL so run a sleep command until it's ready.
+      #     command: |
+      #       for i in `seq 1 10`;
+      #       do
+      #         nc -z 127.0.0.1 3306 && echo Success && exit 0
+      #         echo -n .
+      #         sleep 1
+      #       done
+      #       echo Failed waiting for MySQL && exit 1
+      #     name: Waiting for MySQL to be ready
       - run:
           command: |
             cp localconfig.py.example localconfig.py

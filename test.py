@@ -20,7 +20,7 @@ suite.addTests(loader.loadTestsFromModule(tests.automation_configuration))
 suite.addTests(loader.loadTestsFromModule(tests.run_command))
 suite.addTests(loader.loadTestsFromModule(tests.functionality))
 
-runner = unittest.TextTestRunner(verbosity=3)
-result = runner.run(suite)
-
-raise ValueError('A very specific bad thing happened.')
+if unittest.TextTestRunner(verbosity=3).run(suite).wasSuccessful():
+    exit(0)
+else:
+    exit(1)

@@ -59,6 +59,7 @@ class TestDatabaeQueries(unittest.TestCase):
     def testJobs(self):
         library = Library()
         library.shortname = "test_library"
+        library.yaml_path = "path/to/moz.yaml"
         version = "test_new_version"
         bugid = 50
         try_link = "test_try_link"

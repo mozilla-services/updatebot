@@ -29,6 +29,7 @@ class Library:
         if row:
             self.id = row['id']
             self.shortname = row['shortname']
+            self.yaml_path = row['yaml_path']
             self.bugzilla_product = row['bugzilla_product']
             self.bugzilla_component = row['bugzilla_component']
             self.fuzzy_query = row['fuzzy_query']

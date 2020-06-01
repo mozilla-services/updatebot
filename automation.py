@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import sys
 from components.utilities import DefaultCommandProvider
 from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
@@ -37,11 +38,13 @@ class Updatebot:
             result = _getOrImpl(config_dictionary, name, {})
             if name != 'Command':
                 result.update({'CommandProvider': self.cmdProvider})
+            result.update({'General': config_dictionary['General']})
             return result
 
         def getOr(name):
             return _getObjOr(name)(_getConfigOr(name))
 
+        self.validate(config_dictionary)
         self.cmdProvider = getOr('Command')
         self.dbProvider = getOr('Database')
         self.vendorProvider = getOr('Vendor')
@@ -49,6 +52,14 @@ class Updatebot:
         self.mercurialProvider = getOr('Mercurial')
         self.taskclusterProvider = getOr('Taskcluster')
         self.phabricatorProvider = getOr('Phabricator')
+
+    def validate(self, config_dictionary):
+        if 'General' not in config_dictionary:
+            print("'General' is a required config dictionary to supply.")
+            sys.exit(1)
+        if 'env' not in config_dictionary['General']:
+            print("['General']['env'] must be defined in the config dictionary with a value of prod or dev.")
+            sys.exit(1)
 
     def run(self):
         self.dbProvider.check_database()
@@ -101,7 +112,7 @@ class Updatebot:
         pass
 
 
-def run(configs=None):
+def run(configs):
     u = Updatebot(configs)
     u.run()
 

@@ -56,6 +56,7 @@ class TestConfigPhabricatorProvider(BaseTestConfigProvider):
 class TestCommandRunner(unittest.TestCase):
     def testConfigurationPassing(self):
         configs = {
+            'General': {'env': 'dev'},
             'Database': {'specialkey': 'database!'},
             'Vendor': {'specialkey': 'vendor!'},
             'Bugzilla': {'specialkey': 'bugzilla!'},

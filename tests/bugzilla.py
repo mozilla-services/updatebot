@@ -41,6 +41,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'product': 'Core',
                 'component': 'ImageLib',
                 'type': "enhancement",
+                'severity': "normal",
                 'summary': 'Update dav1d to new version V1',
                 'description': '',
                 'whiteboard': '[3pl-filed]',
@@ -62,6 +63,7 @@ class TestBugzillaProvider(unittest.TestCase):
     def setUpClass(cls):
         cls.server = server.HTTPServer(('', 27489), MockBugzillaServer)
         cls.bugzillaProvider = DefaultBugzillaProvider({
+            'General': {'env': 'dev'},
             'apikey': 'bob',
             'url': 'http://localhost:27489/'
         })

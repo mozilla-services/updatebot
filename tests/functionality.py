@@ -102,6 +102,7 @@ class TestCommandProvider:
 class TestCommandRunner(unittest.TestCase):
     def testFunctionalityWithRealDatabase(self):
         configs = {
+            'General': {'env': 'dev'},
             'Command': {},
             'Database': localconfigs['Database'],
             'Vendor': {},

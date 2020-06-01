@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 localconfigs = {
+    'General': {
+        'env': 'dev'
+    },
     'Database': {
         'host': 'localhost',
         'user': 'username',

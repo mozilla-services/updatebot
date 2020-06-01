@@ -16,7 +16,7 @@ def kw(s):
     return sq('3pl-' + s)
 
 
-def fileBug(url, apikey, product, component, summary, description):
+def fileBug(url, apikey, product, component, summary, description, severity):
     data = {
         'version': "unspecified",
         'op_sys': "unspecified",
@@ -24,6 +24,7 @@ def fileBug(url, apikey, product, component, summary, description):
         'product': product,
         'component': component,
         'type': "enhancement",
+        'severity': severity,
         'summary': summary,
         'description': description,
         'whiteboard': kw('filed'),

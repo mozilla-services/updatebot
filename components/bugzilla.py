@@ -19,7 +19,7 @@ class DefaultBugzillaProvider:
             elif self.config['General']['env'] == "prod":
                 self.config['url'] = "https://bugzilla.mozilla.org/rest/"
             else:
-                assert False, "No bugzilla url provided, and unknown operating environment"
+                assert ('url' in self.config) or (self.config['General']['env'] in ["dev", "prod"]), "No bugzilla url provided, and unknown operating environment"
 
     @logEntryExit
     def file_bug(self, library, new_release_version):
@@ -40,7 +40,7 @@ class DefaultBugzillaProvider:
         if status == JOBSTATUS.COULD_NOT_VENDOR:
             comment = "./mach vendor failed with the following message: <TODO>"
         else:
-            comment = "I've submitted a try run for this commit: " + try_run
+            comment = "I've submitted a try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=" + try_run
         commentID = commentOnBug(
             self.config['url'], self.config['apikey'], bug_id, comment)
         print("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))

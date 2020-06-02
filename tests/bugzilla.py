@@ -30,7 +30,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
 
         if expectedPath_comment == self.path:
             assert 'comment' in content
-            assert content['comment'] == "I've submitted a try run for this commit: this-is-my-try-link"
+            assert content['comment'] == "I've submitted a try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=this-is-my-try-link"
 
             self.wfile.write("{\"id\":456}".encode())
         elif expectedPath_file == self.path:

@@ -11,8 +11,6 @@ localconfigs = {
         'db': 'updatebot'
     },
     'Bugzilla': {
-        'url': 'https://bugzilla-dev.allizom.org/rest/',
-        # 'url': "https://bugzilla.mozilla.org/rest/"
         'apikey': '<foobar>'
     }
 }

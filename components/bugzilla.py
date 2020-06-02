@@ -12,8 +12,14 @@ from components.utilities import logEntryExit
 class DefaultBugzillaProvider:
     def __init__(self, config):
         self.config = config
-        assert 'url' in self.config, "URL must be provided in the Bugzilla Configration"
         assert 'apikey' in self.config, "apikey must be provided in the Bugzilla Configration"
+        if 'url' not in self.config:
+            if self.config['General']['env'] == "dev":
+                self.config['url'] = "https://bugzilla-dev.allizom.org/rest/"
+            elif self.config['General']['env'] == "prod":
+                self.config['url'] = "https://bugzilla.mozilla.org/rest/"
+            else:
+                assert False, "No bugzilla url provided, and unknown operating environment"
 
     @logEntryExit
     def file_bug(self, library, new_release_version):

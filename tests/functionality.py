@@ -10,14 +10,14 @@ import unittest
 sys.path.append("..")
 from automation import Updatebot
 
-from components.utilities import Struct
-
 from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import DefaultVendorProvider
 from components.hg import DefaultMercurialProvider
 from apis.taskcluster import DefaultTaskclusterProvider
 from apis.phabricator import DefaultPhabricatorProvider
+
+from tests.mock_commandprovider import TestCommandProvider
 
 try:
     from localconfig import localconfigs
@@ -80,30 +80,17 @@ class TestConfigTaskclusterProvider:
 
 TestConfigTaskclusterProvider.revision_id = "e152bb86666565ee6619c15f60156cd6c79580a9"
 
-
-class TestCommandProvider:
-    def __init__(self, config):
-        pass
-
-    def run(self, args, shell=False, clean_return=True):
-        print("Mocked Command executed", args)
-        stdout = ""
-        if args[0] == "./mach" and args[1] == "vendor":
-            print("Caught mach vendor, returning",
-                  TestConfigVendorProvider.version_id)
-            stdout = TestConfigVendorProvider.version_id
-        elif args[0] == "./mach" and args[1] == "try" and args[2] == "fuzzy":
-            print("Caught mach try, returning try output")
-            stdout = TRY_OUTPUT
-        return Struct(**{'stdout':
-                         Struct(**{'decode': lambda: stdout})})
+COMMAND_MAPPINGS = {
+    "./mach vendor": TestConfigVendorProvider.version_id,
+    "./mach try fuzzy": TRY_OUTPUT
+}
 
 
 class TestCommandRunner(unittest.TestCase):
     def testFunctionalityWithRealDatabase(self):
         configs = {
             'General': {'env': 'dev'},
-            'Command': {},
+            'Command': {'test_mappings': COMMAND_MAPPINGS},
             'Database': localconfigs['Database'],
             'Vendor': {},
             'Bugzilla': {},

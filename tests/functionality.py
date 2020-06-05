@@ -143,7 +143,7 @@ class TestCommandRunner(unittest.TestCase):
             self.assertNotEqual(j, None)
             self.assertEqual(l.shortname, j.library_shortname)
             self.assertEqual(TestConfigVendorProvider.version_id, j.version)
-            self.assertEqual(JOBSTATUS.SUBMITTED_TRY, j.status)
+            self.assertEqual(JOBSTATUS.AWAITING_TRY_RESULTS, j.status)
             self.assertEqual(TestConfigBugzillaProvider.bug_id, j.bugzilla_id)
             self.assertEqual(
                 TestConfigTaskclusterProvider.revision_id, j.try_revision)

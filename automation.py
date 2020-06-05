@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 from components.utilities import DefaultCommandProvider
 from components.dbc import DefaultDatabaseProvider
@@ -44,6 +45,7 @@ class Updatebot:
         def getOr(name):
             return _getObjOr(name)(_getConfigOr(name))
 
+        self.config_dictionary = config_dictionary
         self.validate(config_dictionary)
         self.cmdProvider = getOr('Command')
         self.dbProvider = getOr('Database')
@@ -57,11 +59,16 @@ class Updatebot:
         if 'General' not in config_dictionary:
             print("'General' is a required config dictionary to supply.")
             sys.exit(1)
+        if 'gecko-path' not in config_dictionary['General']:
+            print("['General']['gecko-path'] probably should be defined in the config dictionary.")
         if 'env' not in config_dictionary['General']:
             print("['General']['env'] must be defined in the config dictionary with a value of prod or dev.")
             sys.exit(1)
 
     def run(self):
+        if 'gecko-path' in self.config_dictionary['General']:
+            os.chdir(self.config_dictionary['General']['gecko-path'])
+
         self.dbProvider.check_database()
         libraries = self.dbProvider.get_libraries()
         for l in libraries:
@@ -112,17 +119,13 @@ class Updatebot:
         pass
 
 
-def run(configs):
-    u = Updatebot(configs)
-    u.run()
-
-
 if __name__ == "__main__":
     import argparse
     try:
-        from localconfig import localconfigs
-    except ImportError:
-        print("Unit tests require a local configuration to be defined.")
+        from localconfig import localconfig
+    except ImportError as e:
+        print("Execution requires a local configuration to be defined.")
+        print(e)
         sys.exit(1)
 
     parser = argparse.ArgumentParser()
@@ -136,13 +139,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.print_database:
-        db = DefaultDatabaseProvider(localconfigs['Database'])
+        db = DefaultDatabaseProvider(localconfig['Database'])
         db.print()
     elif args.delete_database:
-        db = DefaultDatabaseProvider(localconfigs['Database'])
+        db = DefaultDatabaseProvider(localconfig['Database'])
         db.delete_database()
     elif args.check_database:
-        db = DefaultDatabaseProvider(localconfigs['Database'])
+        db = DefaultDatabaseProvider(localconfig['Database'])
         db.check_database()
     else:
-        run(localconfigs)
+        u = Updatebot(localconfig)
+        u.run()

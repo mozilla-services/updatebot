@@ -103,7 +103,7 @@ class Updatebot:
         self.mercurialProvider.commit(library, bug_id, new_version)
         try_run = self.taskclusterProvider.submit_to_try(library)
 
-        status = JOBSTATUS.SUBMITTED_TRY
+        status = JOBSTATUS.AWAITING_TRY_RESULTS
         self.bugzillaProvider.comment_on_bug(bug_id, status, try_run)
         self.phabricatorProvider.submit_patch()
         self.dbProvider.save_job(library, new_version, status, bug_id, try_run)

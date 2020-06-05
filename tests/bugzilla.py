@@ -87,7 +87,7 @@ class TestBugzillaProvider(unittest.TestCase):
         t = Thread(target=self.server.handle_request)
         t.start()
         self.bugzillaProvider.comment_on_bug(
-            123, JOBSTATUS.SUBMITTED_TRY, "this-is-my-try-link")
+            123, JOBSTATUS.AWAITING_TRY_RESULTS, "this-is-my-try-link")
         t.join()
 
 

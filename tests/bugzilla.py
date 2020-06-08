@@ -22,7 +22,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         expectedPath_comment = "/bug/123/comment?api_key=bob"
         expectedPath_file = "/bug?api_key=bob"
         size = int(self.headers.get('content-length'))
-        content = json.loads(self.rfile.read(size))
+        content = json.loads(self.rfile.read(size).decode("utf-8"))
 
         self.send_response(200)
         self.send_header("Content-type", "application/json")

@@ -6,6 +6,7 @@
 
 import time
 import subprocess
+from subprocess import PIPE
 
 
 def logEntryExit(func):
@@ -44,7 +45,7 @@ class DefaultCommandProvider:
         print("Running", args)
         try:
             ret = subprocess.run(
-                args, shell=shell, capture_output=True, timeout=60 * 10)
+                args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=60 * 10)
         except subprocess.TimeoutExpired as e:
             ran_successfully = False
             stdout = e.stdout

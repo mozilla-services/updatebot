@@ -1,3 +1,5 @@
 [report]
 exclude_lines =
+   exit\(1\)
    unittest\.main
+   raise SQLException

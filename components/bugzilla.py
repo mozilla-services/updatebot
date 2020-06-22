@@ -26,7 +26,6 @@ class DefaultBugzillaProvider:
         summary = "Update %s to new version %s" % (
             library.shortname, new_release_version)
         description = ""
-        print(self.config)
         severity = "normal" if self.config['General']['env'] == "dev" else "S3"
 
         bugID = fileBug(self.config['url'], self.config['apikey'],

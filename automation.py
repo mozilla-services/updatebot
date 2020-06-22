@@ -118,7 +118,6 @@ def run(configs):
 
 
 if __name__ == "__main__":
-    import sys
     import argparse
     try:
         from localconfig import localconfigs

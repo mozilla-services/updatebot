@@ -23,6 +23,6 @@ localconfig = {
         'apikey': '<foobar>'
     },
     'Taskcluster': {
-        # 'url': 'https://treeherder.mozilla.org/api/projects/holly/'
+        'url': 'https://treeherder.mozilla.org/'
     }
 }

@@ -11,6 +11,9 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         self._vcs_setup_initialized = False
+        self.url = "https://treeherder.mozilla.org/"
+        if 'url' in config:
+            self.url = config['url']
 
     @logEntryExit
     def _vcs_setup(self):
@@ -36,5 +39,5 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 isNext = True
 
         try_link = try_link.replace(
-            "https://treeherder.mozilla.org/#/jobs?repo=try&revision=", "")
+            self.url + "#/jobs?repo=try&revision=", "")
         return try_link

@@ -69,9 +69,12 @@ class TestBugzillaProvider(unittest.TestCase):
             'url': 'http://localhost:27489/',
         })
         cls.bugzillaProvider.update_config(SimpleLoggerConfig)
+        t = Thread(target=cls.server.serve_forever)
+        t.start()
 
     @classmethod
     def tearDownClass(cls):
+        cls.server.shutdown()
         cls.server.server_close()
 
     def testFile(self):
@@ -80,17 +83,11 @@ class TestBugzillaProvider(unittest.TestCase):
             'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
-        t = Thread(target=self.server.handle_request)
-        t.start()
         self.bugzillaProvider.file_bug(library, 'V1')
-        t.join()
 
     def testComment(self):
-        t = Thread(target=self.server.handle_request)
-        t.start()
         self.bugzillaProvider.comment_on_bug(
             123, JOBSTATUS.AWAITING_TRY_RESULTS, "this-is-my-try-link")
-        t.join()
 
 
 if __name__ == '__main__':

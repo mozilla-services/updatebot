@@ -55,6 +55,8 @@ class INeedsCommandProvider:
     """
 
     def _update_config(self, config):
+        if 'CommandProvider' not in config:
+            raise Exception("Config passed to INeedsCommandProvider._update_config is missing 'CommandProvider' key, which must be a class instance implementing a 'run' function")
         self.run = config['CommandProvider'].run
 
 
@@ -64,4 +66,6 @@ class INeedsLoggingProvider:
     """
 
     def _update_config(self, config):
+        if 'LoggingProvider' not in config:
+            raise Exception("Config passed to INeedsLoggingProvider._update_config is missing 'LoggingProvider' key, which must be a class instance implementing the 'LoggingProvider' interface")
         self.logger = config['LoggingProvider'].bind_category(self.__class__.mro()[0].__name__)

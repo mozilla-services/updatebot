@@ -13,7 +13,7 @@ from components.logging import LogLevel
 
 
 class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
-    def __init__(self, config, mappings={}):
+    def __init__(self, config):
         if 'test_mappings' in config:
             self.mappings = config['test_mappings']
 

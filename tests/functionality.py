@@ -20,7 +20,7 @@ from apis.phabricator import DefaultPhabricatorProvider
 from tests.mock_commandprovider import TestCommandProvider
 
 try:
-    from localconfig import localconfigs
+    from localconfig import localconfig
 except ImportError:
     print("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
@@ -91,7 +91,7 @@ class TestCommandRunner(unittest.TestCase):
         configs = {
             'General': {'env': 'dev'},
             'Command': {'test_mappings': COMMAND_MAPPINGS},
-            'Database': localconfigs['Database'],
+            'Database': localconfig['Database'],
             'Vendor': {},
             'Bugzilla': {},
             'Mercurial': {},

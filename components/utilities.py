@@ -9,11 +9,13 @@ import inspect
 
 def logEntryExit(func):
     def func_wrapper(*args, **kwargs):
-        print("================================================")
-        print("Beginning", func.__qualname__)
-        print(" Arguments:", *args)
+        obj = args[0]
+        assert 'logger' in dir(obj), "If @logEntryExit is applied to a class method, it must inherit INeedsLoggingProvider"
+        obj.logger.log("================================================")
+        obj.logger.log("Beginning %s" % func.__qualname__)
+        obj.logger.log(" Arguments: %s" % str(args))
         ret = func(*args, **kwargs)
-        print("Ending", func.__qualname__)
+        obj.logger.log("Ending %s" % func.__qualname__)
         return ret
     return func_wrapper
 

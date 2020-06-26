@@ -12,6 +12,8 @@ from components.dbmodels import Library, JOBSTATUS
 from components.db import LIBRARIES
 from components.dbc import DefaultDatabaseProvider
 
+from tests.mock_logger import TestLoggerConfig
+
 try:
     from localconfig import localconfig
 except ImportError:
@@ -32,7 +34,7 @@ class TestDatabaeQueries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db = DefaultDatabaseProvider(localconfig['Database'])
-        cls.db.update_config({})
+        cls.db.update_config(TestLoggerConfig)
         cls.db.check_database()
 
     def testLibraries(self):

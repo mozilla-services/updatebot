@@ -6,10 +6,10 @@
 
 from apis.bugzilla_api import fileBug, commentOnBug
 from components.dbmodels import JOBSTATUS
-from components.utilities import logEntryExit, BaseProvider
+from components.utilities import logEntryExit, BaseProvider, INeedsLoggingProvider
 
 
-class DefaultBugzillaProvider(BaseProvider):
+class DefaultBugzillaProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config):
         self.config = config
         assert 'apikey' in self.config, "apikey must be provided in the Bugzilla Configration"

@@ -16,6 +16,8 @@ from components.utilities import Struct
 from components.dbmodels import JOBSTATUS
 from components.bugzilla import DefaultBugzillaProvider
 
+from tests.mock_logger import TestLoggerConfig
+
 
 class MockBugzillaServer(server.BaseHTTPRequestHandler):
     def do_POST(self):
@@ -65,9 +67,9 @@ class TestBugzillaProvider(unittest.TestCase):
         cls.bugzillaProvider = DefaultBugzillaProvider({
             'General': {'env': 'dev'},
             'apikey': 'bob',
-            'url': 'http://localhost:27489/'
+            'url': 'http://localhost:27489/',
         })
-        cls.bugzillaProvider.update_config({})
+        cls.bugzillaProvider.update_config(TestLoggerConfig)
 
     @classmethod
     def tearDownClass(cls):

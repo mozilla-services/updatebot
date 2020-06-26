@@ -67,6 +67,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'apikey': 'bob',
             'url': 'http://localhost:27489/'
         })
+        cls.bugzillaProvider.update_config({})
 
     @classmethod
     def tearDownClass(cls):

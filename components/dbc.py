@@ -5,9 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.db import MySQLDatabase
+from components.utilities import BaseProvider
 
 
-class DefaultDatabaseProvider:
+class DefaultDatabaseProvider(BaseProvider):
     def __init__(self, database_config):
         self.db = MySQLDatabase(database_config)
 

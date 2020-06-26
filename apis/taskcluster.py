@@ -4,13 +4,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import logEntryExit, INeedsCommandProvider
+from components.utilities import logEntryExit, BaseProvider, INeedsCommandProvider
 
 
-class DefaultTaskclusterProvider(INeedsCommandProvider):
+class DefaultTaskclusterProvider(BaseProvider, INeedsCommandProvider):
     def __init__(self, config):
         self._vcs_setup_initialized = False
-        super().__init__(config)
 
     @logEntryExit
     def _vcs_setup(self):

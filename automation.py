@@ -6,6 +6,7 @@
 
 import os
 import sys
+from components.logging import DefaultLoggingProvider
 from components.utilities import DefaultCommandProvider
 from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
@@ -17,6 +18,7 @@ from apis.phabricator import DefaultPhabricatorProvider
 
 DEFAULT_OBJECTS = {
     'Command': DefaultCommandProvider,
+    'Logging': DefaultLoggingProvider,
     'Database': DefaultDatabaseProvider,
     'Vendor': DefaultVendorProvider,
     'Bugzilla': DefaultBugzillaProvider,
@@ -37,8 +39,6 @@ class Updatebot:
 
         def _getConfigOr(name):
             result = _getOrImpl(config_dictionary, name, {})
-            if name != 'Command':
-                result.update({'CommandProvider': self.cmdProvider})
             result.update({'General': config_dictionary['General']})
             return result
 
@@ -47,13 +47,64 @@ class Updatebot:
 
         self.config_dictionary = config_dictionary
         self.validate(config_dictionary)
-        self.cmdProvider = getOr('Command')
-        self.dbProvider = getOr('Database')
-        self.vendorProvider = getOr('Vendor')
-        self.bugzillaProvider = getOr('Bugzilla')
-        self.mercurialProvider = getOr('Mercurial')
-        self.taskclusterProvider = getOr('Taskcluster')
-        self.phabricatorProvider = getOr('Phabricator')
+
+        """
+        Provider initialization is complicated.
+
+        Any provider may inherit from one or more INeeds interfaces. These interfaces
+        provide access to other providers (called 'utility providers'.)
+
+        If a utility provider never needed access to any other utility provider, it would
+        be simple - but a utility provider may need access to other utility providers.
+        And if the graph of utility provider dependencies had no cycles, it would also be
+        simple. But we want to support that. So we do a phased initialization.
+
+        Step 1: Instantiate the utility providers, passing them their configuration data
+        Step 2: Create an additional_config that contains all the information any utility
+                provider may need
+        Step 3: Call update_config on all utility providers. For utility providers that
+                subclass an INeeds class, this will populate their needed information.
+
+        At this point we have set up all the utility providers and populated any cyclic
+        dependencies.
+
+        Step 4: Instantiate the other providers (we call them functionality providers.)
+                These providers should never depend on each other.
+        Step 5: Call update_config on them as well to populate their INeeds superclasses.
+
+        We store all providers in a provider_dictionary so its easy to iterate over them,
+        but we also turn them into member variables for easier access (Step 6).
+        """
+        # Step 1
+        self.provider_dictionary = {
+            'cmdProvider': getOr('Command'),
+            'loggingProvider': getOr('Logging')
+        }
+        # Step 2
+        additional_config = {
+            'LoggingProvider': self.provider_dictionary['loggingProvider'],
+            'CommandProvider': self.provider_dictionary['cmdProvider']
+        }
+        # Step 3
+        self.runOnProviders(lambda x: x.update_config(additional_config))
+
+        # Step 4
+        self.provider_dictionary = {
+            'dbProvider': getOr('Database'),
+            'vendorProvider': getOr('Vendor'),
+            'bugzillaProvider': getOr('Bugzilla'),
+            'mercurialProvider': getOr('Mercurial'),
+            'taskclusterProvider': getOr('Taskcluster'),
+            'phabricatorProvider': getOr('Phabricator'),
+        }
+        # Step 5
+        self.runOnProviders(lambda x: x.update_config(additional_config))
+        # Step 6
+        self.__dict__.update(self.provider_dictionary)
+
+    def runOnProviders(self, func):
+        for v in self.provider_dictionary.values():
+            func(v)
 
     def validate(self, config_dictionary):
         if 'General' not in config_dictionary:

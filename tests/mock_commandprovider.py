@@ -7,10 +7,10 @@
 import sys
 sys.path.append("..")
 
-from components.utilities import Struct
+from components.utilities import Struct, BaseProvider
 
 
-class TestCommandProvider:
+class TestCommandProvider(BaseProvider):
     def __init__(self, config, mappings={}):
         if 'test_mappings' in config:
             self.mappings = config['test_mappings']

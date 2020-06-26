@@ -10,6 +10,7 @@ import unittest
 sys.path.append("..")
 from automation import Updatebot
 
+from components.utilities import BaseProvider
 from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import DefaultVendorProvider
@@ -59,7 +60,7 @@ class TestConfigVendorProvider(DefaultVendorProvider):
 TestConfigVendorProvider.version_id = "TestConfigVendorProvider_newversion"
 
 
-class TestConfigBugzillaProvider:
+class TestConfigBugzillaProvider(BaseProvider):
     def __init__(self, config):
         pass
 
@@ -73,7 +74,7 @@ class TestConfigBugzillaProvider:
 TestConfigBugzillaProvider.bug_id = 10
 
 
-class TestConfigTaskclusterProvider:
+class TestConfigTaskclusterProvider(BaseProvider):
     def __init__(self, config):
         pass
 

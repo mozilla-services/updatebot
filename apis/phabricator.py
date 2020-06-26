@@ -4,12 +4,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import logEntryExit, INeedsCommandProvider
+from components.utilities import logEntryExit, BaseProvider, INeedsCommandProvider
 
 
-class DefaultPhabricatorProvider(INeedsCommandProvider):
+class DefaultPhabricatorProvider(BaseProvider, INeedsCommandProvider):
     def __init__(self, config):
-        super().__init__(config)
+        pass
 
     @logEntryExit
     def submit_patch(self):

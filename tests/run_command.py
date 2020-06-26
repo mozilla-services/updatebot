@@ -8,7 +8,7 @@ import sys
 import unittest
 
 sys.path.append("..")
-from components.utilities import DefaultCommandProvider
+from components.commandprovider import DefaultCommandProvider
 
 
 class TestCommandRunner(unittest.TestCase):

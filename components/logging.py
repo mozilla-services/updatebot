@@ -8,19 +8,34 @@ from components.utilities import BaseProvider
 class DefaultLoggingProvider(BaseProvider):
     def __init__(self, config):
         self.loggers = []
+        if 'loggers' in config:
+            self.loggers = config['loggers']
         pass
+
+    def log(self, message):
+        for l in self.loggers:
+            l.log(message)
 
 
 class LoggerInstance:
     def __init__(self):
         pass
 
+    def log(self, message):
+        assert False, "log should be overwritten in a child class"
 
-class LocalLoger(LoggerInstance):
+
+class LocalLogger(LoggerInstance):
     def __init__(self):
         pass
+
+    def log(self, message):
+        print(message)
 
 
 class SentryLogger(LoggerInstance):
     def __init__(self):
+        pass
+
+    def log(self, message):
         pass

@@ -5,12 +5,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.db import MySQLDatabase
-from components.utilities import BaseProvider
+from components.utilities import BaseProvider, INeedsLoggingProvider
 
 
-class DefaultDatabaseProvider(BaseProvider):
+class DefaultDatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, database_config):
         self.db = MySQLDatabase(database_config)
+
+    def _update_config(self, config):
+        self.db._update_config(config)
 
     def check_database(self):
         return self.db.check_database()

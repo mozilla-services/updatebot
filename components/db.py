@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import Struct, logEntryExit
+from components.utilities import Struct, logEntryExit, INeedsLoggingProvider
 from components.dbmodels import Job, Library, JOBSTATUS
 
 import pymysql
@@ -108,8 +108,7 @@ for p in dir(JOBSTATUS):
 # ==================================================================================
 
 
-class MySQLDatabase:
-    @logEntryExit
+class MySQLDatabase(INeedsLoggingProvider):
     def __init__(self, database_config):
         self.connection = pymysql.connect(
             host=database_config['host'],

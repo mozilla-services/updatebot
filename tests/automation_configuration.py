@@ -9,9 +9,10 @@ import unittest
 
 sys.path.append("..")
 from automation import Updatebot
+from components.utilities import BaseProvider
 
 
-class BaseTestConfigProvider:
+class BaseTestConfigProvider(BaseProvider):
     def __init__(self, config):
         assert('specialkey' in config)
         assert(self.expected == config['specialkey'])
@@ -22,11 +23,17 @@ class TestConfigDatabaseProvider(BaseTestConfigProvider):
         self.expected = 'database!'
         super(TestConfigDatabaseProvider, self).__init__(config)
 
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
+
 
 class TestConfigVendorProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'vendor!'
         super(TestConfigVendorProvider, self).__init__(config)
+
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
 
 
 class TestConfigBugzillaProvider(BaseTestConfigProvider):
@@ -34,11 +41,17 @@ class TestConfigBugzillaProvider(BaseTestConfigProvider):
         self.expected = 'bugzilla!'
         super(TestConfigBugzillaProvider, self).__init__(config)
 
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
+
 
 class TestConfigMercurialProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'mercurial!'
         super(TestConfigMercurialProvider, self).__init__(config)
+
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
 
 
 class TestConfigTaskclusterProvider(BaseTestConfigProvider):
@@ -46,23 +59,49 @@ class TestConfigTaskclusterProvider(BaseTestConfigProvider):
         self.expected = 'taskcluster!'
         super(TestConfigTaskclusterProvider, self).__init__(config)
 
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
+
 
 class TestConfigPhabricatorProvider(BaseTestConfigProvider):
     def __init__(self, config):
         self.expected = 'phab!'
         super(TestConfigPhabricatorProvider, self).__init__(config)
 
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
+
+
+class TestConfigLoggingProvider(BaseTestConfigProvider):
+    def __init__(self, config):
+        self.expected = 'logging!'
+        super(TestConfigLoggingProvider, self).__init__(config)
+
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
+
+
+class TestConfigCommandProvider(BaseTestConfigProvider):
+    def __init__(self, config):
+        self.expected = 'command!'
+        super(TestConfigCommandProvider, self).__init__(config)
+
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
+
 
 class TestCommandRunner(unittest.TestCase):
     def testConfigurationPassing(self):
         configs = {
-            'General': {'env': 'dev'},
+            'General': {'env': 'dev', 'gecko-path': 'nowhere'},
             'Database': {'specialkey': 'database!'},
             'Vendor': {'specialkey': 'vendor!'},
             'Bugzilla': {'specialkey': 'bugzilla!'},
             'Mercurial': {'specialkey': 'mercurial!'},
             'Taskcluster': {'specialkey': 'taskcluster!'},
             'Phabricator': {'specialkey': 'phab!'},
+            'Command': {'specialkey': 'command!'},
+            'Logging': {'specialkey': 'logging!'},
         }
         providers = {
             'Database': TestConfigDatabaseProvider,
@@ -71,8 +110,15 @@ class TestCommandRunner(unittest.TestCase):
             'Mercurial': TestConfigMercurialProvider,
             'Taskcluster': TestConfigTaskclusterProvider,
             'Phabricator': TestConfigPhabricatorProvider,
+            'Logging': TestConfigLoggingProvider,
+            'Command': TestConfigCommandProvider,
         }
-        Updatebot(configs, providers)
+        u = Updatebot(configs, providers)
+
+        def assert_extra_key(x):
+            self.assertTrue("!" in x.also_expected, "Extra key was not populated")
+
+        u.runOnProviders(assert_extra_key)
 
 
 if __name__ == '__main__':

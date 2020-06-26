@@ -10,6 +10,7 @@ import tests.bugzilla
 import tests.automation_configuration
 import tests.run_command
 import tests.functionality
+import tests.multiple_inheritence
 
 loader = unittest.TestLoader()
 suite = unittest.TestSuite()
@@ -19,6 +20,7 @@ suite.addTests(loader.loadTestsFromModule(tests.bugzilla))
 suite.addTests(loader.loadTestsFromModule(tests.automation_configuration))
 suite.addTests(loader.loadTestsFromModule(tests.run_command))
 suite.addTests(loader.loadTestsFromModule(tests.functionality))
+suite.addTests(loader.loadTestsFromModule(tests.multiple_inheritence))
 
 if unittest.TextTestRunner(verbosity=3).run(suite).wasSuccessful():
     exit(0)

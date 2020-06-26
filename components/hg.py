@@ -2,12 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import logEntryExit, INeedsCommandProvider
+from components.utilities import logEntryExit, BaseProvider, INeedsCommandProvider
 
 
-class DefaultMercurialProvider(INeedsCommandProvider):
+class DefaultMercurialProvider(BaseProvider, INeedsCommandProvider):
     def __init__(self, config):
-        super().__init__(config)
+        pass
 
     @logEntryExit
     def commit(self, library, bug_id, new_release_version):

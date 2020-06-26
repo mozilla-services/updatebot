@@ -32,6 +32,7 @@ class TestDatabaeQueries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db = DefaultDatabaseProvider(localconfig['Database'])
+        cls.db.update_config({})
         cls.db.check_database()
 
     def testLibraries(self):

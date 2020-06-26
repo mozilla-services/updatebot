@@ -14,6 +14,7 @@ from components.utilities import DefaultCommandProvider
 class TestCommandRunner(unittest.TestCase):
     def testCommand(self):
         runner = DefaultCommandProvider({})
+        runner.update_config({})
         return runner.run(["echo", "Test"])
 
 

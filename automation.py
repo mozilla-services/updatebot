@@ -7,7 +7,7 @@
 import os
 import sys
 from components.logging import DefaultLoggingProvider
-from components.utilities import DefaultCommandProvider
+from components.commandprovider import DefaultCommandProvider
 from components.dbc import DefaultDatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import DefaultVendorProvider

@@ -7,7 +7,7 @@
 from components.utilities import logEntryExit, BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
-class DefaultTaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
+class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         self._vcs_setup_initialized = False
 

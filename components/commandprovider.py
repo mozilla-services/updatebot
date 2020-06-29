@@ -11,7 +11,7 @@ from subprocess import PIPE
 from components.utilities import BaseProvider, INeedsLoggingProvider
 
 
-class DefaultCommandProvider(BaseProvider, INeedsLoggingProvider):
+class CommandProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
 

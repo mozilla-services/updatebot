@@ -11,12 +11,12 @@ sys.path.append("..")
 from automation import Updatebot
 
 from components.utilities import BaseProvider
-from components.dbc import DefaultDatabaseProvider
+from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS
-from components.mach_vendor import DefaultVendorProvider
-from components.hg import DefaultMercurialProvider
-from apis.taskcluster import DefaultTaskclusterProvider
-from apis.phabricator import DefaultPhabricatorProvider
+from components.mach_vendor import VendorProvider
+from components.hg import MercurialProvider
+from apis.taskcluster import TaskclusterProvider
+from apis.phabricator import PhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_logger import log
@@ -50,9 +50,9 @@ temporary commit removed, repository restored
 """
 
 
-class TestConfigVendorProvider(DefaultVendorProvider):
+class TestConfigVendorProvider(VendorProvider):
     def __init__(self, config):
-        super(DefaultVendorProvider, self).__init__(config)
+        super(VendorProvider, self).__init__(config)
 
     def check_for_update(self, library):
         return TestConfigVendorProvider.version_id
@@ -105,22 +105,22 @@ class TestCommandRunner(unittest.TestCase):
             'Command': TestCommandProvider,
 
             # Not Mocked At All
-            'Database': DefaultDatabaseProvider,
+            'Database': DatabaseProvider,
 
             # Not Mocked At All
-            'Vendor': DefaultVendorProvider,
+            'Vendor': VendorProvider,
 
             # Fully Mocked
             'Bugzilla': TestConfigBugzillaProvider,
 
             # Not Mocked At All
-            'Mercurial': DefaultMercurialProvider,
+            'Mercurial': MercurialProvider,
 
             # Not Mocked At All
-            'Taskcluster': DefaultTaskclusterProvider,
+            'Taskcluster': TaskclusterProvider,
 
             # Not Mocked At All
-            'Phabricator': DefaultPhabricatorProvider,
+            'Phabricator': PhabricatorProvider,
         }
         u = Updatebot(configs, providers)
         u.run()

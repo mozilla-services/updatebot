@@ -5,7 +5,7 @@
 from components.utilities import logEntryExit, BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
-class DefaultMercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
+class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
 

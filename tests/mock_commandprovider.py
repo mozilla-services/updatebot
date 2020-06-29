@@ -7,17 +7,17 @@
 import sys
 sys.path.append("..")
 
-from components.utilities import Struct, BaseProvider
+from components.utilities import Struct, BaseProvider, INeedsLoggingProvider
 
 
-class TestCommandProvider(BaseProvider):
+class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config, mappings={}):
         if 'test_mappings' in config:
             self.mappings = config['test_mappings']
 
     def run(self, args, shell=False, clean_return=True):
         argument_string = " ".join(args)
-        print("Mocked Command executed", argument_string)
+        self.logger.log("Mocked Command executed", argument_string)
 
         stdout = ""
         for m in self.mappings:

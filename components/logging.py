@@ -10,32 +10,44 @@ class DefaultLoggingProvider(BaseProvider):
         self.loggers = []
         if 'loggers' in config:
             self.loggers = config['loggers']
-        pass
 
-    def log(self, message):
+    def log(self, *args):
         for l in self.loggers:
-            l.log(message)
+            l.log(*args)
+
+    def log_exception(self, e):
+        for l in self.loggers:
+            l.log_exception(e)
 
 
 class LoggerInstance:
     def __init__(self):
         pass
 
-    def log(self, message):
-        assert False, "log should be overwritten in a child class"
+    def log(self, *args):
+        assert False, "Subclass should implement this function"
+
+    def log_exception(self, e):
+        assert False, "Subclass should implement this function"
 
 
 class LocalLogger(LoggerInstance):
     def __init__(self):
         pass
 
-    def log(self, message):
-        print(message)
+    def log(self, *args):
+        print(*args)
+
+    def log_exception(self, e):
+        print(str(e))
 
 
 class SentryLogger(LoggerInstance):
     def __init__(self):
         pass
 
-    def log(self, message):
+    def log(self, *args):
+        pass
+
+    def log_exception(self, e):
         pass

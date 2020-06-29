@@ -54,27 +54,27 @@ class DefaultDatabaseProvider(BaseProvider, INeedsLoggingProvider):
             return widths
 
         def print_line(widths):
-            print("+", sep='', end='')
+            self.logger.log("+", sep='', end='')
             for w in widths:
-                print("-" * w, "+", sep='', end='')
-            print("")
+                self.logger.log("-" * w, "+", sep='', end='')
+            self.logger.log("")
 
         def print_values(values, widths):
             assert(len(values) == len(widths))
 
-            print("|", end=' ')
+            self.logger.log("|", end=' ')
             for i in range(len(values)):
-                print(str(values[i]).ljust(widths[i] - 2), "|", end=' ')
-            print("")
+                self.logger.log(str(values[i]).ljust(widths[i] - 2), "|", end=' ')
+            self.logger.log("")
 
         def print_object_values(obj, columns, widths):
             print_values([getattr(obj, c) for c in columns], widths)
 
         def print_objects(name, objects, columns):
             widths = get_column_widths(objects, columns)
-            print("")
-            print("")
-            print(name)
+            self.logger.log("")
+            self.logger.log("")
+            self.logger.log(name)
             print_line(widths)
             print_values(columns, widths)
             print_line(widths)

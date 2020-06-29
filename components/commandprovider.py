@@ -8,9 +8,10 @@ import time
 import subprocess
 from subprocess import PIPE
 
-from components.utilities import BaseProvider
+from components.utilities import BaseProvider, INeedsLoggingProvider
 
-class DefaultCommandProvider(BaseProvider):
+
+class DefaultCommandProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
 
@@ -20,9 +21,9 @@ class DefaultCommandProvider(BaseProvider):
         stderr = None
         exception = None
 
-        print("----------------------------------------------")
+        self.logger.log("----------------------------------------------")
         start = time.time()
-        print("Running", args)
+        self.logger.log("Running", args)
         try:
             ret = subprocess.run(
                 args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=60 * 10)
@@ -37,23 +38,23 @@ class DefaultCommandProvider(BaseProvider):
             stderr = ret.stderr.decode()
 
         if not ran_successfully:
-            print("Command Timed Out. Will abort....")
+            self.logger.log("Command Timed Out. Will abort....")
         else:
-            print("Return:", ret.returncode,
-                  "Runtime (s):", int(time.time() - start))
-        print("-------")
-        print("stdout:")
-        print(stdout)
-        print("-------")
-        print("stderr:")
-        print(stderr)
-        print("----------------------------------------------")
+            self.logger.log("Return:", ret.returncode,
+                            "Runtime (s):", int(time.time() - start))
+        self.logger.log("-------")
+        self.logger.log("stdout:")
+        self.logger.log(stdout)
+        self.logger.log("-------")
+        self.logger.log("stderr:")
+        self.logger.log(stderr)
+        self.logger.log("----------------------------------------------")
         if not ran_successfully:
             raise exception
         if ran_successfully and clean_return:
             if ret.returncode:
-                print("Expected a clean process return but got:", ret.returncode)
-                print("   (", *args, ")")
-                print("Exiting application...")
+                self.logger.log("Expected a clean process return but got:", ret.returncode)
+                self.logger.log("   (", *args, ")")
+                self.logger.log("Exiting application...")
                 ret.check_returncode()
         return ret

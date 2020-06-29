@@ -28,6 +28,13 @@ DEFAULT_OBJECTS = {
 }
 
 
+class PreLogger:
+    """Minimalist logger for before we initialize the real logging provider"""
+
+    def log(self, *args):
+        print(*args)
+
+
 class Updatebot:
     def __init__(self, config_dictionary={}, object_dictionary={}):
         def _getOrImpl(dictionary, name, default):
@@ -45,6 +52,7 @@ class Updatebot:
         def getOr(name):
             return _getObjOr(name)(_getConfigOr(name))
 
+        self.logger = PreLogger()
         self.config_dictionary = config_dictionary
         self.validate(config_dictionary)
 
@@ -110,12 +118,12 @@ class Updatebot:
 
     def validate(self, config_dictionary):
         if 'General' not in config_dictionary:
-            print("'General' is a required config dictionary to supply.")
+            self.logger.log("'General' is a required config dictionary to supply.")
             sys.exit(1)
         if 'gecko-path' not in config_dictionary['General']:
-            print("['General']['gecko-path'] probably should be defined in the config dictionary.")
+            self.logger.log("['General']['gecko-path'] probably should be defined in the config dictionary.")
         if 'env' not in config_dictionary['General']:
-            print("['General']['env'] must be defined in the config dictionary with a value of prod or dev.")
+            self.logger.log("['General']['env'] must be defined in the config dictionary with a value of prod or dev.")
             sys.exit(1)
 
     def run(self):
@@ -128,7 +136,8 @@ class Updatebot:
             try:
                 self.process_library(l)
             except Exception as e:
-                print(e)
+                self.logger.log("Caught an exception while processing a library.")
+                self.logger.log_exception(e)
                 # For now, re-raise the exception so the job fails and can be re-triggered.
                 # In the future we will log the exception and continue to the next library.
                 raise e

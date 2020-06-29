@@ -8,7 +8,7 @@ import time
 import subprocess
 from subprocess import PIPE
 
-from components.utilities import BaseProvider, INeedsLoggingProvider
+from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
 
 

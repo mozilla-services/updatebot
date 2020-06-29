@@ -2,7 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import BaseProvider, Struct
+from components.utilities import Struct
+from components.providerbase import BaseProvider
 
 LogLevel = Struct(**{
     'Fatal': 'fatal',
@@ -11,6 +12,20 @@ LogLevel = Struct(**{
     'Info': 'info',
     'Debug': 'debug'
 })
+
+
+def logEntryExit(func):
+    def func_wrapper(*args, **kwargs):
+        obj = args[0]
+        assert 'logger' in dir(obj), "If @logEntryExit is applied to a class method, it must inherit INeedsLoggingProvider"
+        obj.logger.log("================================================", level=LogLevel.Debug)
+        obj.logger.log("Beginning %s" % func.__qualname__, level=LogLevel.Info)
+        obj.logger.log(" Arguments: %s" % str(args), level=LogLevel.Info)
+        ret = func(*args, **kwargs)
+        obj.logger.log("Ending %s" % func.__qualname__, level=LogLevel.Info)
+        return ret
+    return func_wrapper
+
 
 class LoggingProvider(BaseProvider):
     def __init__(self, config):
@@ -47,6 +62,7 @@ class LoggerInstance(BaseProvider):
 
     def log_exception(self, e):
         assert False, "Subclass should implement this function"
+
 
 class LocalLogger(LoggerInstance):
     def __init__(self, config):

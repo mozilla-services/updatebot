@@ -8,7 +8,7 @@ import sys
 import unittest
 
 sys.path.append("..")
-from components.utilities import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
+from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 from components.logging import LoggingProvider
 from tests.mock_commandprovider import TestCommandProvider
 

@@ -7,8 +7,10 @@
 import sys
 sys.path.append("..")
 
-from components.utilities import Struct, BaseProvider, INeedsLoggingProvider
+from components.utilities import Struct
+from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
+
 
 class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config, mappings={}):

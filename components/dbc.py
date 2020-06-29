@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.db import MySQLDatabase
-from components.utilities import BaseProvider, INeedsLoggingProvider
+from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
 
 

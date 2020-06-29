@@ -6,8 +6,8 @@
 
 from apis.bugzilla_api import fileBug, commentOnBug
 from components.dbmodels import JOBSTATUS
-from components.utilities import logEntryExit, BaseProvider, INeedsLoggingProvider
-from components.logging import LogLevel
+from components.providerbase import BaseProvider, INeedsLoggingProvider
+from components.logging import LogLevel, logEntryExit
 
 
 class BugzillaProvider(BaseProvider, INeedsLoggingProvider):

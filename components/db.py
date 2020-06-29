@@ -4,7 +4,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import Struct, logEntryExit, INeedsLoggingProvider
+from components.utilities import Struct
+from components.logging import logEntryExit
+from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
 from components.dbmodels import Job, Library, JOBSTATUS
 

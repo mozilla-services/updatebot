@@ -10,7 +10,8 @@ import unittest
 sys.path.append("..")
 from automation import Updatebot
 
-from components.utilities import BaseProvider
+from components.providerbase import BaseProvider
+from components.logging import LoggingProvider
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import VendorProvider

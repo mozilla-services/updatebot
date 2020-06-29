@@ -9,5 +9,9 @@ from components.logging import DefaultLoggingProvider, LocalLogger
 TestLoggerConfig = {
     'LoggingProvider': DefaultLoggingProvider({
         'loggers': [LocalLogger()]
-        })
-    }
+    })
+}
+
+
+def log(*args):
+    TestLoggerConfig['LoggingProvider']['loggers'][0].log(*args)

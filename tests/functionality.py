@@ -19,11 +19,12 @@ from apis.taskcluster import DefaultTaskclusterProvider
 from apis.phabricator import DefaultPhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
+from tests.mock_logger import log
 
 try:
     from localconfig import localconfig
 except ImportError:
-    print("Unit tests require a local database configuration to be defined.")
+    log("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
 
 TRY_OUTPUT = """

@@ -12,12 +12,12 @@ from components.dbmodels import Library, JOBSTATUS
 from components.db import LIBRARIES
 from components.dbc import DefaultDatabaseProvider
 
-from tests.mock_logger import TestLoggerConfig
+from tests.mock_logger import TestLoggerConfig, log
 
 try:
     from localconfig import localconfig
 except ImportError:
-    print("Unit tests require a local database configuration to be defined.")
+    log("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
 
 

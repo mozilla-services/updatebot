@@ -31,7 +31,7 @@ class DefaultBugzillaProvider(BaseProvider, INeedsLoggingProvider):
         bugID = fileBug(self.config['url'], self.config['apikey'],
                         library.bugzilla_product, library.bugzilla_component,
                         summary, description, severity)
-        print("Filed Bug with ID", bugID)
+        self.logger.log("Filed Bug with ID", bugID)
         return bugID
 
     @logEntryExit
@@ -42,4 +42,4 @@ class DefaultBugzillaProvider(BaseProvider, INeedsLoggingProvider):
             comment = "I've submitted a try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=" + try_run
         commentID = commentOnBug(
             self.config['url'], self.config['apikey'], bug_id, comment)
-        print("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))
+        self.logger.log("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))

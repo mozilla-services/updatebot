@@ -6,6 +6,7 @@
 
 from components.db import MySQLDatabase
 from components.utilities import BaseProvider, INeedsLoggingProvider
+from components.logging import LogLevel
 
 
 class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
@@ -54,27 +55,27 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
             return widths
 
         def print_line(widths):
-            self.logger.log("+", sep='', end='')
+            self.logger.log("+", sep='', end='', level=LogLevel.Debug)
             for w in widths:
-                self.logger.log("-" * w, "+", sep='', end='')
-            self.logger.log("")
+                self.logger.log("-" * w, "+", sep='', end='', level=LogLevel.Debug)
+            self.logger.log("", level=LogLevel.Debug)
 
         def print_values(values, widths):
             assert(len(values) == len(widths))
 
-            self.logger.log("|", end=' ')
+            self.logger.log("|", end=' ', level=LogLevel.Debug)
             for i in range(len(values)):
-                self.logger.log(str(values[i]).ljust(widths[i] - 2), "|", end=' ')
-            self.logger.log("")
+                self.logger.log(str(values[i]).ljust(widths[i] - 2), "|", end=' ', level=LogLevel.Debug)
+            self.logger.log("", level=LogLevel.Debug)
 
         def print_object_values(obj, columns, widths):
             print_values([getattr(obj, c) for c in columns], widths)
 
         def print_objects(name, objects, columns):
             widths = get_column_widths(objects, columns)
-            self.logger.log("")
-            self.logger.log("")
-            self.logger.log(name)
+            self.logger.log("", level=LogLevel.Debug)
+            self.logger.log("", level=LogLevel.Debug)
+            self.logger.log(name, level=LogLevel.Debug)
             print_line(widths)
             print_values(columns, widths)
             print_line(widths)

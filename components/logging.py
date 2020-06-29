@@ -2,8 +2,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import BaseProvider
+from components.utilities import BaseProvider, Struct
 
+LogLevel = Struct(**{
+    'Fatal': 'fatal',
+    'Error': 'error',
+    'Warning': 'warning',
+    'Info': 'info',
+    'Debug': 'debug'
+})
 
 class LoggingProvider(BaseProvider):
     def __init__(self, config):
@@ -22,9 +29,9 @@ class LoggingProvider(BaseProvider):
         self._log_category = category
         return self
 
-    def log(self, *args, category=None):
+    def log(self, *args, level=LogLevel.Info, category=None):
         for l in self.loggers:
-            l.log(*args, category=category or self._log_category)
+            l.log(*args, level=level, category=category or self._log_category)
 
     def log_exception(self, e):
         for l in self.loggers:
@@ -35,19 +42,19 @@ class LoggerInstance(BaseProvider):
     def __init__(self):
         pass
 
-    def log(self, *args, category):
+    def log(self, *args, level, category):
         assert False, "Subclass should implement this function"
 
     def log_exception(self, e):
         assert False, "Subclass should implement this function"
 
-
 class LocalLogger(LoggerInstance):
     def __init__(self, config):
         pass
 
-    def log(self, *args, category):
-        prefix = category + ":" if category else ""
+    def log(self, *args, level, category):
+        prefix = "[" + level + "] "
+        prefix += category + ":" if category else ""
         print(prefix, *args)
 
     def log_exception(self, e):
@@ -58,7 +65,7 @@ class SentryLogger(LoggerInstance):
     def __init__(self, config):
         pass
 
-    def log(self, *args, category):
+    def log(self, *args, level, category):
         pass
 
     def log_exception(self, e):

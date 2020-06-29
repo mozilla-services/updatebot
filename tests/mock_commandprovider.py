@@ -8,7 +8,7 @@ import sys
 sys.path.append("..")
 
 from components.utilities import Struct, BaseProvider, INeedsLoggingProvider
-
+from components.logging import LogLevel
 
 class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config, mappings={}):
@@ -17,7 +17,7 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
 
     def run(self, args, shell=False, clean_return=True):
         argument_string = " ".join(args)
-        self.logger.log("Mocked Command executed", argument_string)
+        self.logger.log("Mocked Command executed", argument_string, level=LogLevel.Info)
 
         stdout = ""
         for m in self.mappings:

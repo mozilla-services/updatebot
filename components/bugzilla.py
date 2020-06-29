@@ -7,6 +7,7 @@
 from apis.bugzilla_api import fileBug, commentOnBug
 from components.dbmodels import JOBSTATUS
 from components.utilities import logEntryExit, BaseProvider, INeedsLoggingProvider
+from components.logging import LogLevel
 
 
 class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
@@ -31,7 +32,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
         bugID = fileBug(self.config['url'], self.config['apikey'],
                         library.bugzilla_product, library.bugzilla_component,
                         summary, description, severity)
-        self.logger.log("Filed Bug with ID", bugID)
+        self.logger.log("Filed Bug with ID", bugID, level=LogLevel.Info)
         return bugID
 
     @logEntryExit
@@ -42,4 +43,4 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
             comment = "I've submitted a try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=" + try_run
         commentID = commentOnBug(
             self.config['url'], self.config['apikey'], bug_id, comment)
-        self.logger.log("Filed Comment with ID %s on Bug %s" % (commentID, bug_id))
+        self.logger.log("Filed Comment with ID %s on Bug %s" % (commentID, bug_id), level=LogLevel.Info)

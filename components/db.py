@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.utilities import Struct, logEntryExit, INeedsLoggingProvider
+from components.logging import LogLevel
 from components.dbmodels import Job, Library, JOBSTATUS
 
 import pymysql
@@ -175,7 +176,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
             for q in INSERTION_QUERIES:
                 self._query_execute(q.query, q.args)
         except Exception as e:
-            self.logger.log("We don't handle exceptions raised during database creation elegantly. Your database is in an unknown state.")
+            self.logger.log("We don't handle exceptions raised during database creation elegantly. Your database is in an unknown state.", level=LogLevel.Fatal)
             self.logger.log_exception(e)
             raise e
 
@@ -189,7 +190,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
             for table_name in CREATION_QUERIES:
                 self._query_execute("DROP TABLE " + table_name)
         except Exception as e:
-            self.logger.log("We don't handle exceptions raised during database deletion elegantly. Your database is in an unknown state.")
+            self.logger.log("We don't handle exceptions raised during database deletion elegantly. Your database is in an unknown state.", level=LogLevel.Fatal)
             self.logger.log_exception(e)
             raise e
 

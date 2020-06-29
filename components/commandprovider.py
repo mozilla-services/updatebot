@@ -9,6 +9,7 @@ import subprocess
 from subprocess import PIPE
 
 from components.utilities import BaseProvider, INeedsLoggingProvider
+from components.logging import LogLevel
 
 
 class CommandProvider(BaseProvider, INeedsLoggingProvider):
@@ -21,9 +22,9 @@ class CommandProvider(BaseProvider, INeedsLoggingProvider):
         stderr = None
         exception = None
 
-        self.logger.log("----------------------------------------------")
+        self.logger.log("----------------------------------------------", level=LogLevel.Debug)
         start = time.time()
-        self.logger.log("Running", args)
+        self.logger.log("Running", args, level=LogLevel.Info)
         try:
             ret = subprocess.run(
                 args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=60 * 10)
@@ -38,23 +39,22 @@ class CommandProvider(BaseProvider, INeedsLoggingProvider):
             stderr = ret.stderr.decode()
 
         if not ran_successfully:
-            self.logger.log("Command Timed Out. Will abort....")
+            self.logger.log("Command Timed Out. Will abort....", level=LogLevel.Error)
         else:
             self.logger.log("Return:", ret.returncode,
-                            "Runtime (s):", int(time.time() - start))
-        self.logger.log("-------")
-        self.logger.log("stdout:")
-        self.logger.log(stdout)
-        self.logger.log("-------")
-        self.logger.log("stderr:")
-        self.logger.log(stderr)
-        self.logger.log("----------------------------------------------")
+                            "Runtime (s):", int(time.time() - start), level=LogLevel.Info)
+        self.logger.log("-------", level=LogLevel.Debug)
+        self.logger.log("stdout:", level=LogLevel.Debug)
+        self.logger.log(stdout, level=LogLevel.Debug)
+        self.logger.log("-------", level=LogLevel.Debug)
+        self.logger.log("stderr:", level=LogLevel.Debug)
+        self.logger.log(stderr, level=LogLevel.Debug)
+        self.logger.log("----------------------------------------------", level=LogLevel.Debug)
         if not ran_successfully:
             raise exception
         if ran_successfully and clean_return:
             if ret.returncode:
-                self.logger.log("Expected a clean process return but got:", ret.returncode)
-                self.logger.log("   (", *args, ")")
-                self.logger.log("Exiting application...")
+                self.logger.log("Expected a clean process return but got:", ret.returncode, level=LogLevel.Error)
+                self.logger.log("   (", *args, ")", level=LogLevel.Error)
                 ret.check_returncode()
         return ret

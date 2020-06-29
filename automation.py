@@ -112,12 +112,12 @@ class Updatebot:
 
     def validate(self, config_dictionary):
         if 'General' not in config_dictionary:
-            self.logger.log("'General' is a required config dictionary to supply.")
+            self.logger.log("'General' is a required config dictionary to supply.", level=LogLevel.Fatal)
             sys.exit(1)
         if 'gecko-path' not in config_dictionary['General']:
-            self.logger.log("['General']['gecko-path'] probably should be defined in the config dictionary.")
+            self.logger.log("['General']['gecko-path'] probably should be defined in the config dictionary.", level=LogLevel.Warning)
         if 'env' not in config_dictionary['General']:
-            self.logger.log("['General']['env'] must be defined in the config dictionary with a value of prod or dev.")
+            self.logger.log("['General']['env'] must be defined in the config dictionary with a value of prod or dev.", level=LogLevel.Fatal)
             sys.exit(1)
 
     def run(self):
@@ -130,13 +130,8 @@ class Updatebot:
             try:
                 self.process_library(l)
             except Exception as e:
-                self.logger.log("Caught an exception while processing a library.")
+                self.logger.log("Caught an exception while processing a library.", level=LogLevel.Error)
                 self.logger.log_exception(e)
-                # For now, re-raise the exception so the job fails and can be re-triggered.
-                # In the future we will log the exception and continue to the next library.
-                raise e
-                pass
-                # Output some information here....
 
     def process_library(self, library):
         new_version = self.vendorProvider.check_for_update(library)

@@ -68,4 +68,4 @@ class INeedsLoggingProvider:
     """
 
     def _update_config(self, config):
-        self.logger = config['LoggingProvider']
+        self.logger = config['LoggingProvider'].bind_category(self.__class__.mro()[0].__name__)

@@ -73,7 +73,7 @@ class Updatebot:
         Step 5: Call update_config on them as well to populate their INeeds superclasses.
 
         We store all providers in a provider_dictionary so its easy to iterate over them,
-        but we also turn them into member variables for easier access (Step 6).
+        but we also turn them into member variables for easier access (Step 6, 7)
         """
         # Step 1
         self.provider_dictionary = {
@@ -89,18 +89,20 @@ class Updatebot:
         self.runOnProviders(lambda x: x.update_config(additional_config))
 
         # Step 4
-        self.provider_dictionary = {
+        self.provider_dictionary.update({
             'dbProvider': getOr('Database'),
             'vendorProvider': getOr('Vendor'),
             'bugzillaProvider': getOr('Bugzilla'),
             'mercurialProvider': getOr('Mercurial'),
             'taskclusterProvider': getOr('Taskcluster'),
             'phabricatorProvider': getOr('Phabricator'),
-        }
+        })
         # Step 5
         self.runOnProviders(lambda x: x.update_config(additional_config))
         # Step 6
         self.__dict__.update(self.provider_dictionary)
+        # Step 7
+        self.logger = self.loggingProvider
 
     def runOnProviders(self, func):
         for v in self.provider_dictionary.values():

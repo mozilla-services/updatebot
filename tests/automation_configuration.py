@@ -9,7 +9,7 @@ import unittest
 
 sys.path.append("..")
 from automation import Updatebot
-from components.utilities import BaseProvider
+from components.providerbase import BaseProvider
 
 
 class BaseTestConfigProvider(BaseProvider):

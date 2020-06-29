@@ -10,7 +10,7 @@ import unittest
 sys.path.append("..")
 from components.dbmodels import Library, JOBSTATUS
 from components.db import LIBRARIES
-from components.dbc import DefaultDatabaseProvider
+from components.dbc import DatabaseProvider
 
 from tests.mock_logger import TestLoggerConfig, log
 
@@ -25,7 +25,7 @@ class TestDatabaseCreation(unittest.TestCase):
     pass
     # Commented out to avoid the test harness from deleting your database.
     # def test_creation_deletion(self):
-    # db = DefaultDatabaseProvider(localconfig['Database'])
+    # db = DatabaseProvider(localconfig['Database'])
     # db.check_database()
     # db.delete_database()
 
@@ -33,7 +33,7 @@ class TestDatabaseCreation(unittest.TestCase):
 class TestDatabaeQueries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.db = DefaultDatabaseProvider(localconfig['Database'])
+        cls.db = DatabaseProvider(localconfig['Database'])
         cls.db.update_config(TestLoggerConfig)
         cls.db.check_database()
 

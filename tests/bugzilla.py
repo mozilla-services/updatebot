@@ -14,7 +14,7 @@ import json
 sys.path.append("..")
 from components.utilities import Struct
 from components.dbmodels import JOBSTATUS
-from components.bugzilla import DefaultBugzillaProvider
+from components.bugzilla import BugzillaProvider
 
 from tests.mock_logger import TestLoggerConfig
 
@@ -64,7 +64,7 @@ class TestBugzillaProvider(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = server.HTTPServer(('', 27489), MockBugzillaServer)
-        cls.bugzillaProvider = DefaultBugzillaProvider({
+        cls.bugzillaProvider = BugzillaProvider({
             'General': {'env': 'dev'},
             'apikey': 'bob',
             'url': 'http://localhost:27489/',

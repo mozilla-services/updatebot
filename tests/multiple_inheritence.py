@@ -9,7 +9,7 @@ import unittest
 
 sys.path.append("..")
 from components.utilities import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
-from components.logging import DefaultLoggingProvider
+from components.logging import LoggingProvider
 from tests.mock_commandprovider import TestCommandProvider
 
 
@@ -27,7 +27,7 @@ class TestCommandRunner(unittest.TestCase):
         alice = FakeProvider(config1)
 
         tcp = TestCommandProvider({})
-        lp = DefaultLoggingProvider({})
+        lp = LoggingProvider({})
         config2 = {
             'CommandProvider': tcp,
             'LoggingProvider': lp

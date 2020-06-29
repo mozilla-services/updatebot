@@ -8,7 +8,7 @@ from components.db import MySQLDatabase
 from components.utilities import BaseProvider, INeedsLoggingProvider
 
 
-class DefaultDatabaseProvider(BaseProvider, INeedsLoggingProvider):
+class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, database_config):
         self.db = MySQLDatabase(database_config)
 

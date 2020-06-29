@@ -5,7 +5,7 @@
 from components.utilities import BaseProvider
 
 
-class DefaultLoggingProvider(BaseProvider):
+class LoggingProvider(BaseProvider):
     def __init__(self, config):
         self.loggers = []
         if 'loggers' in config:

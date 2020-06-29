@@ -7,7 +7,7 @@
 from components.utilities import logEntryExit, BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
-class DefaultPhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
+class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
 

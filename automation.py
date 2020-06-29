@@ -6,25 +6,25 @@
 
 import os
 import sys
-from components.logging import DefaultLoggingProvider
-from components.commandprovider import DefaultCommandProvider
-from components.dbc import DefaultDatabaseProvider
+from components.logging import LoggingProvider
+from components.commandprovider import CommandProvider
+from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS
-from components.mach_vendor import DefaultVendorProvider
-from components.bugzilla import DefaultBugzillaProvider
-from components.hg import DefaultMercurialProvider
-from apis.taskcluster import DefaultTaskclusterProvider
-from apis.phabricator import DefaultPhabricatorProvider
+from components.mach_vendor import VendorProvider
+from components.bugzilla import BugzillaProvider
+from components.hg import MercurialProvider
+from apis.taskcluster import TaskclusterProvider
+from apis.phabricator import PhabricatorProvider
 
 DEFAULT_OBJECTS = {
-    'Command': DefaultCommandProvider,
-    'Logging': DefaultLoggingProvider,
-    'Database': DefaultDatabaseProvider,
-    'Vendor': DefaultVendorProvider,
-    'Bugzilla': DefaultBugzillaProvider,
-    'Mercurial': DefaultMercurialProvider,
-    'Taskcluster': DefaultTaskclusterProvider,
-    'Phabricator': DefaultPhabricatorProvider,
+    'Command': CommandProvider,
+    'Logging': LoggingProvider,
+    'Database': DatabaseProvider,
+    'Vendor': VendorProvider,
+    'Bugzilla': BugzillaProvider,
+    'Mercurial': MercurialProvider,
+    'Taskcluster': TaskclusterProvider,
+    'Phabricator': PhabricatorProvider,
 }
 
 
@@ -201,13 +201,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.print_database:
-        db = DefaultDatabaseProvider(localconfig['Database'])
+        db = DatabaseProvider(localconfig['Database'])
         db.print()
     elif args.delete_database:
-        db = DefaultDatabaseProvider(localconfig['Database'])
+        db = DatabaseProvider(localconfig['Database'])
         db.delete_database()
     elif args.check_database:
-        db = DefaultDatabaseProvider(localconfig['Database'])
+        db = DatabaseProvider(localconfig['Database'])
         db.check_database()
     else:
         u = Updatebot(localconfig)

@@ -5,7 +5,7 @@
 from components.utilities import logEntryExit, BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
-class DefaultVendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
+class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
 

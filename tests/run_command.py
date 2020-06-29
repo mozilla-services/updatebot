@@ -8,13 +8,13 @@ import sys
 import unittest
 
 sys.path.append("..")
-from components.commandprovider import DefaultCommandProvider
+from components.commandprovider import CommandProvider
 from tests.mock_logger import TestLoggerConfig
 
 
 class TestCommandRunner(unittest.TestCase):
     def testCommand(self):
-        runner = DefaultCommandProvider({})
+        runner = CommandProvider({})
         runner.update_config(TestLoggerConfig)
         return runner.run(["echo", "Test"])
 

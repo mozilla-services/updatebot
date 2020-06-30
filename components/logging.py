@@ -2,8 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
+from sentry_sdk import init as sentry_init, add_breadcrumb, capture_exception, configure_scope
+
 from components.utilities import Struct
 from components.providerbase import BaseProvider
+from components.commandrunner import _run
 
 LogLevel = Struct(**{
     'Fatal': 'fatal',
@@ -79,13 +83,38 @@ class LocalLogger(LoggerInstance):
 
 class SentryLogger(LoggerInstance):
     def __init__(self, config):
-        pass
+        assert 'sentry' in config and config['sentry']
+        assert 'sentry_config' in config, "Sentry logger requires a sentry_config key"
+        assert 'url' in config['sentry_config'], "Sentry logger requires a url key in sentry_config"
+        self.config = config
+
+    def _update_config(self, additional_config):
+        version = "updatebot-"
+        version += _run(["git", "rev-parse", "HEAD"], shell=False, clean_return=True).stdout.decode().strip()
+        version += "-dirty" if _run(["[[ -z $(git status -s) ]]"], shell=True, clean_return=False).returncode else ""
+
+        environment = ""
+        if "TASK_ID" in os.environ:
+            environment = "taskcluster"
+        else:
+            environment = _run(["hostname"], shell=False, clean_return=True).stdout.decode().strip()
+
+        sentry_init(
+            dsn=self.config['sentry_config']['url'],
+            debug=self.config['sentry_config']['debug'] if 'debug' in self.config['sentry_config'] else False,
+            release=version,
+            max_breadcrumbs=5000,
+            environment=environment)
+
+        with configure_scope() as scope:
+            if "TASK_ID" in os.environ:
+                scope.set_extra("TASK_ID", os.environ['TASK_ID'])
 
     def log(self, *args, level, category):
-        pass
+        add_breadcrumb(category=category, level=level, message=" ".join(args))
 
     def log_exception(self, e):
-        pass
+        capture_exception(e)
 
 
 class SimpleLogger(LoggingProvider):

@@ -4,14 +4,14 @@
 
 import sys
 sys.path.append("..")
-from components.logging import LoggingProvider, LocalLogger
+from components.logging import SimpleLogger
+
+simpleLogger = SimpleLogger()
 
 TestLoggerConfig = {
-    'LoggingProvider': LoggingProvider({
-        'loggers': [LocalLogger()]
-    })
+    'LoggingProvider': simpleLogger
 }
 
 
 def log(*args):
-    TestLoggerConfig['LoggingProvider']['loggers'][0].log(*args)
+    simpleLogger.log(*args)

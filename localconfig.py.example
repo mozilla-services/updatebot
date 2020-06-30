@@ -5,6 +5,14 @@ localconfig = {
         'env': 'dev',
         'gecko-path': '/path/to/mozilla-central'
     },
+    'Logging': {
+        'local': True,
+        'sentry': False,
+        'sentry_config': {
+            'url': 'https://foo@sentry.prod.mozaws.net/1',
+            'debug': True
+        }
+    },
     'Database': {
         'host': 'localhost',
         'user': 'username',
@@ -13,5 +21,8 @@ localconfig = {
     },
     'Bugzilla': {
         'apikey': '<foobar>'
+    },
+    'Taskcluster': {
+        # 'url': 'https://treeherder.mozilla.org/api/projects/holly/'
     }
 }

@@ -6,7 +6,7 @@
 
 import os
 import sys
-from components.logging import LoggingProvider
+from components.logging import LoggingProvider, SimpleLogger, LogLevel
 from components.commandprovider import CommandProvider
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS
@@ -28,13 +28,6 @@ DEFAULT_OBJECTS = {
 }
 
 
-class PreLogger:
-    """Minimalist logger for before we initialize the real logging provider"""
-
-    def log(self, *args):
-        print(*args)
-
-
 class Updatebot:
     def __init__(self, config_dictionary={}, object_dictionary={}):
         def _getOrImpl(dictionary, name, default):
@@ -52,7 +45,8 @@ class Updatebot:
         def getOr(name):
             return _getObjOr(name)(_getConfigOr(name))
 
-        self.logger = PreLogger()
+        # Pre-initialize this with a print-based logger for validation error output.
+        self.logger = SimpleLogger()
         self.config_dictionary = config_dictionary
         self.validate(config_dictionary)
 

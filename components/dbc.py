@@ -13,7 +13,7 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         self.db = MySQLDatabase(database_config)
 
     def _update_config(self, config):
-        self.db._update_config(config)
+        self.db.update_config(config)
 
     def check_database(self):
         return self.db.check_database()

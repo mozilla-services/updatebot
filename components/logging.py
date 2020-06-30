@@ -8,9 +8,15 @@ from components.utilities import BaseProvider
 class LoggingProvider(BaseProvider):
     def __init__(self, config):
         self.loggers = []
-        if 'loggers' in config:
-            self.loggers = config['loggers']
         self._log_category = None
+        if 'local' in config and config['local']:
+            self.loggers.append(LocalLogger(config))
+        if 'sentry' in config and config['sentry']:
+            self.loggers.append(SentryLogger(config))
+
+    def _update_config(self, additional_config):
+        for l in self.loggers:
+            l.update_config(additional_config)
 
     def bind_category(self, category):
         self._log_category = category
@@ -25,7 +31,7 @@ class LoggingProvider(BaseProvider):
             l.log_exception(e)
 
 
-class LoggerInstance:
+class LoggerInstance(BaseProvider):
     def __init__(self):
         pass
 
@@ -37,7 +43,7 @@ class LoggerInstance:
 
 
 class LocalLogger(LoggerInstance):
-    def __init__(self):
+    def __init__(self, config):
         pass
 
     def log(self, *args, category):
@@ -49,7 +55,7 @@ class LocalLogger(LoggerInstance):
 
 
 class SentryLogger(LoggerInstance):
-    def __init__(self):
+    def __init__(self, config):
         pass
 
     def log(self, *args, category):
@@ -57,3 +63,8 @@ class SentryLogger(LoggerInstance):
 
     def log_exception(self, e):
         pass
+
+
+class SimpleLogger(LoggingProvider):
+    def __init__(self):
+        super().__init__({'local': True})

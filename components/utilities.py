@@ -41,12 +41,26 @@ class BaseProvider:
         and looks for an _update_config method on that class. If it is present,
         it is called.
 
+        A provider may implement its own _update_config to perform actions for
+        itself.  Those actions are typically:
+          1. Calling update_config on a member provider or a collection of member
+             providers it has. Those members should inherit from BaseProvider
+             and note that we should only call update_config on them, this allows
+             the update_config call to succeed even if they have no INeeds
+             super-class or _update_config method.
+          2. Using its _update_config as a final init() method where all its
+             utility providers are available. (This is why we do the below in
+             reverse order.)
+
+
         One wrinkle here is that if the derived class (the class of the variable;
         i.e. not any superclasses) inherits from any class with _update_config,
         and doesn't define its own, then one of the _update_config functions on
         the base classes will be called twice. This shouldn't matter.
         """
-        for c in self.__class__.mro():
+        classes = self.__class__.mro()
+        classes.reverse()
+        for c in classes:
             methods = inspect.getmembers(c, predicate=inspect.isfunction)
             for m in methods:
                 if m[0] == '_update_config':

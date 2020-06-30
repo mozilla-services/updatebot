@@ -93,6 +93,7 @@ class TestCommandRunner(unittest.TestCase):
         configs = {
             'General': {'env': 'dev'},
             'Command': {'test_mappings': COMMAND_MAPPINGS},
+            'Logging': localconfig['Logging'],
             'Database': localconfig['Database'],
             'Vendor': {},
             'Bugzilla': {},

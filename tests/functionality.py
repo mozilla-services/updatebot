@@ -103,6 +103,9 @@ class TestCommandRunner(unittest.TestCase):
             'Phabricator': {},
         }
         providers = {
+            # Not Mocked At All
+            'Logging': LoggingProvider,
+
             # Fully Mocked
             'Command': TestCommandProvider,
 

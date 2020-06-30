@@ -108,7 +108,7 @@ for p in dir(JOBSTATUS):
 # ==================================================================================
 
 
-class MySQLDatabase(INeedsLoggingProvider):
+class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     def __init__(self, database_config):
         self.connection = pymysql.connect(
             host=database_config['host'],

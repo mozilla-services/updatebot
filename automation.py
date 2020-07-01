@@ -48,7 +48,7 @@ class Updatebot:
         # Pre-initialize this with a print-based logger for validation error output.
         self.logger = SimpleLogger()
         self.config_dictionary = config_dictionary
-        self.validate(config_dictionary)
+        self._validate(config_dictionary)
 
         """
         Provider initialization is complicated.
@@ -70,12 +70,13 @@ class Updatebot:
         At this point we have set up all the utility providers and populated any cyclic
         dependencies.
 
-        Step 4: Instantiate the other providers (we call them functionality providers.)
+        Step 4: Set up the logger, so we can capture exceptions
+        Step 5: Instantiate the other providers (we call them functionality providers.)
                 These providers should never depend on each other.
-        Step 5: Call update_config on them as well to populate their INeeds superclasses.
+        Step 6: Call update_config on them as well to populate their INeeds superclasses.
 
         We store all providers in a provider_dictionary so its easy to iterate over them,
-        but we also turn them into member variables for easier access (Step 6, 7)
+        but we also turn them into member variables for easier access (Step 7)
         """
         # Step 1
         self.provider_dictionary = {
@@ -91,26 +92,31 @@ class Updatebot:
         self.runOnProviders(lambda x: x.update_config(additional_config))
 
         # Step 4
-        self.provider_dictionary.update({
-            'dbProvider': getOr('Database'),
-            'vendorProvider': getOr('Vendor'),
-            'bugzillaProvider': getOr('Bugzilla'),
-            'mercurialProvider': getOr('Mercurial'),
-            'taskclusterProvider': getOr('Taskcluster'),
-            'phabricatorProvider': getOr('Phabricator'),
-        })
-        # Step 5
-        self.runOnProviders(lambda x: x.update_config(additional_config))
-        # Step 6
-        self.__dict__.update(self.provider_dictionary)
-        # Step 7
-        self.logger = self.loggingProvider
+        self.logger = self.provider_dictionary['loggingProvider']
+
+        try:
+            # Step 5
+            self.provider_dictionary.update({
+                'dbProvider': getOr('Database'),
+                'vendorProvider': getOr('Vendor'),
+                'bugzillaProvider': getOr('Bugzilla'),
+                'mercurialProvider': getOr('Mercurial'),
+                'taskclusterProvider': getOr('Taskcluster'),
+                'phabricatorProvider': getOr('Phabricator'),
+            })
+            # Step 6
+            self.runOnProviders(lambda x: x.update_config(additional_config))
+            # Step 7
+            self.__dict__.update(self.provider_dictionary)
+        except Exception as e:
+            self.logger.log_exception(e)
+            raise(e)
 
     def runOnProviders(self, func):
         for v in self.provider_dictionary.values():
             func(v)
 
-    def validate(self, config_dictionary):
+    def _validate(self, config_dictionary):
         if 'General' not in config_dictionary:
             self.logger.log("'General' is a required config dictionary to supply.", level=LogLevel.Fatal)
             sys.exit(1)
@@ -121,30 +127,34 @@ class Updatebot:
             sys.exit(1)
 
     def run(self):
-        if 'gecko-path' in self.config_dictionary['General']:
-            os.chdir(self.config_dictionary['General']['gecko-path'])
+        try:
+            if 'gecko-path' in self.config_dictionary['General']:
+                os.chdir(self.config_dictionary['General']['gecko-path'])
 
-        self.dbProvider.check_database()
-        libraries = self.dbProvider.get_libraries()
-        for l in libraries:
-            try:
-                self.process_library(l)
-            except Exception as e:
-                self.logger.log("Caught an exception while processing a library.", level=LogLevel.Error)
-                self.logger.log_exception(e)
+            self.dbProvider.check_database()
+            libraries = self.dbProvider.get_libraries()
+            for l in libraries:
+                try:
+                    self._process_library(l)
+                except Exception as e:
+                    self.logger.log("Caught an exception while processing a library.", level=LogLevel.Error)
+                    self.logger.log_exception(e)
+        except Exception as e:
+            self.logger.log_exception(e)
+            raise(e)
 
-    def process_library(self, library):
+    def _process_library(self, library):
         new_version = self.vendorProvider.check_for_update(library)
         if not new_version:
             return
 
         existing_job = self.dbProvider.get_job(library, new_version)
         if existing_job:
-            self.process_existing_job(existing_job)
+            self._process_existing_job(existing_job)
         else:
-            self.process_new_job(library, new_version)
+            self._process_new_job(library, new_version)
 
-    def process_new_job(self, library, new_version):
+    def _process_new_job(self, library, new_version):
         bug_id = self.bugzillaProvider.file_bug(library, new_version)
 
         status = None
@@ -166,7 +176,7 @@ class Updatebot:
         self.phabricatorProvider.submit_patch()
         self.dbProvider.save_job(library, new_version, status, bug_id, try_run)
 
-    def process_existing_job(self, existing_job):
+    def _process_existing_job(self, existing_job):
         pass
 
 

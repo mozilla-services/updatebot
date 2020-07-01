@@ -22,7 +22,7 @@ and should be using a ComandProvider.
 
 
 def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, debuglog=do_nothing):
-    ran_successfully = False
+    ran_to_completion = False
     stdout = None
     stderr = None
     exception = None
@@ -34,16 +34,16 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
         ret = subprocess.run(
             args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=60 * 10)
     except subprocess.TimeoutExpired as e:
-        ran_successfully = False
+        ran_to_completion = False
         stdout = e.stdout
         stderr = e.stderr
         exception = e
     else:
-        ran_successfully = True
+        ran_to_completion = True
         stdout = ret.stdout.decode()
         stderr = ret.stderr.decode()
 
-    if not ran_successfully:
+    if not ran_to_completion:
         errorlog("Command Timed Out. Will abort....")
     else:
         infolog("Return:", ret.returncode,
@@ -55,9 +55,9 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
     debuglog("stderr:")
     debuglog(stderr)
     debuglog("----------------------------------------------")
-    if not ran_successfully:
+    if not ran_to_completion:
         raise exception
-    if ran_successfully and clean_return:
+    if ran_to_completion and clean_return:
         if ret.returncode:
             errorlog("Expected a clean process return but got:", ret.returncode)
             errorlog("   (", *args, ")")

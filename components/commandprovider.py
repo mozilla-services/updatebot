@@ -21,5 +21,5 @@ class CommandProvider(BaseProvider, INeedsLoggingProvider):
         self.debuglog = partial(self.logger.log, level=LogLevel.Debug)
 
     def run(self, args, shell=False, clean_return=True):
-        _run(args, shell=shell, clean_return=clean_return,
-             errorlog=self.errorlog, infolog=self.infolog, debuglog=self.debuglog)
+        return _run(args, shell=shell, clean_return=clean_return,
+                    errorlog=self.errorlog, infolog=self.infolog, debuglog=self.debuglog)

@@ -15,8 +15,7 @@ sys.path.append("..")
 from components.utilities import Struct
 from components.dbmodels import JOBSTATUS
 from components.bugzilla import BugzillaProvider
-
-from tests.mock_logger import TestLoggerConfig
+from components.logging import SimpleLoggerConfig
 
 
 class MockBugzillaServer(server.BaseHTTPRequestHandler):
@@ -69,7 +68,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'apikey': 'bob',
             'url': 'http://localhost:27489/',
         })
-        cls.bugzillaProvider.update_config(TestLoggerConfig)
+        cls.bugzillaProvider.update_config(SimpleLoggerConfig)
 
     @classmethod
     def tearDownClass(cls):

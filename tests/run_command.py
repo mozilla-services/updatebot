@@ -16,7 +16,8 @@ class TestCommandRunner(unittest.TestCase):
     def testCommand(self):
         runner = CommandProvider({})
         runner.update_config(SimpleLoggerConfig)
-        return runner.run(["echo", "Test"])
+        ret = runner.run(["echo", "Test"])
+        self.assertEqual(ret.returncode, 0, "Did not run the command successfully")
 
 
 if __name__ == '__main__':

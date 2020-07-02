@@ -111,7 +111,7 @@ class SentryLogger(LoggerInstance):
                 scope.set_extra("TASK_ID", os.environ['TASK_ID'])
 
     def log(self, *args, level, category):
-        add_breadcrumb(category=category, level=level, message=" ".join(args))
+        add_breadcrumb(category=category, level=level, message=" ".join([str(i) for i in args]))
 
     def log_exception(self, e):
         capture_exception(e)

@@ -11,7 +11,7 @@ sys.path.append("..")
 from automation import Updatebot
 
 from components.providerbase import BaseProvider
-from components.logging import LoggingProvider
+from components.logging import LoggingProvider, log
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import VendorProvider
@@ -20,7 +20,6 @@ from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
-from tests.mock_logger import log
 
 try:
     from localconfig import localconfig

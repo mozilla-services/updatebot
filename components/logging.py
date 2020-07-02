@@ -120,3 +120,14 @@ class SentryLogger(LoggerInstance):
 class SimpleLogger(LoggingProvider):
     def __init__(self):
         super().__init__({'local': True})
+
+
+simpleLogger = SimpleLogger()
+
+SimpleLoggerConfig = {
+    'LoggingProvider': simpleLogger
+}
+
+
+def log(*args):
+    simpleLogger.log(*args)

@@ -6,7 +6,7 @@
 
 import os
 import sys
-from components.logging import LoggingProvider, SimpleLogger, LogLevel
+from components.logging import LoggingProvider, SimpleLogger, LogLevel, SimpleLoggerConfig
 from components.commandprovider import CommandProvider
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS
@@ -201,12 +201,15 @@ if __name__ == "__main__":
 
     if args.print_database:
         db = DatabaseProvider(localconfig['Database'])
+        db.update_config(SimpleLoggerConfig)
         db.print()
     elif args.delete_database:
         db = DatabaseProvider(localconfig['Database'])
+        db.update_config(SimpleLoggerConfig)
         db.delete_database()
     elif args.check_database:
         db = DatabaseProvider(localconfig['Database'])
+        db.update_config(SimpleLoggerConfig)
         db.check_database()
     else:
         u = Updatebot(localconfig)

@@ -9,13 +9,13 @@ import unittest
 
 sys.path.append("..")
 from components.commandprovider import CommandProvider
-from tests.mock_logger import TestLoggerConfig
+from components.logging import SimpleLoggerConfig
 
 
 class TestCommandRunner(unittest.TestCase):
     def testCommand(self):
         runner = CommandProvider({})
-        runner.update_config(TestLoggerConfig)
+        runner.update_config(SimpleLoggerConfig)
         return runner.run(["echo", "Test"])
 
 

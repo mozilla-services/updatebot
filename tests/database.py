@@ -11,8 +11,7 @@ sys.path.append("..")
 from components.dbmodels import Library, JOBSTATUS
 from components.db import LIBRARIES
 from components.dbc import DatabaseProvider
-
-from tests.mock_logger import TestLoggerConfig, log
+from components.logging import SimpleLoggerConfig, log
 
 try:
     from localconfig import localconfig
@@ -34,7 +33,7 @@ class TestDatabaeQueries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db = DatabaseProvider(localconfig['Database'])
-        cls.db.update_config(TestLoggerConfig)
+        cls.db.update_config(SimpleLoggerConfig)
         cls.db.check_database()
 
     def testLibraries(self):

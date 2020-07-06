@@ -5,22 +5,27 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import unittest
-import tests.database
-import tests.bugzilla
-import tests.automation_configuration
-import tests.run_command
-import tests.functionality
-import tests.multiple_inheritence
+import importlib
+
+# Must correspond to the file name
+TESTS = [
+    "database",
+    "bugzilla",
+    "automation_configuration",
+    "run_command",
+    "functionality",
+    "multiple_inheritence",
+]
+
+modules = []
+for t in TESTS:
+    modules.append(importlib.import_module("tests." + t))
 
 loader = unittest.TestLoader()
 suite = unittest.TestSuite()
 
-suite.addTests(loader.loadTestsFromModule(tests.database))
-suite.addTests(loader.loadTestsFromModule(tests.bugzilla))
-suite.addTests(loader.loadTestsFromModule(tests.automation_configuration))
-suite.addTests(loader.loadTestsFromModule(tests.run_command))
-suite.addTests(loader.loadTestsFromModule(tests.functionality))
-suite.addTests(loader.loadTestsFromModule(tests.multiple_inheritence))
+for m in modules:
+    suite.addTests(loader.loadTestsFromModule(m))
 
 if unittest.TextTestRunner(verbosity=3).run(suite).wasSuccessful():
     exit(0)

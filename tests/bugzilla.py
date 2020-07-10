@@ -14,9 +14,10 @@ import json
 sys.path.append(".")
 sys.path.append("..")
 from components.utilities import Struct
-from components.dbmodels import JOBSTATUS
-from components.bugzilla import BugzillaProvider
+from components.bugzilla import BugzillaProvider, CommentTemplates
 from components.logging import SimpleLoggerConfig
+
+TRY_REVISION = "this-is-my-try-link"
 
 
 class MockBugzillaServer(server.BaseHTTPRequestHandler):
@@ -32,7 +33,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
 
         if expectedPath_comment == self.path:
             assert 'comment' in content
-            assert content['comment'] == "I've submitted a try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=this-is-my-try-link"
+            assert content['comment'] == CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION)
 
             self.wfile.write("{\"id\":456}".encode())
         elif expectedPath_file == self.path:
@@ -88,7 +89,7 @@ class TestBugzillaProvider(unittest.TestCase):
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(
-            123, JOBSTATUS.AWAITING_TRY_RESULTS, "this-is-my-try-link")
+            123, CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION))
 
 
 if __name__ == '__main__':

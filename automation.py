@@ -11,7 +11,7 @@ from components.commandprovider import CommandProvider
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS
 from components.mach_vendor import VendorProvider
-from components.bugzilla import BugzillaProvider
+from components.bugzilla import BugzillaProvider, CommentTemplates
 from components.hg import MercurialProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
@@ -155,7 +155,7 @@ class Updatebot:
             self._process_new_job(library, new_version)
 
     def _process_new_job(self, library, new_version):
-        bug_id = self.bugzillaProvider.file_bug(library, new_version)
+        bugzilla_id = self.bugzillaProvider.file_bug(library, new_version)
 
         status = None
         try:
@@ -164,17 +164,17 @@ class Updatebot:
         except Exception:
             # Handle `./mach vendor` failing
             status = JOBSTATUS.COULD_NOT_VENDOR
-            self.dbProvider.create_job(library, new_version, status, bug_id, phab_revision=None)
-            self.bugzillaProvider.comment_on_bug(bug_id, status)
+            self.dbProvider.create_job(library, new_version, status, bugzilla_id, phab_revision=None)
+            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(""))  # TODO, put error message
             return
 
-        self.mercurialProvider.commit(library, bug_id, new_version)
-        try_run = self.taskclusterProvider.submit_to_try(library)
+        self.mercurialProvider.commit(library, bugzilla_id, new_version)
+        try_revision = self.taskclusterProvider.submit_to_try(library)
 
         status = JOBSTATUS.AWAITING_TRY_RESULTS
-        self.bugzillaProvider.comment_on_bug(bug_id, status, try_run)
+        self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
         phab_revision = self.phabricatorProvider.submit_patch()
-        self.dbProvider.save_job(library, new_version, status, bug_id, phab_revision, try_run)
+        self.dbProvider.create_job(library, new_version, status, bugzilla_id, phab_revision, try_revision)
 
     def _process_existing_job(self, existing_job):
         pass

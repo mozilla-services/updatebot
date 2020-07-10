@@ -19,6 +19,7 @@ LIBRARIES = [
         'yaml_path': 'media/libdav1d/moz.yaml',
         'bugzilla_product': 'Core',
         'bugzilla_component': 'ImageLib',
+        'maintainer': 'tom@ritter.vg',
         'fuzzy_query': "'build-linux64/debug"
         # 'fuzzy_query' : "'test 'gtest | 'media !'asan"
     })
@@ -78,6 +79,7 @@ CREATION_QUERIES = {
         `yaml_path` VARCHAR(1024) NOT NULL,
         `bugzilla_product` VARCHAR(255) NOT NULL ,
         `bugzilla_component` VARCHAR(255) NOT NULL,
+        `maintainer` VARCHAR(1024) NOT NULL,
         `fuzzy_query` VARCHAR(255) NULL,
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
@@ -96,8 +98,8 @@ INSERTION_QUERIES = [
 for l in LIBRARIES:
     INSERTION_QUERIES.append(
         Struct(**{
-            'query': "INSERT INTO `libraries` (`shortname`, `yaml_path`, `bugzilla_product`, `bugzilla_component`, `fuzzy_query`) VALUES (%s, %s, %s, %s, %s)",
-            'args': (l.shortname, l.yaml_path, l.bugzilla_product, l.bugzilla_component, l.fuzzy_query)
+            'query': "INSERT INTO `libraries` (`shortname`, `yaml_path`, `bugzilla_product`, `bugzilla_component`, `maintainer`, `fuzzy_query`) VALUES (%s, %s, %s, %s, %s, %s)",
+            'args': (l.shortname, l.yaml_path, l.bugzilla_product, l.bugzilla_component, l.maintainer, l.fuzzy_query)
         }))
 
 for p in dir(JOBSTATUS):

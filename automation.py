@@ -164,7 +164,7 @@ class Updatebot:
         except Exception:
             # Handle `./mach vendor` failing
             status = JOBSTATUS.COULD_NOT_VENDOR
-            self.dbProvider.save_job(library, new_version, status, bug_id, phab_revision=None)
+            self.dbProvider.create_job(library, new_version, status, bug_id, phab_revision=None)
             self.bugzillaProvider.comment_on_bug(bug_id, status)
             return
 

@@ -228,6 +228,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         args = (library.shortname, new_version, status, bug_id, phab_revision, try_run)
         self._query_execute(query, args)
 
+    @logEntryExit
+    def update_job_status(self, existing_job):
+        query = "UPDATE jobs SET status=%s WHERE library = %s AND version = %s"
+        args = (existing_job.status, existing_job.library_shortname, existing_job.version)
+        self._query_execute(query, args)
+
     def delete_job(self, library, new_version):
         query = "DELETE FROM jobs WHERE library = %s AND version = %s"
         args = (library.shortname, new_version)

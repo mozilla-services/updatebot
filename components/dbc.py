@@ -41,6 +41,9 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def create_job(self, library, new_version, status, bug_id, phab_revision, try_run=None):
         return self.db.create_job(library, new_version, status, bug_id, phab_revision, try_run)
 
+    def update_job_status(self, existing_job):
+        return self.db.update_job_status(existing_job)
+
     def print(self):
         def get_column_widths(objects, columns):
             widths = []

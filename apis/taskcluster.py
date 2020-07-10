@@ -15,6 +15,16 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         if 'url' in config:
             self.url = config['url']
 
+        self.project = ""
+        if 'project' in config:
+            self.project = "project/" + config['project'] + "/"
+
+        self.HEADERS = {
+            'User-Agent': 'Updatebot'
+        }
+
+    # =================================================================
+    # =================================================================
     @logEntryExit
     def _vcs_setup(self):
         if not self._vcs_setup_initialized:

@@ -3,6 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import traceback
+
 from sentry_sdk import init as sentry_init, add_breadcrumb, capture_exception, configure_scope
 
 from components.utilities import Struct
@@ -78,7 +80,8 @@ class LocalLogger(LoggerInstance):
         print(prefix, *args)
 
     def log_exception(self, e):
-        print(str(e))
+        bt = traceback.format_exc()
+        print(bt)
 
 
 class SentryLogger(LoggerInstance):

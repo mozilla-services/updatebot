@@ -21,6 +21,7 @@ class Job:
             self.version = row['version']
             self.status = row['status']
             self.bugzilla_id = row['bugzilla_id']
+            self.phab_revision = row['phab_revision']
             self.try_revision = row['try_revision']
 
 

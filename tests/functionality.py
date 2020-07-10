@@ -11,6 +11,7 @@ sys.path.append(".")
 sys.path.append("..")
 from automation import Updatebot
 
+from components.utilities import Struct
 from components.providerbase import BaseProvider
 from components.logging import LoggingProvider, log
 from components.dbc import DatabaseProvider
@@ -50,16 +51,41 @@ push complete
 temporary commit removed, repository restored
 """
 
+ARC_OUTPUT = """
+Submitting 1 commit for review:
+(New) 539627:dc5f73bea33e Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
+dc5f73bea33e is based off non-public commit 76fbb2477f01
+Warning: found 2 untracked files (will not be submitted):
+  sshkey.patch
+  taskcluster/ci/fetch/toolchains.yml.orig
+Automatically submitting (as per submit.auto_submit in ~/.moz-phab-config)
+
+Creating new revision:
+539627:dc5f73bea33e Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
+1 new orphan changesets
+rebasing 539628:2f4625139f7e "Bug 1652037 - Wire up build_clang_tidy_external in build-clang.py r?#build" (civet)
+1 files updated, 0 files merged, 0 files removed, 0 files unresolved
+(activating bookmark civet)
+
+Completed
+(D83119) 539629:94adaadd8131 Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
+-> https://phabricator.services.mozilla.com/D83119
+"""
+
+ExpectedValues = Struct(**{
+    'library_version_id': "newversion",
+    'filed_bug_id': 50,
+    'try_revision_id': "e152bb86666565ee6619c15f60156cd6c79580a9",
+    'phab_revision': 83119
+})
+
 
 class TestConfigVendorProvider(VendorProvider):
     def __init__(self, config):
         super(VendorProvider, self).__init__(config)
 
     def check_for_update(self, library):
-        return TestConfigVendorProvider.version_id
-
-
-TestConfigVendorProvider.version_id = "TestConfigVendorProvider_newversion"
+        return ExpectedValues.library_version_id
 
 
 class TestConfigBugzillaProvider(BaseProvider):
@@ -67,13 +93,10 @@ class TestConfigBugzillaProvider(BaseProvider):
         pass
 
     def file_bug(self, library, new_release_version):
-        return TestConfigBugzillaProvider.bug_id
+        return ExpectedValues.filed_bug_id
 
     def comment_on_bug(self, bug_id, status, try_run=None):
         pass
-
-
-TestConfigBugzillaProvider.bug_id = 10
 
 
 class TestConfigTaskclusterProvider(BaseProvider):
@@ -81,11 +104,10 @@ class TestConfigTaskclusterProvider(BaseProvider):
         pass
 
 
-TestConfigTaskclusterProvider.revision_id = "e152bb86666565ee6619c15f60156cd6c79580a9"
-
 COMMAND_MAPPINGS = {
-    "./mach vendor": TestConfigVendorProvider.version_id,
-    "./mach try fuzzy": TRY_OUTPUT
+    "./mach vendor": ExpectedValues.library_version_id,
+    "./mach try fuzzy": TRY_OUTPUT,
+    "arc diff --verbatim": ARC_OUTPUT
 }
 
 
@@ -132,19 +154,20 @@ class TestCommandRunner(unittest.TestCase):
 
         # Check For Success
         for l in u.dbProvider.get_libraries():
-            j = u.dbProvider.get_job(l, TestConfigVendorProvider.version_id)
+            j = u.dbProvider.get_job(l, ExpectedValues.library_version_id)
 
             self.assertNotEqual(j, None)
             self.assertEqual(l.shortname, j.library_shortname)
-            self.assertEqual(TestConfigVendorProvider.version_id, j.version)
+            self.assertEqual(ExpectedValues.library_version_id, j.version)
             self.assertEqual(JOBSTATUS.AWAITING_TRY_RESULTS, j.status)
-            self.assertEqual(TestConfigBugzillaProvider.bug_id, j.bugzilla_id)
+            self.assertEqual(ExpectedValues.filed_bug_id, j.bugzilla_id)
+            self.assertEqual(ExpectedValues.phab_revision, j.phab_revision)
             self.assertEqual(
-                TestConfigTaskclusterProvider.revision_id, j.try_revision)
+                ExpectedValues.try_revision_id, j.try_revision)
 
         # Cleanup
         for l in u.dbProvider.get_libraries():
-            u.dbProvider.delete_job(l, TestConfigVendorProvider.version_id)
+            u.dbProvider.delete_job(l, ExpectedValues.library_version_id)
 
 
 if __name__ == '__main__':

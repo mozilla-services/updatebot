@@ -14,4 +14,16 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def submit_patch(self):
-        self.run(["arc", "diff", "--verbatim"])
+        ret = self.run(["arc", "diff", "--verbatim"])
+        output = ret.stdout.decode()
+
+        isNext = False
+        phab_revision = "Unknown"
+        for l in output.split("\n"):
+            if isNext:
+                phab_revision = l.split(" ")[0].replace("(D", "").replace(")", "")
+                break
+            if "Completed" == l.strip():
+                isNext = True
+
+        return phab_revision

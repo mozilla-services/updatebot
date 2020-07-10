@@ -38,8 +38,8 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def delete_job(self, library, new_version):
         return self.db.delete_job(library, new_version)
 
-    def save_job(self, library, new_version, status, bug_id, try_run=None):
-        return self.db.save_job(library, new_version, status, bug_id, try_run)
+    def save_job(self, library, new_version, status, bug_id, phab_revision, try_run=None):
+        return self.db.save_job(library, new_version, status, bug_id, phab_revision, try_run)
 
     def print(self):
         def get_column_widths(objects, columns):
@@ -87,7 +87,7 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         print_objects("STATUSES", self.get_all_statuses(), status_columns)
 
         job_columns = ['id', 'library_shortname', 'version',
-                       'status', 'bugzilla_id', 'try_revision']
+                       'status', 'bugzilla_id', 'phab_revision', 'try_revision']
         print_objects("JOBS", self.get_all_jobs(), job_columns)
 
         library_columns = ['id', 'shortname', 'yaml_path', 'bugzilla_product',

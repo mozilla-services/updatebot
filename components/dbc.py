@@ -91,5 +91,5 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         print_objects("JOBS", self.get_all_jobs(), job_columns)
 
         library_columns = ['id', 'shortname', 'yaml_path', 'bugzilla_product',
-                           'bugzilla_component', 'fuzzy_query']
+                           'bugzilla_component', 'maintainer', 'fuzzy_query']
         print_objects("LIBRARIES", self.get_libraries(), library_columns)

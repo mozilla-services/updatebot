@@ -22,7 +22,6 @@ TRY_REVISION = "this-is-my-try-link"
 
 class MockBugzillaServer(server.BaseHTTPRequestHandler):
     def do_POST(self):
-        expectedPath_comment = "/bug/123/comment?api_key=bob"
         expectedPath_file = "/bug?api_key=bob"
         size = int(self.headers.get('content-length'))
         content = json.loads(self.rfile.read(size).decode("utf-8"))
@@ -31,12 +30,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         self.send_header("Content-type", "application/json")
         self.end_headers()
 
-        if expectedPath_comment == self.path:
-            assert 'comment' in content
-            assert content['comment'] == CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION)
-
-            self.wfile.write("{\"id\":456}".encode())
-        elif expectedPath_file == self.path:
+        if expectedPath_file == self.path:
             expectedContent = {
                 'version': "unspecified",
                 'op_sys': "unspecified",
@@ -58,7 +52,35 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
 
             self.wfile.write("{\"id\":456}".encode())
         else:
-            assert False, "Got a path I didn't expect"
+            assert False, "Got a path %s I didn't expect" % self.path
+
+    def do_PUT(self):
+        expectedPath_comment = "/bug/123?api_key=bob"
+        size = int(self.headers.get('content-length'))
+        content = json.loads(self.rfile.read(size).decode("utf-8"))
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+
+        if expectedPath_comment == self.path:
+            assert 'id' in content
+            assert 'comment' in content
+            assert 'body' in content['comment']
+            if 'flags' in content:
+                assert content['comment']['body'] == "Test Flags"
+                assert content['flags'][0]['name'] == 'needinfo'
+                assert content['flags'][0]['status'] == '?'
+                assert content['flags'][0]['requestee'] == 'Jon'
+            elif 'assigned_to' in content:
+                assert content['comment']['body'] == "Test Assignee"
+                assert content['assigned_to'] == 'Jon'
+            else:
+                assert content['comment']['body'] == CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION)
+
+            self.wfile.write("{'bugs':[{'alias':null,'changes':{},'last_change_time':'2020-07-10T18:58:21Z','id':123}]}".replace("'", '"').encode())
+        else:
+            assert False, "Got a path %s I didn't expect" % self.path
 
 
 class TestBugzillaProvider(unittest.TestCase):
@@ -90,6 +112,12 @@ class TestBugzillaProvider(unittest.TestCase):
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(
             123, CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION))
+
+        self.bugzillaProvider.comment_on_bug(
+            123, "Test Assignee", assignee='Jon')
+
+        self.bugzillaProvider.comment_on_bug(
+            123, "Test Flags", needinfo='Jon')
 
 
 if __name__ == '__main__':

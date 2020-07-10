@@ -41,7 +41,7 @@ class HardcodedDatabase:
     def have_job(self, library, new_version):
         return False
 
-    def save_job(self, library, new_version, bug_id, try_run):
+    def create_job(self, library, new_version, bug_id, try_run):
         pass
 
 # ==================================================================================
@@ -226,7 +226,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return Job(results) if results else None
 
     @logEntryExit
-    def save_job(self, library, new_version, status, bug_id, phab_revision, try_run):
+    def create_job(self, library, new_version, status, bug_id, phab_revision, try_run):
         query = "INSERT INTO jobs(library, version, status, bugzilla_id, phab_revision, try_revision) VALUES(%s, %s, %s, %s, %s, %s)"
         args = (library.shortname, new_version, status, bug_id, phab_revision, try_run)
         self._query_execute(query, args)

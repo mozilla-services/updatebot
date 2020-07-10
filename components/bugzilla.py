@@ -5,9 +5,68 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from apis.bugzilla_api import fileBug, commentOnBug
-from components.dbmodels import JOBSTATUS
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel, logEntryExit
+
+
+class CommentTemplates:
+    @staticmethod
+    def DONE_BUILD_FAILURE(library):
+        return """
+It looks like we experienced one or more build failures when trying to apply this
+update. You will need to apply this update manually; you can replicate the patch
+locally with `./mach vendor %s`.  I'm going to abandon the Phabricator patch and
+let you submit a new one.
+
+If the build failure wasn't caused by a library change, and was instead caused by
+something structural in the build system (like I didn't automatically correct the
+moz.build file correctly) - please let my maintainers know in Slack:#secinf so I
+can be improved.
+""" % (library.yaml_path)
+
+    @staticmethod
+    def DONE_CLASSIFIED_FAILURE(prefix, library):
+        return prefix + "\n" + """
+These failures may mean that the library update succeeded; you'll need to review
+them yourself and decide. If there are lint failures, you will need to fix them in
+a follow-up patch. (Or ignore the patch I made, and recreate it yourself with
+`./mach vendor %s`.)
+
+In either event, I have done all I can, so you will need to take it from here.
+""" % (library.yaml_path)
+
+    @staticmethod
+    def DONE_UNCLASSIFIED_FAILURE(prefix, library):
+        return prefix + "\n" + """
+These failures probably mean that the library update changed something and caused
+tests to fail. You'll need to review them yourself and decide where to go from here.
+
+In either event, I have done all I can, so I'm abandoning this revision and you will
+need to take it from here. You can replicate the patch locally with `./mach vendor %s`
+""" % (library.yaml_path)
+
+    @staticmethod
+    def DONE_ALL_SUCCESS():
+        return """
+All the jobs in the try run succeeded. Like literally all of them, there weren't
+even any intermittents. That is pretty surprising to me, so maybe you should double
+check to make sure I didn't misinterpret things and that the correct tests ran...
+
+Anyway, I've done all I can, so I'm passing to you to review and land the patch.
+"""
+
+    @staticmethod
+    def VENDOR_FAILED(message):
+        s = "`./mach vendor %s` failed"
+        if message:
+            s += " with the following message:\n\n"
+            for m in message.split("\n"):
+                s += "> " + m
+        return s
+
+    @staticmethod
+    def TRY_RUN_SUBMITTED(revision):
+        return "I've submitted a try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=" + revision
 
 
 class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
@@ -36,11 +95,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
         return bugID
 
     @logEntryExit
-    def comment_on_bug(self, bug_id, status, try_run=None):
-        if status == JOBSTATUS.COULD_NOT_VENDOR:
-            comment = "./mach vendor failed with the following message: <TODO>"
-        else:
-            comment = "I've submitted a try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=" + try_run
+    def comment_on_bug(self, bug_id, comment):
         commentID = commentOnBug(
             self.config['url'], self.config['apikey'], bug_id, comment)
         self.logger.log("Filed Comment with ID %s on Bug %s" % (commentID, bug_id), level=LogLevel.Info)

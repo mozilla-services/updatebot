@@ -7,6 +7,7 @@
 import sys
 import unittest
 
+sys.path.append(".")
 sys.path.append("..")
 from components.commandprovider import CommandProvider
 from components.logging import SimpleLoggerConfig

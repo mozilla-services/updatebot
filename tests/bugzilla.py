@@ -11,6 +11,7 @@ from threading import Thread
 from http import server
 import json
 
+sys.path.append(".")
 sys.path.append("..")
 from components.utilities import Struct
 from components.dbmodels import JOBSTATUS

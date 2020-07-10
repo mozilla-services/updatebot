@@ -7,6 +7,7 @@
 import sys
 import unittest
 
+sys.path.append(".")
 sys.path.append("..")
 from components.dbmodels import Library, JOBSTATUS
 from components.db import LIBRARIES

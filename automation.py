@@ -164,7 +164,7 @@ class Updatebot:
         except Exception:
             # Handle `./mach vendor` failing
             status = JOBSTATUS.COULD_NOT_VENDOR
-            self.dbProvider.save_job(library, new_version, status, bug_id)
+            self.dbProvider.save_job(library, new_version, status, bug_id, phab_revision=None)
             self.bugzillaProvider.comment_on_bug(bug_id, status)
             return
 
@@ -173,8 +173,8 @@ class Updatebot:
 
         status = JOBSTATUS.AWAITING_TRY_RESULTS
         self.bugzillaProvider.comment_on_bug(bug_id, status, try_run)
-        self.phabricatorProvider.submit_patch()
-        self.dbProvider.save_job(library, new_version, status, bug_id, try_run)
+        phab_revision = self.phabricatorProvider.submit_patch()
+        self.dbProvider.save_job(library, new_version, status, bug_id, phab_revision, try_run)
 
     def _process_existing_job(self, existing_job):
         pass

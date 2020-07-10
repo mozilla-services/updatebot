@@ -65,13 +65,14 @@ class TestDatabaeQueries(unittest.TestCase):
         library.yaml_path = "path/to/moz.yaml"
         version = "test_new_version"
         bugid = 50
+        phab_revision = 30
         try_link = "test_try_link"
 
         try:
             self.assertEqual(None, self.db.get_job(library, version))
 
             self.db.save_job(library, version,
-                             JOBSTATUS.AWAITING_TRY_RESULTS, bugid, try_link)
+                             JOBSTATUS.AWAITING_TRY_RESULTS, bugid, phab_revision, try_link)
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
@@ -79,6 +80,7 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(newJob.version, version)
             self.assertEqual(newJob.status, JOBSTATUS.AWAITING_TRY_RESULTS)
             self.assertEqual(newJob.bugzilla_id, bugid)
+            self.assertEqual(newJob.phab_revision, phab_revision)
             self.assertEqual(newJob.try_revision, try_link)
         finally:
             self.db.delete_job(library, version)

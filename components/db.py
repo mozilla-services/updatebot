@@ -68,6 +68,7 @@ CREATION_QUERIES = {
         `version` VARCHAR(64) NOT NULL ,
         `status` TINYINT NOT NULL,
         `bugzilla_id` INT NULL,
+        `phab_revision` INT NULL,
         `try_revision` VARCHAR(40) NULL,
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
@@ -225,9 +226,9 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return Job(results) if results else None
 
     @logEntryExit
-    def save_job(self, library, new_version, status, bug_id, try_run):
-        query = "INSERT INTO jobs(library, version, status, bugzilla_id, try_revision) VALUES(%s, %s, %s, %s, %s)"
-        args = (library.shortname, new_version, status, bug_id, try_run)
+    def save_job(self, library, new_version, status, bug_id, phab_revision, try_run):
+        query = "INSERT INTO jobs(library, version, status, bugzilla_id, phab_revision, try_revision) VALUES(%s, %s, %s, %s, %s, %s)"
+        args = (library.shortname, new_version, status, bug_id, phab_revision, try_run)
         self._query_execute(query, args)
 
     def delete_job(self, library, new_version):

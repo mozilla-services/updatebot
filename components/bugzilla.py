@@ -95,7 +95,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
         return bugID
 
     @logEntryExit
-    def comment_on_bug(self, bug_id, comment):
-        commentID = commentOnBug(
-            self.config['url'], self.config['apikey'], bug_id, comment)
-        self.logger.log("Filed Comment with ID %s on Bug %s" % (commentID, bug_id), level=LogLevel.Info)
+    def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
+        commentOnBug(
+            self.config['url'], self.config['apikey'], bug_id, comment, needinfo=needinfo, assignee=assignee)
+        self.logger.log("Filed Comment on Bug %s" % (bug_id), level=LogLevel.Info)

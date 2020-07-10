@@ -39,17 +39,29 @@ def fileBug(url, apikey, product, component, summary, description, severity):
     raise Exception(j)
 
 
-def commentOnBug(url, apikey, bugID, comment):
+def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
     data = {
-        'comment': comment
+        'id': bugID,
+        'comment': {'body': comment}
     }
 
-    r = requests.post(
-        url + "bug/" + str(bugID) + "/comment?api_key=" + apikey,
+    if assignee:
+        data['assigned_to'] = assignee
+    if needinfo:
+        data['flags'] = [{
+            'name': 'needinfo',
+            'status': '?',
+            'requestee': needinfo
+        }]
+
+    r = requests.put(
+        url + "bug/" + str(bugID) + "?api_key=" + apikey,
         json=data
     )
     j = json.loads(r.text)
-    if 'id' in j:
-        return j['id']
+    if 'bugs' in j:
+        if len(j['bugs']) > 0:
+            if j['bugs'][0]['id'] == bugID:
+                return
 
     raise Exception(j)

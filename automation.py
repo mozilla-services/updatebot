@@ -6,7 +6,7 @@
 
 import os
 import sys
-from components.logging import LoggingProvider, SimpleLogger, LogLevel, SimpleLoggerConfig
+from components.logging import LoggingProvider, SimpleLogger, LogLevel, SimpleLoggerConfig, logEntryExit
 from components.commandprovider import CommandProvider
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS
@@ -147,17 +147,26 @@ class Updatebot:
             self.logger.log_exception(e)
             raise(e)
 
+    # ====================================================================
+
     def _process_library(self, library):
         new_version = self.vendorProvider.check_for_update(library)
         if not new_version:
+            self.logger.log("Processing %s but no new version was found." % library.shortname, level=LogLevel.Info)
             return
 
+        self.logger.log("Processing %s for an ustream revision %s." % (library.shortname, new_version), level=LogLevel.Info)
         existing_job = self.dbProvider.get_job(library, new_version)
         if existing_job:
-            self._process_existing_job(existing_job)
+            self.logger.log("%s has an existing job with try revision %s and status %s" % (new_version, existing_job.try_revision, existing_job.status), level=LogLevel.Info)
+            self._process_existing_job(library, existing_job)
         else:
+            self.logger.log("%s is a brand new revision to updatebot" % (new_version), level=LogLevel.Info)
             self._process_new_job(library, new_version)
 
+    # ====================================================================
+
+    @logEntryExit
     def _process_new_job(self, library, new_version):
         bugzilla_id = self.bugzillaProvider.file_bug(library, new_version)
 

@@ -7,6 +7,7 @@
 import sys
 import unittest
 
+sys.path.append(".")
 sys.path.append("..")
 from automation import Updatebot
 from components.providerbase import BaseProvider

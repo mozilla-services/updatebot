@@ -9,7 +9,9 @@ from components.utilities import Struct
 JOBSTATUS = Struct(**{
     'COULD_NOT_VENDOR': 1,
     'VENDORED': 2,
-    'AWAITING_TRY_RESULTS': 3
+    'AWAITING_TRY_RESULTS': 3,
+    'AWAITING_RETRIGGER_RESULTS': 4,
+    'DONE': 5
 })
 
 

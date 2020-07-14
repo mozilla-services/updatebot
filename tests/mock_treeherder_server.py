@@ -18,12 +18,22 @@ EXPECTEDPATH_ACTIONSJSON = "api/queue/v1/task"
 TRY_REVISIONS = {
     'rev_broken': "{\"results\":[{\"missing_id\":0}]}",
     'rev_good': "{\"results\":[{\"id\":1}]}",
+    'e152bb86666565ee6619c15f60156cd6c79580a9': "{\"results\":[{\"id\":2}]}",
 }
 
 PUSH_IDS = {
+    # The keys are _x_y_z meaning:
+    #  x: push_id. from above in TRY_REVISIONS
+    #  y: the page. Unless a result is multi_page it will just be 1
+    #  x: request number. The first time a document is requested, this will be 1, the second time, 2, etc
     # rev_broken/good
-    '1_1': "treeherder_api_response_1.txt",
-    '1_2': "treeherder_api_response_2.txt",
+    '1_1_1': "treeherder_api_response_1.txt",
+    '1_2_1': "treeherder_api_response_2.txt",
+    # testExistingJobSucceeded
+    '2_1_1': "treeherder_api_response_jobs_still_running.txt",
+    '2_1_2': "treeherder_api_response_all_succeeded.txt",
+    #
+    '3_1_1': ""
 }
 
 seen_counters = {}
@@ -44,9 +54,12 @@ def get_appropriate_filename(path):
     push_id = path[i1:i2]
 
     page = path[path.index("&page=") + len("&page="):] if has_page else "1"
-    print("Chcking for push_id", push_id, "page", page)
 
     key = push_id + "_" + page
+    seen_counter = find_and_increment_seen_counter(key)
+    key += "_" + seen_counter
+
+    print("Checking for push_id", push_id, "page", page, "seen", seen_counter)
 
     if key not in PUSH_IDS:
         assert False, "Could not find the key " + key + " in PUSH_IDS"

@@ -7,6 +7,9 @@
 import sys
 import unittest
 
+from http import server
+from threading import Thread
+
 sys.path.append(".")
 sys.path.append("..")
 from automation import Updatebot
@@ -22,6 +25,7 @@ from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
+from tests.mock_treeherder_server import MockTreeherderServer
 
 try:
     from localconfig import localconfig
@@ -77,6 +81,13 @@ Completed
 -> https://phabricator-dev.allizom.org/D83119
 """
 
+CONDUIT_USERNAME_SEARCH_OUTPUT = """
+{"error":null,"errorMessage":null,"response":{"data":[{"id":154,"type":"USER","phid":"PHID-USER-dd6rge2k2csia46r2wcw","fields":{"username":"tjr","realName":"Tom Ritter","roles":["verified","approved","activated"],"dateCreated":1519415695,"dateModified":1519416233,"policy":{"view":"public","edit":"no-one"}},"attachments":[]}],"maps":[],"query":{"queryKey":null},"cursor":{"limit":100,"after":null,"before":null,"order":null}}}
+"""
+
+CONDUIT_EDIT_OUTPUT = """
+{"error":null,"errorMessage":null,"response":{"object":{"id":3643,"phid":"PHID-DREV-4pi6s6fwd57bktfzvfns"},"transactions":[{"phid":"PHID-XACT-DREV-om5mlg2ib34yaoi"},{"phid":"PHID-XACT-DREV-2pzq4qktezb7qqc"}]}}
+"""
 
 def DEFAULT_EXPECTED_VALUES(revision):
     return Struct(**{
@@ -85,6 +96,16 @@ def DEFAULT_EXPECTED_VALUES(revision):
         'try_revision_id': revision,
         'phab_revision': 83119
     })
+
+
+def COMMAND_MAPPINGS(expected_values):
+    return {
+            "./mach vendor": expected_values.library_version_id + " 2020-08-21T15:13:49.000+02:00",
+            "./mach try auto": TRY_OUTPUT(expected_values.try_revision_id),
+            "arc diff --verbatim": ARC_OUTPUT,
+            "echo '{\"constraints\"": CONDUIT_USERNAME_SEARCH_OUTPUT,
+            "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT
+        }
 
 
 class MockedBugzillaProvider(BaseProvider):
@@ -110,7 +131,10 @@ class TestCommandRunner(unittest.TestCase):
             'Vendor': {},
             'Bugzilla': {'filed_bug_id': None},
             'Mercurial': {},
-            'Taskcluster': {},
+            'Taskcluster': {
+                'url_treeherder': 'http://localhost:27490/',
+                'url_taskcluster': 'http://localhost:27490/',
+            },
             'Phabricator': {},
         }
         cls.providers = {
@@ -133,25 +157,28 @@ class TestCommandRunner(unittest.TestCase):
             # Not Mocked At All
             'Mercurial': MercurialProvider,
 
-            # Not Mocked At All
+            # Not Mocked At All, but does point to a fake server
             'Taskcluster': TaskclusterProvider,
 
             # Not Mocked At All
             'Phabricator': PhabricatorProvider,
         }
 
+        cls.server = server.HTTPServer(('', 27490), MockTreeherderServer)
+        t = Thread(target=cls.server.serve_forever)
+        t.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+
     def testAllNewJobs(self):
         # Setup
         try_revision = "try_rev"  # Doesn't matter
         expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
         self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
-
-        command_mappings = {
-            "./mach vendor": expected_values.library_version_id + " 2020-08-21T15:13:49.000+02:00",
-            "./mach try auto": TRY_OUTPUT(try_revision),
-            "arc diff --verbatim": ARC_OUTPUT
-        }
-        self.configs['Command']['test_mappings'] = command_mappings
+        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 
         # Make it
         u = Updatebot(self.configs, self.providers)
@@ -180,6 +207,62 @@ class TestCommandRunner(unittest.TestCase):
         # Cleanup
         for l in u.dbProvider.get_libraries():
             u.dbProvider.delete_job(l, expected_values.library_version_id)
+
+    # Create -> Jobs are Running -> Jobs succeeded
+    def testExistingJobSucceeded(self):
+        # Setup
+        try_revision = "e152bb86666565ee6619c15f60156cd6c79580a9"  # Doesn't matter
+        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
+        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
+        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
+
+        # Make it
+        u = Updatebot(self.configs, self.providers)
+
+        # Ensure we don't have a dirty database with existing jobs
+        for l in u.dbProvider.get_libraries():
+            j = u.dbProvider.get_job(l, expected_values.library_version_id)
+            self.assertEqual(j, None, "When running testExistingJobSucceeded, we found an existing job, indicating the database is dirty and should be cleaned.")
+
+        # Run it
+        library_filter = 'dav1d'
+        u.run(library_filter=library_filter)
+
+        def check_jobs(u, status):
+            for l in u.dbProvider.get_libraries():
+                if library_filter not in l.shortname:
+                    continue
+                j = u.dbProvider.get_job(l, expected_values.library_version_id)
+
+                self.assertNotEqual(j, None)
+                self.assertEqual(l.shortname, j.library_shortname)
+                self.assertEqual(expected_values.library_version_id, j.version)
+                self.assertEqual(status, j.status)
+                self.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
+                self.assertEqual(expected_values.phab_revision, j.phab_revision)
+                self.assertEqual(
+                    expected_values.try_revision_id, j.try_revision)
+
+        # Check that we created the job successfully
+        check_jobs(u, JOBSTATUS.AWAITING_TRY_RESULTS)
+        # Run it again, this time we'll tell it the jobs are still in process
+        u.run(library_filter=library_filter)
+        # Should still be Awaiting Try Results
+        check_jobs(u, JOBSTATUS.AWAITING_TRY_RESULTS)
+        # Run it again, this time we'll tell it the jobs succeeded
+        u.run(library_filter=library_filter)
+        # Should be DONE
+        check_jobs(u, JOBSTATUS.DONE)
+
+        # Cleanup
+        for l in u.dbProvider.get_libraries():
+            u.dbProvider.delete_job(l, expected_values.library_version_id)
+
+    # Create -> Jobs are Running -> Build Failed
+
+    # Create -> Jobs are Running -> Lint and Classified Failure
+
+    # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
 
 
 if __name__ == '__main__':

@@ -30,8 +30,9 @@ except ImportError:
     sys.exit(1)
 
 TRY_OUTPUT = """
-Test configuration changed. Regenerating backend.
+warning: 'mach try auto' is experimental, results may vary!
 Creating temporary commit for remote...
+A try_task_config.json
 pushing to ssh://hg.mozilla.org/try
 searching for changes
 remote: adding changesets
@@ -106,7 +107,7 @@ class TestConfigTaskclusterProvider(BaseProvider):
 
 COMMAND_MAPPINGS = {
     "./mach vendor": ExpectedValues.library_version_id,
-    "./mach try fuzzy": TRY_OUTPUT,
+    "./mach try auto": TRY_OUTPUT,
     "arc diff --verbatim": ARC_OUTPUT
 }
 

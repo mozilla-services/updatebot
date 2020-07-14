@@ -26,7 +26,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def submit_to_try(self, library):
         self._vcs_setup()
         ret = self.run(
-            ["./mach", "try", "fuzzy", "--update", "--query", library.fuzzy_query])
+            ["./mach", "try", "auto"])
         output = ret.stdout.decode()
 
         isNext = False

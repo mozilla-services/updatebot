@@ -4,7 +4,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import copy
 import inspect
+import functools
 
 
 class BaseProvider:
@@ -68,4 +70,5 @@ class INeedsLoggingProvider:
     def _update_config(self, config):
         if 'LoggingProvider' not in config:
             raise Exception("Config passed to INeedsLoggingProvider._update_config is missing 'LoggingProvider' key, which must be a class instance implementing the 'LoggingProvider' interface")
-        self.logger = config['LoggingProvider'].bind_category(self.__class__.mro()[0].__name__)
+        self.logger = copy.deepcopy(config['LoggingProvider'])
+        self.logger.log = functools.partial(self.logger.log, category=self.__class__.mro()[0].__name__)

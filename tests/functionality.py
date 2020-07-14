@@ -29,8 +29,11 @@ except ImportError:
     log("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
 
-TRY_OUTPUT = """
+
+def TRY_OUTPUT(revision):
+    return """
 warning: 'mach try auto' is experimental, results may vary!
+Test configuration changed. Regenerating backend.
 Creating temporary commit for remote...
 A try_task_config.json
 pushing to ssh://hg.mozilla.org/try
@@ -43,14 +46,15 @@ remote: added 2 changesets with 1 changes to 6 files (+1 heads)
 remote:
 remote: View your changes here:
 remote:   https://hg.mozilla.org/try/rev/a8adec7d117968b8f0006a9e54393dba7c444717
-remote:   https://hg.mozilla.org/try/rev/e152bb86666565ee6619c15f60156cd6c79580a9
+remote:   https://hg.mozilla.org/try/rev/%s
 remote:
 remote: Follow the progress of your build on Treeherder:
-remote:   https://treeherder.mozilla.org/#/jobs?repo=try&revision=e152bb86666565ee6619c15f60156cd6c79580a9
+remote:   https://treeherder.mozilla.org/#/jobs?repo=try&revision=%s
 remote: recorded changegroup in replication log in 0.011s
 push complete
 temporary commit removed, repository restored
-"""
+""" % (revision, revision)
+
 
 ARC_OUTPUT = """
 Submitting 1 commit for review:
@@ -73,59 +77,43 @@ Completed
 -> https://phabricator.services.mozilla.com/D83119
 """
 
-ExpectedValues = Struct(**{
-    'library_version_id': "newversion",
-    'filed_bug_id': 50,
-    'try_revision_id': "e152bb86666565ee6619c15f60156cd6c79580a9",
-    'phab_revision': 83119
-})
+
+def DEFAULT_EXPECTED_VALUES(revision):
+    return Struct(**{
+        'library_version_id': "newversion_" + revision,
+        'filed_bug_id': 50,
+        'try_revision_id': revision,
+        'phab_revision': 83119
+    })
 
 
-class TestConfigVendorProvider(VendorProvider):
+class MockedBugzillaProvider(BaseProvider):
     def __init__(self, config):
-        super(VendorProvider, self).__init__(config)
-
-    def check_for_update(self, library):
-        return ExpectedValues.library_version_id
-
-
-class TestConfigBugzillaProvider(BaseProvider):
-    def __init__(self, config):
+        self._filed_bug_id = config['filed_bug_id']
         pass
 
     def file_bug(self, library, new_release_version):
-        return ExpectedValues.filed_bug_id
+        return self._filed_bug_id
 
-    def comment_on_bug(self, bug_id, status, try_run=None):
+    def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
         pass
-
-
-class TestConfigTaskclusterProvider(BaseProvider):
-    def __init__(self, config):
-        pass
-
-
-COMMAND_MAPPINGS = {
-    "./mach vendor": ExpectedValues.library_version_id,
-    "./mach try auto": TRY_OUTPUT,
-    "arc diff --verbatim": ARC_OUTPUT
-}
 
 
 class TestCommandRunner(unittest.TestCase):
-    def testFunctionalityWithRealDatabase(self):
-        configs = {
+    @classmethod
+    def setUpClass(cls):
+        cls.configs = {
             'General': {'env': 'dev'},
-            'Command': {'test_mappings': COMMAND_MAPPINGS},
+            'Command': {'test_mappings': None},
             'Logging': localconfig['Logging'],
             'Database': localconfig['Database'],
             'Vendor': {},
-            'Bugzilla': {},
+            'Bugzilla': {'filed_bug_id': None},
             'Mercurial': {},
             'Taskcluster': {},
             'Phabricator': {},
         }
-        providers = {
+        cls.providers = {
             # Not Mocked At All
             'Logging': LoggingProvider,
 
@@ -138,8 +126,9 @@ class TestCommandRunner(unittest.TestCase):
             # Not Mocked At All
             'Vendor': VendorProvider,
 
-            # Fully Mocked
-            'Bugzilla': TestConfigBugzillaProvider,
+            # Fully Mocked, avoids needing to make a fake
+            # bugzilla server which provides no additional logic coverage
+            'Bugzilla': MockedBugzillaProvider,
 
             # Not Mocked At All
             'Mercurial': MercurialProvider,
@@ -150,25 +139,47 @@ class TestCommandRunner(unittest.TestCase):
             # Not Mocked At All
             'Phabricator': PhabricatorProvider,
         }
-        u = Updatebot(configs, providers)
+
+    def testAllNewJobs(self):
+        # Setup
+        try_revision = "try_rev"  # Doesn't matter
+        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
+        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
+
+        command_mappings = {
+            "./mach vendor": expected_values.library_version_id,
+            "./mach try auto": TRY_OUTPUT(try_revision),
+            "arc diff --verbatim": ARC_OUTPUT
+        }
+        self.configs['Command']['test_mappings'] = command_mappings
+
+        # Make it
+        u = Updatebot(self.configs, self.providers)
+
+        # Ensure we don't have a dirty database with existing jobs
+        for l in u.dbProvider.get_libraries():
+            j = u.dbProvider.get_job(l, expected_values.library_version_id)
+            self.assertEqual(j, None, "When running testAllNewJobs, we found an existing job, indicating the database is dirty and should be cleaned.")
+
+        # Run it
         u.run()
 
         # Check For Success
         for l in u.dbProvider.get_libraries():
-            j = u.dbProvider.get_job(l, ExpectedValues.library_version_id)
+            j = u.dbProvider.get_job(l, expected_values.library_version_id)
 
             self.assertNotEqual(j, None)
             self.assertEqual(l.shortname, j.library_shortname)
-            self.assertEqual(ExpectedValues.library_version_id, j.version)
+            self.assertEqual(expected_values.library_version_id, j.version)
             self.assertEqual(JOBSTATUS.AWAITING_TRY_RESULTS, j.status)
-            self.assertEqual(ExpectedValues.filed_bug_id, j.bugzilla_id)
-            self.assertEqual(ExpectedValues.phab_revision, j.phab_revision)
+            self.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
+            self.assertEqual(expected_values.phab_revision, j.phab_revision)
             self.assertEqual(
-                ExpectedValues.try_revision_id, j.try_revision)
+                expected_values.try_revision_id, j.try_revision)
 
         # Cleanup
         for l in u.dbProvider.get_libraries():
-            u.dbProvider.delete_job(l, ExpectedValues.library_version_id)
+            u.dbProvider.delete_job(l, expected_values.library_version_id)
 
 
 if __name__ == '__main__':

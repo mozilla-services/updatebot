@@ -21,8 +21,9 @@ TRY_REVISIONS = {
 }
 
 PUSH_IDS = {
-    '1_1' : "treeherder_api_response_1.txt",
-    '1_2' : "treeherder_api_response_2.txt",
+    # rev_broken/good
+    '1_1': "treeherder_api_response_1.txt",
+    '1_2': "treeherder_api_response_2.txt",
 }
 
 seen_counters = {}

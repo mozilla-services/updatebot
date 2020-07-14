@@ -108,6 +108,8 @@ class Updatebot:
             self.runOnProviders(lambda x: x.update_config(additional_config))
             # Step 7
             self.__dict__.update(self.provider_dictionary)
+            # And check the database
+            self.dbProvider.check_database()
         except Exception as e:
             self.logger.log_exception(e)
             raise(e)
@@ -131,7 +133,6 @@ class Updatebot:
             if 'gecko-path' in self.config_dictionary['General']:
                 os.chdir(self.config_dictionary['General']['gecko-path'])
 
-            self.dbProvider.check_database()
             libraries = self.dbProvider.get_libraries()
             for l in libraries:
                 try:

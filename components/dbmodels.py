@@ -34,4 +34,3 @@ class Library:
             self.bugzilla_product = row['bugzilla_product']
             self.bugzilla_component = row['bugzilla_component']
             self.maintainer = row['maintainer']
-            self.fuzzy_query = row['fuzzy_query']

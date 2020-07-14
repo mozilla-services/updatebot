@@ -24,6 +24,9 @@ class TestConfigDatabaseProvider(BaseTestConfigProvider):
         self.expected = 'database!'
         super(TestConfigDatabaseProvider, self).__init__(config)
 
+    def check_database(self):
+        pass
+
     def _update_config(self, config):
         self.also_expected = "Made it!"
 

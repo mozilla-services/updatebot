@@ -36,7 +36,6 @@ def logEntryExit(func):
 class LoggingProvider(BaseProvider):
     def __init__(self, config):
         self.loggers = []
-        self._log_category = None
         if 'local' in config and config['local']:
             self.loggers.append(LocalLogger(config))
         if 'sentry' in config and config['sentry']:
@@ -46,13 +45,9 @@ class LoggingProvider(BaseProvider):
         for l in self.loggers:
             l.update_config(additional_config)
 
-    def bind_category(self, category):
-        self._log_category = category
-        return self
-
     def log(self, *args, level=LogLevel.Info, category=None):
         for l in self.loggers:
-            l.log(*args, level=level, category=category or self._log_category)
+            l.log(*args, level=level, category=category)
 
     def log_exception(self, e):
         for l in self.loggers:

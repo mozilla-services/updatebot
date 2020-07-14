@@ -37,7 +37,7 @@ class TestCommandRunner(unittest.TestCase):
 
         self.assertEqual(alice.f, config1['f'], "Did not populate alice.f correctly")
         self.assertEqual(alice.run, tcp.run, "Did not populate alice.run correctly")
-        self.assertEqual(alice.logger, lp, "Did not populate alice.logger correctly")
+        self.assertNotEqual(alice.logger, None, "Did not populate alice.logger correctly")
 
 
 if __name__ == '__main__':

@@ -128,13 +128,16 @@ class Updatebot:
             self.logger.log("['General']['env'] must be defined in the config dictionary with a value of prod or dev.", level=LogLevel.Fatal)
             sys.exit(1)
 
-    def run(self):
+    def run(self, library_filter=""):
         try:
             if 'gecko-path' in self.config_dictionary['General']:
                 os.chdir(self.config_dictionary['General']['gecko-path'])
 
             libraries = self.dbProvider.get_libraries()
             for l in libraries:
+                if library_filter and library_filter not in l.shortname:
+                    self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (l.shortname, library_filter), level=LogLevel.Info)
+                    continue
                 try:
                     self._process_library(l)
                 except Exception as e:

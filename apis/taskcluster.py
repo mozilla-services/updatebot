@@ -40,7 +40,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         output = ret.stdout.decode()
 
         isNext = False
-        try_link = "Unknown"
+        try_link = None
         for l in output.split("\n"):
             if isNext:
                 try_link = l.replace("remote:", "").strip()
@@ -48,6 +48,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             if "Follow the progress of your build on Treeherder:" in l:
                 isNext = True
 
-        try_link = try_link.replace(
-            self.url + "#/jobs?repo=try&revision=", "")
+        if not try_link or "#/jobs?repo=try&revision=" not in try_link:
+            raise Exception("Could not find the try link in output:\n" + output)
+        try_link = try_link[try_link.index("#/jobs?repo=try&revision=") + len("#/jobs?repo=try&revision="):]
         return try_link

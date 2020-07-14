@@ -4,6 +4,7 @@
 
 import os
 import traceback
+from functools import partial
 
 from sentry_sdk import init as sentry_init, add_breadcrumb, capture_exception, configure_scope
 
@@ -20,17 +21,20 @@ LogLevel = Struct(**{
 })
 
 
-def logEntryExit(func):
+def logEntryExit(func, print_arg_list=True):
     def func_wrapper(*args, **kwargs):
         obj = args[0]
         assert 'logger' in dir(obj), "If @logEntryExit is applied to a class method, it must inherit INeedsLoggingProvider"
         obj.logger.log("================================================", level=LogLevel.Debug)
         obj.logger.log("Beginning %s" % func.__qualname__, level=LogLevel.Info)
-        obj.logger.log(" Arguments: %s" % str(args), level=LogLevel.Info)
+        obj.logger.log(" Arguments: %s" % (str(args) if print_arg_list else "[Omitted]"), level=LogLevel.Info)
         ret = func(*args, **kwargs)
         obj.logger.log("Ending %s" % func.__qualname__, level=LogLevel.Info)
         return ret
     return func_wrapper
+
+
+logEntryExitNoArgs = partial(logEntryExit, print_arg_list=False)
 
 
 class LoggingProvider(BaseProvider):

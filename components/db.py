@@ -20,6 +20,7 @@ LIBRARIES = [
         'bugzilla_product': 'Core',
         'bugzilla_component': 'ImageLib',
         'maintainer': 'tom@ritter.vg',
+        'maintainer_phab': 'tjr'
     })
 ]
 
@@ -79,6 +80,7 @@ CREATION_QUERIES = {
         `bugzilla_product` VARCHAR(255) NOT NULL ,
         `bugzilla_component` VARCHAR(255) NOT NULL,
         `maintainer` VARCHAR(1024) NOT NULL,
+        `maintainer_phab` VARCHAR(1024) NOT NULL,
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """
@@ -96,8 +98,8 @@ INSERTION_QUERIES = [
 for l in LIBRARIES:
     INSERTION_QUERIES.append(
         Struct(**{
-            'query': "INSERT INTO `libraries` (`shortname`, `yaml_path`, `bugzilla_product`, `bugzilla_component`, `maintainer`) VALUES (%s, %s, %s, %s, %s)",
-            'args': (l.shortname, l.yaml_path, l.bugzilla_product, l.bugzilla_component, l.maintainer)
+            'query': "INSERT INTO `libraries` (`shortname`, `yaml_path`, `bugzilla_product`, `bugzilla_component`, `maintainer`, `maintainer_phab`) VALUES (%s, %s, %s, %s, %s, %s)",
+            'args': (l.shortname, l.yaml_path, l.bugzilla_product, l.bugzilla_component, l.maintainer, l.maintainer_phab)
         }))
 
 for p in dir(JOBSTATUS):

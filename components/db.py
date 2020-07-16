@@ -66,6 +66,7 @@ CREATION_QUERIES = {
         `library` VARCHAR(255) NOT NULL,
         `version` VARCHAR(64) NOT NULL ,
         `status` TINYINT NOT NULL,
+        `outcome` TINYINT NOT NULL,
         `bugzilla_id` INT NULL,
         `phab_revision` INT NULL,
         `try_revision` VARCHAR(40) NULL,
@@ -225,15 +226,15 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return Job(results) if results else None
 
     @logEntryExit
-    def create_job(self, library, new_version, status, bug_id, phab_revision, try_run):
-        query = "INSERT INTO jobs(library, version, status, bugzilla_id, phab_revision, try_revision) VALUES(%s, %s, %s, %s, %s, %s)"
-        args = (library.shortname, new_version, status, bug_id, phab_revision, try_run)
+    def create_job(self, library, new_version, status, outcome, bug_id, phab_revision, try_run):
+        query = "INSERT INTO jobs(library, version, status, outcome, bugzilla_id, phab_revision, try_revision) VALUES(%s, %s, %s, %s, %s, %s, %s)"
+        args = (library.shortname, new_version, status, outcome, bug_id, phab_revision, try_run)
         self._query_execute(query, args)
 
     @logEntryExit
     def update_job_status(self, existing_job):
-        query = "UPDATE jobs SET status=%s WHERE library = %s AND version = %s"
-        args = (existing_job.status, existing_job.library_shortname, existing_job.version)
+        query = "UPDATE jobs SET status=%s, outcome=%s WHERE library = %s AND version = %s"
+        args = (existing_job.status, existing_job.outcome, existing_job.library_shortname, existing_job.version)
         self._query_execute(query, args)
 
     def delete_job(self, library, new_version):

@@ -38,8 +38,8 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def delete_job(self, library, new_version):
         return self.db.delete_job(library, new_version)
 
-    def create_job(self, library, new_version, status, bug_id, phab_revision, try_run=None):
-        return self.db.create_job(library, new_version, status, bug_id, phab_revision, try_run)
+    def create_job(self, library, new_version, status, outcome, bug_id, phab_revision, try_run=None):
+        return self.db.create_job(library, new_version, status, outcome, bug_id, phab_revision, try_run)
 
     def update_job_status(self, existing_job):
         return self.db.update_job_status(existing_job)
@@ -90,7 +90,8 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         print_objects("STATUSES", self.get_all_statuses(), status_columns)
 
         job_columns = ['id', 'library_shortname', 'version',
-                       'status', 'bugzilla_id', 'phab_revision', 'try_revision']
+                       'status', 'outcome', 'bugzilla_id', 'phab_revision',
+                       'try_revision']
         print_objects("JOBS", self.get_all_jobs(), job_columns)
 
         library_columns = ['id', 'shortname', 'yaml_path', 'bugzilla_product',

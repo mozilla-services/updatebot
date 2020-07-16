@@ -9,7 +9,7 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from components.dbmodels import Library, JOBSTATUS
+from components.dbmodels import Library, JOBSTATUS, JOBOUTCOME
 from components.db import LIBRARIES
 from components.dbc import DatabaseProvider
 from components.logging import SimpleLoggerConfig, log
@@ -72,13 +72,14 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(None, self.db.get_job(library, version))
 
             self.db.create_job(library, version,
-                               JOBSTATUS.AWAITING_TRY_RESULTS, bugid, phab_revision, try_link)
+                               JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING, bugid, phab_revision, try_link)
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
             self.assertEqual(newJob.library_shortname, library.shortname)
             self.assertEqual(newJob.version, version)
             self.assertEqual(newJob.status, JOBSTATUS.AWAITING_TRY_RESULTS)
+            self.assertEqual(newJob.outcome, JOBOUTCOME.PENDING)
             self.assertEqual(newJob.bugzilla_id, bugid)
             self.assertEqual(newJob.phab_revision, phab_revision)
             self.assertEqual(newJob.try_revision, try_link)

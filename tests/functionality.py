@@ -6,6 +6,7 @@
 
 import sys
 import unittest
+import functools
 
 from http import server
 from threading import Thread
@@ -18,7 +19,7 @@ from components.utilities import Struct
 from components.providerbase import BaseProvider
 from components.logging import LoggingProvider, log
 from components.dbc import DatabaseProvider
-from components.dbmodels import JOBSTATUS
+from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
 from components.hg import MercurialProvider
 from apis.taskcluster import TaskclusterProvider
@@ -199,6 +200,7 @@ class TestCommandRunner(unittest.TestCase):
             self.assertEqual(l.shortname, j.library_shortname)
             self.assertEqual(expected_values.library_version_id, j.version)
             self.assertEqual(JOBSTATUS.AWAITING_TRY_RESULTS, j.status)
+            self.assertEqual(JOBOUTCOME.PENDING, j.status)
             self.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
             self.assertEqual(expected_values.phab_revision, j.phab_revision)
             self.assertEqual(
@@ -208,16 +210,34 @@ class TestCommandRunner(unittest.TestCase):
         for l in u.dbProvider.get_libraries():
             u.dbProvider.delete_job(l, expected_values.library_version_id)
 
+    def _check_jobs(self, u, library_filter, expected_values, status, outcome):
+        for l in u.dbProvider.get_libraries():
+            if library_filter not in l.shortname:
+                continue
+            j = u.dbProvider.get_job(l, expected_values.library_version_id)
+
+            self.assertNotEqual(j, None)
+            self.assertEqual(l.shortname, j.library_shortname)
+            self.assertEqual(expected_values.library_version_id, j.version)
+            self.assertEqual(status, j.status)
+            self.assertEqual(outcome, j.outcome)
+            self.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
+            self.assertEqual(expected_values.phab_revision, j.phab_revision)
+            self.assertEqual(
+                expected_values.try_revision_id, j.try_revision)
+
     # Create -> Jobs are Running -> Jobs succeeded
     def testExistingJobSucceeded(self):
         # Setup
-        try_revision = "e152bb86666565ee6619c15f60156cd6c79580a9"  # Doesn't matter
+        try_revision = "e152bb86666565ee6619c15f60156cd6c79580a9"
         expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
         self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
         self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 
         # Make it
+        library_filter = 'dav1d'
         u = Updatebot(self.configs, self.providers)
+        _check_jobs = functools.partial(self._check_jobs, u, library_filter, expected_values)
 
         # Ensure we don't have a dirty database with existing jobs
         for l in u.dbProvider.get_libraries():
@@ -225,34 +245,17 @@ class TestCommandRunner(unittest.TestCase):
             self.assertEqual(j, None, "When running testExistingJobSucceeded, we found an existing job, indicating the database is dirty and should be cleaned.")
 
         # Run it
-        library_filter = 'dav1d'
         u.run(library_filter=library_filter)
-
-        def check_jobs(u, status):
-            for l in u.dbProvider.get_libraries():
-                if library_filter not in l.shortname:
-                    continue
-                j = u.dbProvider.get_job(l, expected_values.library_version_id)
-
-                self.assertNotEqual(j, None)
-                self.assertEqual(l.shortname, j.library_shortname)
-                self.assertEqual(expected_values.library_version_id, j.version)
-                self.assertEqual(status, j.status)
-                self.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
-                self.assertEqual(expected_values.phab_revision, j.phab_revision)
-                self.assertEqual(
-                    expected_values.try_revision_id, j.try_revision)
-
         # Check that we created the job successfully
-        check_jobs(u, JOBSTATUS.AWAITING_TRY_RESULTS)
+        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
         # Run it again, this time we'll tell it the jobs are still in process
         u.run(library_filter=library_filter)
         # Should still be Awaiting Try Results
-        check_jobs(u, JOBSTATUS.AWAITING_TRY_RESULTS)
+        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
         # Run it again, this time we'll tell it the jobs succeeded
         u.run(library_filter=library_filter)
         # Should be DONE
-        check_jobs(u, JOBSTATUS.DONE)
+        _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
 
         # Cleanup
         for l in u.dbProvider.get_libraries():

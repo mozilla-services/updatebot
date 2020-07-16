@@ -9,7 +9,7 @@ import sys
 from components.logging import LoggingProvider, SimpleLogger, LogLevel, SimpleLoggerConfig, logEntryExit, logEntryExitNoArgs
 from components.commandprovider import CommandProvider
 from components.dbc import DatabaseProvider
-from components.dbmodels import JOBSTATUS
+from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
 from components.bugzilla import BugzillaProvider, CommentTemplates
 from components.hg import MercurialProvider
@@ -172,30 +172,24 @@ class Updatebot:
 
         try:
             self.vendorProvider.vendor(library)
-            status = JOBSTATUS.VENDORED
         except Exception:
             # Handle `./mach vendor` failing
-            status = JOBSTATUS.COULD_NOT_VENDOR
-            self.dbProvider.create_job(library, new_version, status, bugzilla_id, phab_revision=None)
+            self.dbProvider.create_job(library, new_version, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
             self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(""))  # TODO, put error message
             return
 
         self.mercurialProvider.commit(library, bugzilla_id, new_version)
         try_revision = self.taskclusterProvider.submit_to_try(library)
 
-        status = JOBSTATUS.AWAITING_TRY_RESULTS
         self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
         phab_revision = self.phabricatorProvider.submit_patch()
-        self.dbProvider.create_job(library, new_version, status, bugzilla_id, phab_revision, try_revision)
+        self.dbProvider.create_job(library, new_version, JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision)
 
     # ====================================================================
     # ====================================================================
 
     @logEntryExit
     def _process_existing_job(self, library, existing_job):
-        if existing_job.status == JOBSTATUS.COULD_NOT_VENDOR:
-            return
-
         if existing_job.status == JOBSTATUS.DONE:
             return
 
@@ -226,7 +220,7 @@ class Updatebot:
             If some of the jobs succeeded, add this note to a comment we will post.
           Post the comment, set assignee, needinfo, set reviewr, and set state to JOB_PROCESSING_DONE
         """
-
+        assert existing_job.status != JOBSTATUS.DONE
         for j in job_list:
             if j.state not in ["completed", "failed", "exception"]:
                 return
@@ -248,6 +242,7 @@ class Updatebot:
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer)
             self.phabricatorProvider.abandon(existing_job.phab_revision)
             existing_job.status = JOBSTATUS.DONE
+            existing_job.outcome = JOBOUTCOME.BUILD_FAILED
             self.dbProvider.update_job_status(existing_job)
             return
 
@@ -278,6 +273,7 @@ class Updatebot:
         if comment_bullets:
             comment = "All jobs completed, we found %i classified failures.\n" % len(comment_bullets)
             self.logger.log(comment, level=LogLevel.Info)
+            existing_job.outcome = JOBOUTCOME.CLASSIFIED_FAILURES
             for c in comment_bullets:
                 comment_line = "  - %s\n" % c
 
@@ -287,6 +283,7 @@ class Updatebot:
             self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
         else:
             self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
+            existing_job.outcome = JOBOUTCOME.ALL_SUCCESS
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_ALL_SUCCESS(), assignee=library.maintainer)
             self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
 
@@ -331,7 +328,8 @@ class Updatebot:
             self.logger.log(comment_line.strip(), level=LogLevel.Debug)
 
         self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer)
-        self.phabricatorProvider.abandon_revision(existing_job.phab_revision)
+        self.phabricatorProvider.abandon(existing_job.phab_revision)
+        existing_job.outcome = JOBOUTCOME.UNCLASSIFIED_FAILURES
         existing_job.status = JOBSTATUS.DONE
         self.dbProvider.update_job_status(existing_job)
 

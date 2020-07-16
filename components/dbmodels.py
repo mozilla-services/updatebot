@@ -7,11 +7,18 @@
 from components.utilities import Struct
 
 JOBSTATUS = Struct(**{
-    'COULD_NOT_VENDOR': 1,
-    'VENDORED': 2,
-    'AWAITING_TRY_RESULTS': 3,
-    'AWAITING_RETRIGGER_RESULTS': 4,
-    'DONE': 5
+    'AWAITING_TRY_RESULTS': 1,
+    'AWAITING_RETRIGGER_RESULTS': 2,
+    'DONE': 3
+})
+
+JOBOUTCOME = Struct(**{
+    'PENDING': 1,
+    'COULD_NOT_VENDOR': 2,
+    'BUILD_FAILED': 3,
+    'CLASSIFIED_FAILURES': 4,
+    'UNCLASSIFIED_FAILURES': 5,
+    'ALL_SUCCESS': 6
 })
 
 
@@ -22,6 +29,7 @@ class Job:
             self.library_shortname = row['library']
             self.version = row['version']
             self.status = row['status']
+            self.outcome = row['outcome']
             self.bugzilla_id = row['bugzilla_id']
             self.phab_revision = row['phab_revision']
             self.try_revision = row['try_revision']

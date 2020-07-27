@@ -19,6 +19,7 @@ TRY_REVISIONS = {
     'rev_broken': "{\"results\":[{\"missing_id\":0}]}",
     'rev_good': "{\"results\":[{\"id\":1}]}",
     'e152bb86666565ee6619c15f60156cd6c79580a9': "{\"results\":[{\"id\":2}]}",
+    '55ca6286e3e4f4fba5d0448333fa99fc5a404a73': "{\"results\":[{\"id\":3}]}",
 }
 
 PUSH_IDS = {
@@ -32,8 +33,10 @@ PUSH_IDS = {
     # testExistingJobSucceeded
     '2_1_1': "treeherder_api_response_jobs_still_running.txt",
     '2_1_2': "treeherder_api_response_all_succeeded.txt",
+    # testExistingJobBuildFailed
+    '3_1_1': "treeherder_api_response_jobs_still_running.txt",
+    '3_1_2': "treeherder_api_response_build_failed.txt",
     #
-    '3_1_1': ""
 }
 
 seen_counters = {}

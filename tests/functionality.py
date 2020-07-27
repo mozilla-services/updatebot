@@ -297,6 +297,39 @@ class TestCommandRunner(unittest.TestCase):
             u.dbProvider.delete_job(l, expected_values.library_version_id)
 
     # Create -> Jobs are Running -> Lint and Classified Failure
+    def testExistingJobClassifiedFailure(self):
+        # Setup
+        try_revision = "56082fc4acfacba40993e47ef8302993c59e264e"
+        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
+        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
+        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
+
+        # Make it
+        library_filter = 'dav1d'
+        u = Updatebot(self.configs, self.providers)
+        _check_jobs = functools.partial(self._check_jobs, u, library_filter, expected_values)
+
+        # Ensure we don't have a dirty database with existing jobs
+        for l in u.dbProvider.get_libraries():
+            j = u.dbProvider.get_job(l, expected_values.library_version_id)
+            self.assertEqual(j, None, "When running testExistingJobClassifiedFailure, we found an existing job, indicating the database is dirty and should be cleaned.")
+
+        # Run it
+        u.run(library_filter=library_filter)
+        # Check that we created the job successfully
+        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+        # Run it again, this time we'll tell it the jobs are still in process
+        u.run(library_filter=library_filter)
+        # Should still be Awaiting Try Results
+        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+        # Run it again, this time we'll tell it a build job failed
+        u.run(library_filter=library_filter)
+        # Should be DONE and Failed.
+        _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+
+        # Cleanup
+        for l in u.dbProvider.get_libraries():
+            u.dbProvider.delete_job(l, expected_values.library_version_id)
 
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
 

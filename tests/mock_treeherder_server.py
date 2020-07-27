@@ -21,6 +21,7 @@ TRY_REVISIONS = {
     'e152bb86666565ee6619c15f60156cd6c79580a9': "{\"results\":[{\"id\":2}]}",
     '55ca6286e3e4f4fba5d0448333fa99fc5a404a73': "{\"results\":[{\"id\":3}]}",
     '56082fc4acfacba40993e47ef8302993c59e264e': "{\"results\":[{\"id\":4}]}",
+    'ab2232a04301f1d2dbeea7050488f8ec2dde5451': "{\"results\":[{\"id\":5}]}",
 }
 
 PUSH_IDS = {
@@ -41,6 +42,10 @@ PUSH_IDS = {
     # testExistingJobClassifiedFailure
     '4_1_1': "treeherder_api_response_jobs_still_running.txt",
     '4_1_2': "treeherder_api_response_classified_failure.txt",
+    # testExistingJobUnclassifiedFailure
+    '5_1_1': "treeherder_api_response_jobs_still_running.txt",
+    '5_1_2': "treeherder_api_response_jobs_one_unclassified_failure.txt",
+    '5_1_3': "treeherder_api_response_jobs_unclassified_failure_retriggers_done.txt",
 }
 
 seen_counters = {}

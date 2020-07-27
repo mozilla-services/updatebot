@@ -27,6 +27,7 @@ from apis.phabricator import PhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_treeherder_server import MockTreeherderServer
+from tests.treeherder_api import RETRIGGER_RESPONSE
 
 try:
     from localconfig import localconfig
@@ -90,6 +91,7 @@ CONDUIT_EDIT_OUTPUT = """
 {"error":null,"errorMessage":null,"response":{"object":{"id":3643,"phid":"PHID-DREV-4pi6s6fwd57bktfzvfns"},"transactions":[{"phid":"PHID-XACT-DREV-om5mlg2ib34yaoi"},{"phid":"PHID-XACT-DREV-2pzq4qktezb7qqc"}]}}
 """
 
+
 def DEFAULT_EXPECTED_VALUES(revision):
     return Struct(**{
         'library_version_id': "newversion_" + revision,
@@ -101,12 +103,13 @@ def DEFAULT_EXPECTED_VALUES(revision):
 
 def COMMAND_MAPPINGS(expected_values):
     return {
-            "./mach vendor": expected_values.library_version_id + " 2020-08-21T15:13:49.000+02:00",
-            "./mach try auto": TRY_OUTPUT(expected_values.try_revision_id),
-            "arc diff --verbatim": ARC_OUTPUT,
-            "echo '{\"constraints\"": CONDUIT_USERNAME_SEARCH_OUTPUT,
-            "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT
-        }
+        "./mach vendor": expected_values.library_version_id + " 2020-08-21T15:13:49.000+02:00",
+        "./mach try auto": TRY_OUTPUT(expected_values.try_revision_id),
+        "arc diff --verbatim": ARC_OUTPUT,
+        "echo '{\"constraints\"": CONDUIT_USERNAME_SEARCH_OUTPUT,
+        "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT,
+        "echo -n": RETRIGGER_RESPONSE
+    }
 
 
 class MockedBugzillaProvider(BaseProvider):
@@ -332,6 +335,43 @@ class TestCommandRunner(unittest.TestCase):
             u.dbProvider.delete_job(l, expected_values.library_version_id)
 
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
+    def testExistingJobUnclassifiedFailure(self):
+        # Setup
+        try_revision = "ab2232a04301f1d2dbeea7050488f8ec2dde5451"
+        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
+        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
+        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
+
+        # Make it
+        library_filter = 'dav1d'
+        u = Updatebot(self.configs, self.providers)
+        _check_jobs = functools.partial(self._check_jobs, u, library_filter, expected_values)
+
+        # Ensure we don't have a dirty database with existing jobs
+        for l in u.dbProvider.get_libraries():
+            j = u.dbProvider.get_job(l, expected_values.library_version_id)
+            self.assertEqual(j, None, "When running testExistingJobUnclassifiedFailure, we found an existing job, indicating the database is dirty and should be cleaned.")
+
+        # Run it
+        u.run(library_filter=library_filter)
+        # Check that we created the job successfully
+        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+        # Run it again, this time we'll tell it the jobs are still in process
+        u.run(library_filter=library_filter)
+        # Should still be Awaiting Try Results
+        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+        # Run it again, this time we'll tell it a test failed
+        u.run(library_filter=library_filter)
+        # Should be DONE and Failed.
+        _check_jobs(JOBSTATUS.AWAITING_RETRIGGER_RESULTS, JOBOUTCOME.PENDING)
+        # Run it again, this time we'll tell it all the tests failed
+        u.run(library_filter=library_filter)
+        # Should be DONE and Failed.
+        _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
+
+        # Cleanup
+        for l in u.dbProvider.get_libraries():
+            u.dbProvider.delete_job(l, expected_values.library_version_id)
 
 
 if __name__ == '__main__':

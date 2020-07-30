@@ -15,6 +15,7 @@ from components.logging import LogLevel
 
 class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config):
+        self.mappings = {}
         if 'test_mappings' in config:
             self.mappings = config['test_mappings']
 
@@ -26,6 +27,9 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
         for m in self.mappings:
             if argument_string.startswith(m):
                 stdout = self.mappings[m]
+                self.logger.log("We found a mapped response, providing it.", level=LogLevel.Info)
                 break
+        if not stdout:
+            self.logger.log("We did not find a mapped response.", level=LogLevel.Warning)
         return Struct(**{'stdout':
                          Struct(**{'decode': lambda: stdout})})

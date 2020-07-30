@@ -28,9 +28,10 @@ PUSH_IDS = {
     #  x: push_id. from above in TRY_REVISIONS
     #  y: the page. Unless a result is multi_page it will just be 1
     #  x: request number. The first time a document is requested, this will be 1, the second time, 2, etc
+    #     specify 'A' to indicate this response should be used for all requests
     # rev_broken/good
-    '1_1_1': "treeherder_api_response_1.txt",
-    '1_2_1': "treeherder_api_response_2.txt",
+    '1_1_A': "treeherder_api_response_1.txt",
+    '1_2_A': "treeherder_api_response_2.txt",
     # testExistingJobSucceeded
     '2_1_1': "treeherder_api_response_jobs_still_running.txt",
     '2_1_2': "treeherder_api_response_all_succeeded.txt",
@@ -68,7 +69,10 @@ def get_appropriate_filename(path):
     print("Checking for push_id", push_id, "page", page, "seen", seen_counter)
 
     if key not in PUSH_IDS:
-        assert False, "Could not find the key " + key + " in PUSH_IDS"
+        key = push_id + "_" + page + "_" + "A"
+        print("Response-specific key missing, checking for key ", key)
+        if key not in PUSH_IDS:
+            assert False, "Could not find either key in PUSH_IDS"
 
     return PUSH_IDS[key]
 

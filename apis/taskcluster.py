@@ -20,9 +20,12 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self._vcs_setup_initialized = False
         self._failure_classifications = None
 
-        self.url = "https://treeherder.mozilla.org/"
-        if 'url' in config:
-            self.url = config['url']
+        self.url_treeherder = "https://treeherder.mozilla.org/"
+        self.url_taskcluster = "https://firefox-ci-tc.services.mozilla.com/"
+        if 'url_treeherder' in config:
+            self.url_treeherder = config['url_treeherder']
+        if 'url_taskcluster' in config:
+            self.url_taskcluster = config['url_taskcluster']
 
         self.project = ""
         if 'project' in config:
@@ -80,8 +83,11 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def _get_failure_classifications(self):
         if not self._failure_classifications:
             self.logger.log("Requesting failure classifications", level=LogLevel.Info)
-            r = requests.get(self.url + "api/failureclassification/", headers=self.HEADERS)
-            j = r.json()
+            r = requests.get(self.url_treeherder + "api/failureclassification/", headers=self.HEADERS)
+            try:
+                j = r.json()
+            except Exception:
+                raise Exception("Could not parse the result of the failureclassification request as json. Response:\n%s" % (r.text))
 
             failureclassifications = {}
             for f in j:
@@ -102,7 +108,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def get_job_details(self, revision):
-        push_list_url = self.url + "api/" + self.project + "push/?revision=%s" % revision
+        push_list_url = self.url_treeherder + "api/" + self.project + "push/?revision=%s" % revision
         self.logger.log("Requesting revision %s from %s" % (revision, push_list_url), level=LogLevel.Info)
 
         r = requests.get(push_list_url, headers=self.HEADERS)
@@ -118,7 +124,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         job_list = []
         property_names = []
-        job_details_url = self.url + "api/jobs/?push_id=%s" % push_id
+        job_details_url = self.url_treeherder + "api/jobs/?push_id=%s" % push_id
         try:
             while job_details_url:
                 self.logger.log("Requesting push id %s from %s" % (push_id, job_details_url), level=LogLevel.Info)

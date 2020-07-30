@@ -57,7 +57,8 @@ class TestTaskclusterProvider(unittest.TestCase):
         cls.commandProvider.update_config(SimpleLoggerConfig)
 
         cls.taskclusterProvider = TaskclusterProvider({
-            'url': 'http://localhost:27490/',
+            'url_treeherder': 'http://localhost:27490/',
+            'url_taskcluster': 'http://localhost:27490/',
         })
         additional_config = SimpleLoggerConfig
         additional_config.update({'CommandProvider': cls.commandProvider})

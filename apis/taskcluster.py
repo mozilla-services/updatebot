@@ -4,11 +4,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import json
+import jsone
 import requests
 
 from components.utilities import Struct
-from components.logging import logEntryExit, LogLevel
+from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
+
+RETRIGGER_NUMBER = 3
 
 
 class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
@@ -144,3 +148,55 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     # =================================================================
     # =================================================================
+
+    @logEntryExitNoArgs
+    def retrigger_jobs(self, job_list, retrigger_list):
+        # Go through the jobs and find the decision task
+        decision_task = None
+        for j in job_list:
+            if "Gecko Decision Task" == j.job_type_name:
+                decision_task = j
+                break
+        assert decision_task is not None
+
+        # Download its actions.json
+        artifact_url = self.url_taskcluster + "api/queue/v1/task/%s/runs/0/artifacts/public/actions.json" % (decision_task.task_id)
+        r = requests.get(artifact_url, headers=self.HEADERS)
+        try:
+            actions = r.json()
+        except Exception:
+            raise Exception("Could not parse the result of the actions.json artifact as json. Url: %s Response:\n%s" % (artifact_url, r.text))
+
+        # Find the retrigger action
+        retrigger_action = None
+        for a in actions['actions']:
+            if "retrigger-multiple" == a['name']:
+                retrigger_action = a
+                break
+        assert retrigger_action is not None
+
+        # Fill in the taskId of the job I want to retrigger using JSON-E
+        retrigger_tasks = [i.job_type_name for i in retrigger_list]
+        context = {
+            'taskGroupId': retrigger_action['hookPayload']['decision']['action']['taskGroupId'],
+            'taskId': None,
+            'input': {'requests': [{'tasks': retrigger_tasks, 'times': RETRIGGER_NUMBER}]}
+        }
+        template = retrigger_action['hookPayload']
+
+        payload = jsone.render(template, context)
+        payload = json.dumps(payload).replace("\\n", " ")
+
+        # Shell out to the taskcluster binary
+        cmd = "echo -n '" + payload + "' | ./taskcluster-darwin-amd64 api hooks triggerHook " + \
+            retrigger_action['hookGroupId'] + " " + retrigger_action['hookId']
+        ret = self.run([cmd], shell=True)
+
+        # Check if it worked
+        output = ret.stdout.decode()
+        try:
+            output = json.loads(output)
+            self.logger.log("Issued a retrigger, and the decision taskid is %s" % output['status']['taskId'], level=LogLevel.Info)
+            return output['status']['taskId']
+        except Exception as e:
+            raise Exception("Task retrigger did not complete successfully, job output is\n" + output) from e

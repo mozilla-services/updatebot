@@ -13,6 +13,7 @@ FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id
 EXPECTEDPATH_PUSH = "push/?revision="
 EXPECTEDPATH_JOBS = "jobs/?push_id="
 EXPECTEDPATH_FAILURECLASSIFICATION = "/failureclassification"
+EXPECTEDPATH_ACTIONSJSON = "api/queue/v1/task"
 
 TRY_REVISIONS = {
     'rev_broken': "{\"results\":[{\"missing_id\":0}]}",
@@ -36,8 +37,6 @@ def find_and_increment_seen_counter(key):
 
 
 def get_appropriate_filename(path):
-    prefix = "tests/" if not os.getcwd().endswith("tests") else ""
-
     has_page = "&page=" in path
     i1 = path.index(EXPECTEDPATH_JOBS) + len(EXPECTEDPATH_JOBS)
     i2 = path.index("&page=") if has_page else len(path)
@@ -51,7 +50,7 @@ def get_appropriate_filename(path):
     if key not in PUSH_IDS:
         assert False, "Could not find the key " + key + " in PUSH_IDS"
 
-    return prefix + PUSH_IDS[key]
+    return PUSH_IDS[key]
 
 
 class MockTreeherderServer(server.BaseHTTPRequestHandler):
@@ -73,12 +72,17 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
         elif EXPECTEDPATH_FAILURECLASSIFICATION in self.path:
             self.wfile.write(FAILURE_CLASSIFICATIONS.encode())
 
-        elif EXPECTEDPATH_JOBS in self.path:
-            filename = get_appropriate_filename(self.path)
+        else:
+            prefix = "tests/" if not os.getcwd().endswith("tests") else ""
+            if EXPECTEDPATH_JOBS in self.path:
+                filename = get_appropriate_filename(self.path)
+            elif EXPECTEDPATH_ACTIONSJSON in self.path:
+                filename = "taskcluster_api_response_actionsjson.txt"
+            else:
+                assert False, "MockTreeherderServer got a path it didn't expect"
+
             print("MockTreeherderServer: Streaming %s" % filename)
 
-            with open(filename, "rb") as f:
+            with open(prefix + filename, "rb") as f:
                 for line in f:
                     self.wfile.write(line)
-        else:
-            assert False, "MockTreeherderServer got a path it didn't expect"

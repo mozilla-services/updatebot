@@ -3,6 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import re
 import json
 
 from components.logging import logEntryExit
@@ -11,21 +12,31 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 
 class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
-        pass
+        if 'url' not in config:
+            if config['General']['env'] == "dev":
+                self.url = "https://phabricator-dev.allizom.org/"
+            elif config['General']['env'] == "prod":
+                self.url = "https://phabricator.services.mozilla.com/"
+            else:
+                assert ('url' in config) or (config['General']['env'] in ["dev", "prod"]), "No phabricator url provided, and unknown operating environment"
+        else:
+            self.url = config['url']
 
     @logEntryExit
     def submit_patch(self):
         ret = self.run(["arc", "diff", "--verbatim"])
         output = ret.stdout.decode()
 
-        isNext = False
-        phab_revision = "Unknown"
+        phab_revision = None
+        r = re.compile(self.url + "D([0-9]+)")
         for l in output.split("\n"):
-            if isNext:
-                phab_revision = l.split(" ")[0].replace("(D", "").replace(")", "")
+            s = r.search(l)
+            if s:
+                phab_revision = s.groups(0)[0]
                 break
-            if "Completed" == l.strip():
-                isNext = True
+
+        if not phab_revision:
+            raise Exception("Could not find a phabricator revision in the output of arc diff using regex %s" % r.pattern)
 
         return phab_revision
 

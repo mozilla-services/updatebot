@@ -25,7 +25,5 @@ localconfig = {
     'Taskcluster': {
         'url_treeherder': 'https://treeherder.mozilla.org/',
         'url_taskcluster': 'https://firefox-ci-tc.services.mozilla.com/',
-        # project should be blank or absent if running on central
-        'project': 'holly'
     }
 }

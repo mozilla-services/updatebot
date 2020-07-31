@@ -27,10 +27,6 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         if 'url_taskcluster' in config:
             self.url_taskcluster = config['url_taskcluster']
 
-        self.project = ""
-        if 'project' in config:
-            self.project = "project/" + config['project'] + "/"
-
         self.HEADERS = {
             'User-Agent': 'Updatebot'
         }
@@ -108,7 +104,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def get_job_details(self, revision):
-        push_list_url = self.url_treeherder + "api/" + self.project + "push/?revision=%s" % revision
+        push_list_url = self.url_treeherder + "api/project/try/push/?revision=%s" % revision
         self.logger.log("Requesting revision %s from %s" % (revision, push_list_url), level=LogLevel.Info)
 
         r = requests.get(push_list_url, headers=self.HEADERS)

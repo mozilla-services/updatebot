@@ -74,7 +74,7 @@ rebasing 539628:2f4625139f7e "Bug 1652037 - Wire up build_clang_tidy_external in
 
 Completed
 (D83119) 539629:94adaadd8131 Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
--> https://phabricator.services.mozilla.com/D83119
+-> https://phabricator-dev.allizom.org/D83119
 """
 
 

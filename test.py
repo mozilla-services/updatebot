@@ -15,6 +15,7 @@ TESTS = [
     "run_command",
     "functionality",
     "multiple_inheritence",
+    "treeherder_api"
 ]
 
 modules = []

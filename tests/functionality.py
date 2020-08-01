@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import sys
+import inspect
 import unittest
 import functools
 
@@ -124,10 +125,21 @@ class MockedBugzillaProvider(BaseProvider):
         pass
 
 
-class TestCommandRunner(unittest.TestCase):
+class TestFunctionality(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.configs = {
+        cls.server = server.HTTPServer(('', 27490), MockTreeherderServer)
+        t = Thread(target=cls.server.serve_forever)
+        t.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+
+    @staticmethod
+    def _setup(try_revision, library_filter):
+        configs = {
             'General': {'env': 'dev'},
             'Command': {'test_mappings': None},
             'Logging': localconfig['Logging'],
@@ -141,237 +153,159 @@ class TestCommandRunner(unittest.TestCase):
             },
             'Phabricator': {},
         }
-        cls.providers = {
+
+        providers = {
             # Not Mocked At All
             'Logging': LoggingProvider,
-
             # Fully Mocked
             'Command': TestCommandProvider,
-
             # Not Mocked At All
             'Database': DatabaseProvider,
-
             # Not Mocked At All
             'Vendor': VendorProvider,
-
             # Fully Mocked, avoids needing to make a fake
             # bugzilla server which provides no additional logic coverage
             'Bugzilla': MockedBugzillaProvider,
-
             # Not Mocked At All
             'Mercurial': MercurialProvider,
-
             # Not Mocked At All, but does point to a fake server
             'Taskcluster': TaskclusterProvider,
-
             # Not Mocked At All
             'Phabricator': PhabricatorProvider,
         }
 
-        cls.server = server.HTTPServer(('', 27490), MockTreeherderServer)
-        t = Thread(target=cls.server.serve_forever)
-        t.start()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.shutdown()
-        cls.server.server_close()
-
-    def testAllNewJobs(self):
-        # Setup
-        try_revision = "try_rev"  # Doesn't matter
         expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
-        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
-        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
+        configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
+        configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 
-        # Make it
-        u = Updatebot(self.configs, self.providers)
+        u = Updatebot(configs, providers)
+        _check_jobs = functools.partial(TestFunctionality._check_jobs, u, library_filter, expected_values)
 
         # Ensure we don't have a dirty database with existing jobs
+        tc = unittest.TestCase()
         for l in u.dbProvider.get_libraries():
             j = u.dbProvider.get_job(l, expected_values.library_version_id)
-            self.assertEqual(j, None, "When running testAllNewJobs, we found an existing job, indicating the database is dirty and should be cleaned.")
+            tc.assertEqual(j, None, "When running %s, we found an existing job, indicating the database is dirty and should be cleaned." % inspect.stack()[1].function)
 
-        # Run it
-        u.run()
+        return (u, expected_values, _check_jobs)
 
-        # Check For Success
-        for l in u.dbProvider.get_libraries():
-            j = u.dbProvider.get_job(l, expected_values.library_version_id)
-
-            self.assertNotEqual(j, None)
-            self.assertEqual(l.shortname, j.library_shortname)
-            self.assertEqual(expected_values.library_version_id, j.version)
-            self.assertEqual(JOBSTATUS.AWAITING_TRY_RESULTS, j.status)
-            self.assertEqual(JOBOUTCOME.PENDING, j.status)
-            self.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
-            self.assertEqual(expected_values.phab_revision, j.phab_revision)
-            self.assertEqual(
-                expected_values.try_revision_id, j.try_revision)
-
-        # Cleanup
+    @staticmethod
+    def _cleanup(u, expected_values):
         for l in u.dbProvider.get_libraries():
             u.dbProvider.delete_job(l, expected_values.library_version_id)
 
-    def _check_jobs(self, u, library_filter, expected_values, status, outcome):
+    @staticmethod
+    def _check_jobs(u, library_filter, expected_values, status, outcome):
+        tc = unittest.TestCase()
+
         for l in u.dbProvider.get_libraries():
             if library_filter not in l.shortname:
                 continue
             j = u.dbProvider.get_job(l, expected_values.library_version_id)
 
-            self.assertNotEqual(j, None)
-            self.assertEqual(l.shortname, j.library_shortname)
-            self.assertEqual(expected_values.library_version_id, j.version)
-            self.assertEqual(status, j.status)
-            self.assertEqual(outcome, j.outcome)
-            self.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
-            self.assertEqual(expected_values.phab_revision, j.phab_revision)
-            self.assertEqual(
+            tc.assertNotEqual(j, None)
+            tc.assertEqual(l.shortname, j.library_shortname)
+            tc.assertEqual(expected_values.library_version_id, j.version)
+            tc.assertEqual(status, j.status)
+            tc.assertEqual(outcome, j.outcome)
+            tc.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
+            tc.assertEqual(expected_values.phab_revision, j.phab_revision)
+            tc.assertEqual(
                 expected_values.try_revision_id, j.try_revision)
+
+    def testAllNewJobs(self):
+        (u, expected_values, _check_jobs) = TestFunctionality._setup("try_rev", "")
+        u.run()
+        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+        TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded
     def testExistingJobSucceeded(self):
-        # Setup
-        try_revision = "e152bb86666565ee6619c15f60156cd6c79580a9"
-        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
-        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
-        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
-
-        # Make it
         library_filter = 'dav1d'
-        u = Updatebot(self.configs, self.providers)
-        _check_jobs = functools.partial(self._check_jobs, u, library_filter, expected_values)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup("e152bb86666565ee6619c15f60156cd6c79580a9", library_filter)
 
-        # Ensure we don't have a dirty database with existing jobs
-        for l in u.dbProvider.get_libraries():
-            j = u.dbProvider.get_job(l, expected_values.library_version_id)
-            self.assertEqual(j, None, "When running testExistingJobSucceeded, we found an existing job, indicating the database is dirty and should be cleaned.")
-
-        # Run it
-        u.run(library_filter=library_filter)
-        # Check that we created the job successfully
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it the jobs are still in process
-        u.run(library_filter=library_filter)
-        # Should still be Awaiting Try Results
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it the jobs succeeded
-        u.run(library_filter=library_filter)
-        # Should be DONE
-        _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
-
-        # Cleanup
-        for l in u.dbProvider.get_libraries():
-            u.dbProvider.delete_job(l, expected_values.library_version_id)
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs succeeded
+            u.run(library_filter=library_filter)
+            # Should be DONE
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Build Failed
     def testExistingJobBuildFailed(self):
-        # Setup
-        try_revision = "55ca6286e3e4f4fba5d0448333fa99fc5a404a73"
-        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
-        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
-        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
-
-        # Make it
         library_filter = 'dav1d'
-        u = Updatebot(self.configs, self.providers)
-        _check_jobs = functools.partial(self._check_jobs, u, library_filter, expected_values)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup("55ca6286e3e4f4fba5d0448333fa99fc5a404a73", library_filter)
 
-        # Ensure we don't have a dirty database with existing jobs
-        for l in u.dbProvider.get_libraries():
-            j = u.dbProvider.get_job(l, expected_values.library_version_id)
-            self.assertEqual(j, None, "When running testExistingJobBuildFailed, we found an existing job, indicating the database is dirty and should be cleaned.")
-
-        # Run it
-        u.run(library_filter=library_filter)
-        # Check that we created the job successfully
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it the jobs are still in process
-        u.run(library_filter=library_filter)
-        # Should still be Awaiting Try Results
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it a build job failed
-        u.run(library_filter=library_filter)
-        # Should be DONE and Failed.
-        _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
-
-        # Cleanup
-        for l in u.dbProvider.get_libraries():
-            u.dbProvider.delete_job(l, expected_values.library_version_id)
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Failed.
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Lint and Classified Failure
     def testExistingJobClassifiedFailure(self):
-        # Setup
-        try_revision = "56082fc4acfacba40993e47ef8302993c59e264e"
-        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
-        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
-        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
-
-        # Make it
         library_filter = 'dav1d'
-        u = Updatebot(self.configs, self.providers)
-        _check_jobs = functools.partial(self._check_jobs, u, library_filter, expected_values)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup("56082fc4acfacba40993e47ef8302993c59e264e", library_filter)
 
-        # Ensure we don't have a dirty database with existing jobs
-        for l in u.dbProvider.get_libraries():
-            j = u.dbProvider.get_job(l, expected_values.library_version_id)
-            self.assertEqual(j, None, "When running testExistingJobClassifiedFailure, we found an existing job, indicating the database is dirty and should be cleaned.")
-
-        # Run it
-        u.run(library_filter=library_filter)
-        # Check that we created the job successfully
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it the jobs are still in process
-        u.run(library_filter=library_filter)
-        # Should still be Awaiting Try Results
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it a build job failed
-        u.run(library_filter=library_filter)
-        # Should be DONE and Failed.
-        _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
-
-        # Cleanup
-        for l in u.dbProvider.get_libraries():
-            u.dbProvider.delete_job(l, expected_values.library_version_id)
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Failed.
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
     def testExistingJobUnclassifiedFailure(self):
-        # Setup
-        try_revision = "ab2232a04301f1d2dbeea7050488f8ec2dde5451"
-        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
-        self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
-        self.configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
-
-        # Make it
         library_filter = 'dav1d'
-        u = Updatebot(self.configs, self.providers)
-        _check_jobs = functools.partial(self._check_jobs, u, library_filter, expected_values)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup("ab2232a04301f1d2dbeea7050488f8ec2dde5451", library_filter)
 
-        # Ensure we don't have a dirty database with existing jobs
-        for l in u.dbProvider.get_libraries():
-            j = u.dbProvider.get_job(l, expected_values.library_version_id)
-            self.assertEqual(j, None, "When running testExistingJobUnclassifiedFailure, we found an existing job, indicating the database is dirty and should be cleaned.")
-
-        # Run it
-        u.run(library_filter=library_filter)
-        # Check that we created the job successfully
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it the jobs are still in process
-        u.run(library_filter=library_filter)
-        # Should still be Awaiting Try Results
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it a test failed
-        u.run(library_filter=library_filter)
-        # Should be DONE and Failed.
-        _check_jobs(JOBSTATUS.AWAITING_RETRIGGER_RESULTS, JOBOUTCOME.PENDING)
-        # Run it again, this time we'll tell it all the tests failed
-        u.run(library_filter=library_filter)
-        # Should be DONE and Failed.
-        _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
-
-        # Cleanup
-        for l in u.dbProvider.get_libraries():
-            u.dbProvider.delete_job(l, expected_values.library_version_id)
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a test failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Failed.
+            _check_jobs(JOBSTATUS.AWAITING_RETRIGGER_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it all the tests failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Failed.
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
 
 if __name__ == '__main__':

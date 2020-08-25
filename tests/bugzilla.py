@@ -39,7 +39,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'component': 'ImageLib',
                 'type': "enhancement",
                 'severity': "normal",
-                'summary': 'Update dav1d to new version V1',
+                'summary': 'Update dav1d to new version V1 from 2020-08-21 15:13:49',
                 'description': '',
                 'whiteboard': '[3pl-filed]',
                 'cc': ['tom@mozilla.com']
@@ -107,7 +107,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
-        self.bugzillaProvider.file_bug(library, 'V1')
+        self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00')
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(

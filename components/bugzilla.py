@@ -3,6 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+from dateutil.parser import parse
 
 from apis.bugzilla_api import fileBug, commentOnBug
 from components.providerbase import BaseProvider, INeedsLoggingProvider
@@ -82,9 +83,14 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
                 assert ('url' in self.config) or (self.config['General']['env'] in ["dev", "prod"]), "No bugzilla url provided, and unknown operating environment"
 
     @logEntryExit
-    def file_bug(self, library, new_release_version):
-        summary = "Update %s to new version %s" % (
-            library.shortname, new_release_version)
+    def file_bug(self, library, new_release_version, release_timestamp):
+        try:
+            release_timestamp = parse(release_timestamp).strftime('%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            pass
+
+        summary = "Update %s to new version %s from %s" % (
+            library.shortname, new_release_version, release_timestamp)
         description = ""
         severity = "normal" if self.config['General']['env'] == "dev" else "S3"
 

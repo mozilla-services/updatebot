@@ -92,7 +92,7 @@ class MockedBugzillaProvider(BaseProvider):
         self._filed_bug_id = config['filed_bug_id']
         pass
 
-    def file_bug(self, library, new_release_version):
+    def file_bug(self, library, new_release_version, release_timestamp):
         return self._filed_bug_id
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
@@ -147,7 +147,7 @@ class TestCommandRunner(unittest.TestCase):
         self.configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
 
         command_mappings = {
-            "./mach vendor": expected_values.library_version_id,
+            "./mach vendor": expected_values.library_version_id + " 2020-08-21T15:13:49.000+02:00",
             "./mach try auto": TRY_OUTPUT(try_revision),
             "arc diff --verbatim": ARC_OUTPUT
         }

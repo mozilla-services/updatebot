@@ -12,7 +12,7 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
 
     @logEntryExit
     def check_for_update(self, library):
-        return self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip()
+        return self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip().split()
 
     @logEntryExit
     def vendor(self, library):

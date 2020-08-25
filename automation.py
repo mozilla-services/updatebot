@@ -150,7 +150,7 @@ class Updatebot:
     # ====================================================================
 
     def _process_library(self, library):
-        new_version = self.vendorProvider.check_for_update(library)
+        new_version, timestamp = self.vendorProvider.check_for_update(library)
         if not new_version:
             self.logger.log("Processing %s but no new version was found." % library.shortname, level=LogLevel.Info)
             return
@@ -162,13 +162,13 @@ class Updatebot:
             self._process_existing_job(library, existing_job)
         else:
             self.logger.log("%s is a brand new revision to updatebot" % (new_version), level=LogLevel.Info)
-            self._process_new_job(library, new_version)
+            self._process_new_job(library, new_version, timestamp)
 
     # ====================================================================
 
     @logEntryExit
-    def _process_new_job(self, library, new_version):
-        bugzilla_id = self.bugzillaProvider.file_bug(library, new_version)
+    def _process_new_job(self, library, new_version, timestamp):
+        bugzilla_id = self.bugzillaProvider.file_bug(library, new_version, timestamp)
 
         status = None
         try:

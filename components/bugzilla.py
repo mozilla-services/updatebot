@@ -20,9 +20,11 @@ locally with `./mach vendor %s`.  I'm going to abandon the Phabricator patch and
 let you submit a new one.
 
 If the build failure wasn't caused by a library change, and was instead caused by
-something structural in the build system (like I didn't automatically correct the
-moz.build file correctly) - please let my maintainers know in Slack:#secinf so I
-can be improved.
+something structural in the build system please let my maintainers know in
+Slack:#secinf.
+
+I do my best to automatically add new files to the build, but some moz.build files
+are complicated and you may need to fix them manually.
 """ % (library.yaml_path)
 
     @staticmethod

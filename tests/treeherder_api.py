@@ -17,43 +17,13 @@ from components.logging import SimpleLoggerConfig
 from apis.taskcluster import TaskclusterProvider
 
 from tests.mock_commandprovider import TestCommandProvider
-from tests.mock_treeherder_server import MockTreeherderServer, FAILURE_CLASSIFICATIONS
-
-EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"
-RETRIGGER_RESPONSE = """
-{
-  "status": {
-    "taskId": "%s",
-    "provisionerId": "gecko-3",
-    "workerType": "decision",
-    "schedulerId": "gecko-level-3",
-    "taskGroupId": "Igy-K0sYSlKnWt4i4nM_8g",
-    "deadline": "2020-07-31T19:09:46.398Z",
-    "expires": "2021-07-30T19:09:46.398Z",
-    "retriesLeft": 5,
-    "state": "pending",
-    "runs": [
-      {
-        "runId": 0,
-        "state": "pending",
-        "reasonCreated": "scheduled",
-        "scheduled": "2020-07-30T19:09:46.441Z"
-      }
-    ]
-  }
-}
-""" % EXPECTED_RETRIGGER_DECISION_TASK
-
+from tests.mock_treeherder_server import MockTreeherderServer, FAILURE_CLASSIFICATIONS, EXPECTED_RETRIGGER_DECISION_TASK
 
 class TestTaskclusterProvider(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = server.HTTPServer(('', 27490), MockTreeherderServer)
-        cls.commandProvider = TestCommandProvider({
-            'test_mappings': {
-                'echo -n': RETRIGGER_RESPONSE
-            }
-        })
+        cls.commandProvider = TestCommandProvider({})
         cls.commandProvider.update_config(SimpleLoggerConfig)
 
         cls.taskclusterProvider = TaskclusterProvider({

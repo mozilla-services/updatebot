@@ -7,6 +7,7 @@
 import json
 import jsone
 import requests
+from urllib.parse import quote_plus
 
 from components.utilities import Struct
 from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
@@ -189,16 +190,17 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         payload = jsone.render(template, context)
         payload = json.dumps(payload).replace("\\n", " ")
 
-        # Shell out to the taskcluster binary
-        cmd = "echo -n '" + payload + "' | ./taskcluster-darwin-amd64 api hooks triggerHook " + \
-            retrigger_action['hookGroupId'] + " " + retrigger_action['hookId']
-        ret = self.run([cmd], shell=True)
+        trigger_url = self.url_taskcluster + "api/hooks/v1/hooks/%s/%s/trigger" % \
+            (quote_plus(retrigger_action["hookGroupId"]), quote_plus(retrigger_action["hookId"]))
 
-        # Check if it worked
-        output = ret.stdout.decode()
+        self.logger.log("Issuing a retrigger to %s" % (trigger_url), level=LogLevel.Info)
+        r = requests.post(trigger_url, data=payload)
         try:
-            output = json.loads(output)
-            self.logger.log("Issued a retrigger, and the decision taskid is %s" % output['status']['taskId'], level=LogLevel.Info)
-            return output['status']['taskId']
+            if r.status_code == 200:
+                output = r.json()
+                self.logger.log("Succeeded, the decision taskid is %s" % output["status"]["taskId"], level=LogLevel.Info)
+                return output["status"]["taskId"]
+            else:
+                raise Exception("Task retrigger did not complete successfully, status code is " + str(r.status_code) + "\n\n" + r.text)
         except Exception as e:
-            raise Exception("Task retrigger did not complete successfully, job output is\n" + output) from e
+            raise Exception("Task retrigger did not complete successfully (exception raised during processing), response is\n" + r.text) from e

@@ -14,6 +14,7 @@ EXPECTEDPATH_PUSH = "push/?revision="
 EXPECTEDPATH_JOBS = "jobs/?push_id="
 EXPECTEDPATH_FAILURECLASSIFICATION = "/failureclassification"
 EXPECTEDPATH_ACTIONSJSON = "api/queue/v1/task"
+EXPECTEDPATH_RETRIGGER = "/api/hooks/v1/hooks"
 
 TRY_REVISIONS = {
     'rev_broken': "{\"results\":[{\"missing_id\":0}]}",
@@ -47,6 +48,31 @@ PUSH_IDS = {
     '5_1_2': "treeherder_api_response_jobs_one_unclassified_failure.txt",
     '5_1_3': "treeherder_api_response_jobs_unclassified_failure_retriggers_done.txt",
 }
+
+EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"
+RETRIGGER_RESPONSE = """
+{
+  "status": {
+    "taskId": "%s",
+    "provisionerId": "gecko-3",
+    "workerType": "decision",
+    "schedulerId": "gecko-level-3",
+    "taskGroupId": "Igy-K0sYSlKnWt4i4nM_8g",
+    "deadline": "2020-07-31T19:09:46.398Z",
+    "expires": "2021-07-30T19:09:46.398Z",
+    "retriesLeft": 5,
+    "state": "pending",
+    "runs": [
+      {
+        "runId": 0,
+        "state": "pending",
+        "reasonCreated": "scheduled",
+        "scheduled": "2020-07-30T19:09:46.441Z"
+      }
+    ]
+  }
+}
+""" % EXPECTED_RETRIGGER_DECISION_TASK
 
 seen_counters = {}
 
@@ -83,6 +109,15 @@ def get_appropriate_filename(path):
 
 
 class MockTreeherderServer(server.BaseHTTPRequestHandler):
+    def do_POST(self):
+        if EXPECTEDPATH_RETRIGGER in self.path:
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(RETRIGGER_RESPONSE.encode())
+        else:
+            assert False, "MockTreeherderServer POST got a path it didn't expect: " + self.path
+
     def do_GET(self):
 
         self.send_response(200)
@@ -108,7 +143,7 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
             elif EXPECTEDPATH_ACTIONSJSON in self.path:
                 filename = "taskcluster_api_response_actionsjson.txt"
             else:
-                assert False, "MockTreeherderServer got a path it didn't expect"
+                assert False, "MockTreeherderServer GET got a path it didn't expect: " + self.path
 
             print("MockTreeherderServer: Streaming %s" % filename)
 

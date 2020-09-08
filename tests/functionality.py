@@ -28,7 +28,6 @@ from apis.phabricator import PhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_treeherder_server import MockTreeherderServer
-from tests.treeherder_api import RETRIGGER_RESPONSE
 
 try:
     from localconfig import localconfig
@@ -108,8 +107,7 @@ def COMMAND_MAPPINGS(expected_values):
         "./mach try auto": TRY_OUTPUT(expected_values.try_revision_id),
         "arc diff --verbatim": ARC_OUTPUT,
         "echo '{\"constraints\"": CONDUIT_USERNAME_SEARCH_OUTPUT,
-        "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT,
-        "echo -n": RETRIGGER_RESPONSE
+        "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT
     }
 
 

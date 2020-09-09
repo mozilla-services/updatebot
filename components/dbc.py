@@ -31,6 +31,9 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def get_all_jobs(self):
         return self.db.get_all_jobs()
 
+    def get_all_active_jobs_for_library(self, library):
+        return self.db.get_all_active_jobs_for_library(library)
+
     def get_job(self, library, new_version):
         return self.db.get_job(library, new_version)
 

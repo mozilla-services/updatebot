@@ -161,14 +161,31 @@ class Updatebot:
             self.logger.log("%s has an existing job with try revision %s and status %s" % (new_version, existing_job.try_revision, existing_job.status), level=LogLevel.Info)
             self._process_existing_job(library, existing_job)
         else:
-            self.logger.log("%s is a brand new revision to updatebot" % (new_version), level=LogLevel.Info)
+            self.logger.log("%s is a brand new revision to updatebot." % (new_version), level=LogLevel.Info)
             self._process_new_job(library, new_version, timestamp)
 
     # ====================================================================
 
     @logEntryExit
     def _process_new_job(self, library, new_version, timestamp):
-        bugzilla_id = self.bugzillaProvider.file_bug(library, new_version, timestamp)
+        see_also = []
+
+        # First, we need to see if there was a previously active job for this library.
+        # If so, we need to close that job out.
+        active_jobs = self.dbProvider.get_all_active_jobs_for_library(library)
+        assert len(active_jobs) <= 1, "Got more than one active job for library %s" % (library.shortname)
+        self.logger.log("Found %i active jobs for this library" % len(active_jobs), level=LogLevel.Info)
+        if len(active_jobs) == 1:
+            active_job = active_jobs[0]
+            self.bugzillaProvider.close_bug(active_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED())
+            self.phabricatorProvider.abandon(active_job.phab_revision)
+            active_job.status = JOBSTATUS.DONE
+            active_job.outcome = JOBOUTCOME.ABORTED
+            self.dbProvider.update_job_status(active_job)
+            see_also.append(active_job.bugzilla_id)
+
+        # Now we can process the new job
+        bugzilla_id = self.bugzillaProvider.file_bug(library, new_version, timestamp, see_also)
 
         try:
             self.vendorProvider.vendor(library)
@@ -191,11 +208,12 @@ class Updatebot:
     @logEntryExit
     def _process_existing_job(self, library, existing_job):
         if existing_job.status == JOBSTATUS.DONE:
+            self.logger.log("This job has already been completed")
             return
 
         try_run_results = self.taskclusterProvider.get_job_details(existing_job.try_revision)
         if not try_run_results:
-            self.logger.log("Try revision %s has no job results. Finishing this job." % existing_job.try_revision, level=LogLevel.Warning)
+            self.logger.log("Try revision %s has no job results. Skipping this job." % existing_job.try_revision, level=LogLevel.Warning)
             return
 
         self._process_job_details(library, existing_job, try_run_results)

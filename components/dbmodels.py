@@ -18,7 +18,8 @@ JOBOUTCOME = Struct(**{
     'BUILD_FAILED': 3,
     'CLASSIFIED_FAILURES': 4,
     'UNCLASSIFIED_FAILURES': 5,
-    'ALL_SUCCESS': 6
+    'ALL_SUCCESS': 6,
+    'ABORTED': 7
 })
 
 

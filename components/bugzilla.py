@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from dateutil.parser import parse
 
-from apis.bugzilla_api import fileBug, commentOnBug
+from apis.bugzilla_api import fileBug, commentOnBug, closeBug
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel, logEntryExit
 
@@ -71,6 +71,13 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
     def TRY_RUN_SUBMITTED(revision):
         return "I've submitted a try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=" + revision
 
+    @staticmethod
+    def BUG_SUPERSEDED():
+        return """
+This bug is being closed because a newer revision of the library is available.
+It will be linked in the See Also field.
+"""
+
 
 class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config):
@@ -85,7 +92,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
                 assert ('url' in self.config) or (self.config['General']['env'] in ["dev", "prod"]), "No bugzilla url provided, and unknown operating environment"
 
     @logEntryExit
-    def file_bug(self, library, new_release_version, release_timestamp):
+    def file_bug(self, library, new_release_version, release_timestamp, see_also=None):
         try:
             release_timestamp = parse(release_timestamp).strftime('%Y-%m-%d %H:%M:%S')
         except ValueError:
@@ -98,7 +105,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
         bugID = fileBug(self.config['url'], self.config['apikey'],
                         library.bugzilla_product, library.bugzilla_component,
-                        summary, description, severity)
+                        summary, description, severity, see_also)
         self.logger.log("Filed Bug with ID", bugID, level=LogLevel.Info)
         return bugID
 
@@ -107,3 +114,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
         commentOnBug(
             self.config['url'], self.config['apikey'], bug_id, comment, needinfo=needinfo, assignee=assignee)
         self.logger.log("Filed Comment on Bug %s" % (bug_id), level=LogLevel.Info)
+
+    @logEntryExit
+    def close_bug(self, bug_id, comment):
+        closeBug(self.config['url'], self.config['apikey'], bug_id, comment)

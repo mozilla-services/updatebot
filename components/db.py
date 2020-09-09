@@ -219,6 +219,13 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return [Job(r) for r in results]
 
     @logEntryExit
+    def get_all_active_jobs_for_library(self, library):
+        query = "SELECT * FROM jobs WHERE library = %s AND status<>%s ORDER BY id ASC"
+        args = (library.shortname, JOBSTATUS.DONE)
+        results = self._query_get_rows(query, args)
+        return [Job(r) for r in results]
+
+    @logEntryExit
     def get_job(self, library, new_version):
         query = "SELECT * FROM jobs WHERE library = %s AND version = %s"
         args = (library.shortname, new_version)

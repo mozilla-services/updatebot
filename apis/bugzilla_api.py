@@ -16,7 +16,7 @@ def kw(s):
     return sq('3pl-' + s)
 
 
-def fileBug(url, apikey, product, component, summary, description, severity):
+def fileBug(url, apikey, product, component, summary, description, severity, see_also):
     data = {
         'version': "unspecified",
         'op_sys': "unspecified",
@@ -30,6 +30,8 @@ def fileBug(url, apikey, product, component, summary, description, severity):
         'whiteboard': kw('filed'),
         'cc': ['tom@mozilla.com']
     }
+    if see_also:
+        data['see_also'] = see_also
 
     r = requests.post(url + "bug?api_key=" + apikey, json=data)
     j = json.loads(r.text)
@@ -53,6 +55,27 @@ def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
             'status': '?',
             'requestee': needinfo
         }]
+
+    r = requests.put(
+        url + "bug/" + str(bugID) + "?api_key=" + apikey,
+        json=data
+    )
+    j = json.loads(r.text)
+    if 'bugs' in j:
+        if len(j['bugs']) > 0:
+            if j['bugs'][0]['id'] == bugID:
+                return
+
+    raise Exception(j)
+
+
+def closeBug(url, apikey, bugID, comment):
+    data = {
+        'id': bugID,
+        'status': 'RESOLVED',
+        'resolution': 'WONTFIX',
+        'comment': {'body': comment}
+    }
 
     r = requests.put(
         url + "bug/" + str(bugID) + "?api_key=" + apikey,

@@ -25,8 +25,14 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def get_libraries(self):
         return self.db.get_libraries()
 
+    def get_configuration(self):
+        return self.db.get_configuration()
+
     def get_all_statuses(self):
         return self.db.get_all_statuses()
+
+    def get_all_outcomes(self):
+        return self.db.get_all_outcomes()
 
     def get_all_jobs(self):
         return self.db.get_all_jobs()
@@ -89,8 +95,12 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
                 print_object_values(o, columns, widths)
                 print_line(widths)
 
+        config_columns = ['k', 'v']
+        print_objects("CONFIGURATION", self.get_configuration(), config_columns)
+
         status_columns = ['id', 'name']
         print_objects("STATUSES", self.get_all_statuses(), status_columns)
+        print_objects("OUTCOMES", self.get_all_outcomes(), status_columns)
 
         job_columns = ['id', 'library_shortname', 'version',
                        'status', 'outcome', 'bugzilla_id', 'phab_revision',

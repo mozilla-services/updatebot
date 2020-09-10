@@ -8,7 +8,7 @@ from components.utilities import Struct
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
-from components.dbmodels import Job, Library, JOBSTATUS
+from components.dbmodels import Job, Library, JOBSTATUS, JOBOUTCOME
 
 import pymysql
 
@@ -60,6 +60,12 @@ CREATION_QUERIES = {
         `name` VARCHAR(255) NOT NULL
       ) ENGINE = InnoDB;
       """,
+    "outcome_types": """
+      CREATE TABLE `outcome_types` (
+        `id` TINYINT NOT NULL,
+        `name` VARCHAR(255) NOT NULL
+      ) ENGINE = InnoDB;
+      """,
     "jobs": """
       CREATE TABLE `jobs` (
         `id` INT NOT NULL AUTO_INCREMENT,
@@ -87,7 +93,7 @@ CREATION_QUERIES = {
       """
 }
 
-CURRENT_DATABASE_CONFIG_VERSION = 1
+CURRENT_DATABASE_CONFIG_VERSION = 2
 
 INSERTION_QUERIES = [
     Struct(**{
@@ -111,6 +117,13 @@ for p in dir(JOBSTATUS):
                 'args': (getattr(JOBSTATUS, p), p)
             }))
 
+for p in dir(JOBOUTCOME):
+    if p[0] != '_':
+        INSERTION_QUERIES.append(
+            Struct(**{
+                'query': "INSERT INTO `outcome_types` (`id`, `name`) VALUES (%s, %s)",
+                'args': (getattr(JOBOUTCOME, p), p)
+            }))
 # ==================================================================================
 
 
@@ -167,10 +180,36 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         else:
             config_version = self._query_get_single(
                 "SELECT CAST(v as UNSIGNED) FROM config WHERE k = 'database_version'")
-            # In the future, we will put commands in here to handle database updates
+            # This is how we handle database upgrades
             if config_version != CURRENT_DATABASE_CONFIG_VERSION:
+                self.logger.log("Going to try to process a database configuration upgrade from %s to %s" % (config_version, CURRENT_DATABASE_CONFIG_VERSION), level=LogLevel.Warning)
+                try:
+                    if config_version == 1 and CURRENT_DATABASE_CONFIG_VERSION == 2:
+                        # From Database version 1 to 2 we added the outcome_types table, which I noticed was missing.
+                        # Because I have a completed try run in the database I don't want to lose, I decided to take
+                        # the opportunity to flesh out what a real database upgrade process would look like so we have
+                        # sample code to use in the future.
+                        for table_name in CREATION_QUERIES:
+                            if table_name == 'outcome_types':
+                                self._query_execute(CREATION_QUERIES[table_name])
+
+                        for q in INSERTION_QUERIES:
+                            if 'outcome_types' in q.query:
+                                self._query_execute(q.query, q.args)
+
+                        query = "UPDATE config SET v=%s WHERE k = 'database_version'"
+                        args = (CURRENT_DATABASE_CONFIG_VERSION)
+                        self._query_execute(query, args)
+                        return CURRENT_DATABASE_CONFIG_VERSION
+                except:
+                    self.logger.log("We don't handle exceptions raised during database upgrade elegantly. Your database is in an unknown state.", level=LogLevel.Fatal)
+                    self.logger.log_exception(e)
+                    raise e
+
+                # If we've reached here, we didn't know how to process the database upgrade
                 raise Exception(
-                    "Do not known how to process a database with a config version of " + str(config_version))
+                    "Do not know how to process a database configuration upgrade from %s to %s" % (config_version, CURRENT_DATABASE_CONFIG_VERSION))
+
             return config_version
 
     @logEntryExit
@@ -207,8 +246,18 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
         return self.libraries
 
+    def get_configuration(self):
+        query = "SELECT * FROM config"
+        results = self._query_get_rows(query)
+        return [Struct(**r) for r in results]
+
     def get_all_statuses(self):
         query = "SELECT * FROM status_types ORDER BY id ASC"
+        results = self._query_get_rows(query)
+        return [Struct(**r) for r in results]
+
+    def get_all_outcomes(self):
+        query = "SELECT * FROM outcome_types ORDER BY id ASC"
         results = self._query_get_rows(query)
         return [Struct(**r) for r in results]
 

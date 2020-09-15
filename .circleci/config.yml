@@ -64,6 +64,13 @@ jobs:
             echo Failed waiting for MySQL && exit 1
           name: Waiting for MySQL to be ready
       - run:
+          # The if/else clause simulates a try/catch block in bash due to
+          # CircleCI halting as soon as any command returns a non-zero value.
+          # COMMAND_OUTPUT ends up being stdout and stderr for the command run
+          # and the if statement checks poetry's return value.
+          #
+          # This insures that the pr_comment script is run regardless of if our
+          # command fails.
           command: |
             sudo apt-get install jq
             cp localconfig.py.example localconfig.py
@@ -91,6 +98,13 @@ jobs:
           command: poetry check
           name: dependencies
       - run:
+          # The if/else clause simulates a try/catch block in bash due to
+          # CircleCI halting as soon as any command returns a non-zero value.
+          # COMMAND_OUTPUT ends up being stdout and stderr for the command run
+          # and the if statement checks poetry's return value.
+          #
+          # This insures that the pr_comment script is run regardless of if our
+          # command fails.
           command: |
             sudo apt-get install jq
             if COMMAND_OUTPUT=$(poetry check && poetry run flake8 --ignore=E501,E402 . 2>&1); then

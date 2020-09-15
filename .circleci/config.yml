@@ -69,7 +69,7 @@ jobs:
           # COMMAND_OUTPUT ends up being stdout and stderr for the command run
           # and the if statement checks poetry's return value.
           #
-          # This insures that the pr_comment script is run regardless of if our
+          # This ensures that the pr_comment script is run regardless of if our
           # command fails.
           command: |
             sudo apt-get install jq
@@ -103,7 +103,7 @@ jobs:
           # COMMAND_OUTPUT ends up being stdout and stderr for the command run
           # and the if statement checks poetry's return value.
           #
-          # This insures that the pr_comment script is run regardless of if our
+          # This ensures that the pr_comment script is run regardless of if our
           # command fails.
           command: |
             sudo apt-get install jq

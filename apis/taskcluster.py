@@ -18,7 +18,6 @@ RETRIGGER_NUMBER = 3
 
 class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
-        self._vcs_setup_initialized = False
         self._failure_classifications = None
 
         self.url_treeherder = "https://treeherder.mozilla.org/"
@@ -35,15 +34,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     # =================================================================
     # =================================================================
     @logEntryExit
-    def _vcs_setup(self):
-        if not self._vcs_setup_initialized:
-            self.run(["./mach", "vcs-setup", "--update"])
-            self._vcs_setup_initialized = True
-        self._vcs_setup_initialized = False
-
-    @logEntryExit
     def submit_to_try(self, library):
-        self._vcs_setup()
         ret = self.run(
             ["./mach", "try", "auto"])
         output = ret.stdout.decode()

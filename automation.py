@@ -155,7 +155,7 @@ class Updatebot:
             self.logger.log("Processing %s but no new version was found." % library.shortname, level=LogLevel.Info)
             return
 
-        self.logger.log("Processing %s for an ustream revision %s." % (library.shortname, new_version), level=LogLevel.Info)
+        self.logger.log("Processing %s for an upstream revision %s." % (library.shortname, new_version), level=LogLevel.Info)
         existing_job = self.dbProvider.get_job(library, new_version)
         if existing_job:
             self.logger.log("%s has an existing job with try revision %s and status %s" % (new_version, existing_job.try_revision, existing_job.status), level=LogLevel.Info)
@@ -241,6 +241,7 @@ class Updatebot:
         assert existing_job.status != JOBSTATUS.DONE
         for j in job_list:
             if j.state not in ["completed", "failed", "exception"]:
+                self.logger.log("Not all jobs on try revision %s are completed, so skipping this job until they are." % existing_job.try_revision, level=LogLevel.Info)
                 return
 
         if existing_job.status == JOBSTATUS.AWAITING_TRY_RESULTS:
@@ -282,7 +283,7 @@ class Updatebot:
                     comment_bullets.append("failure classified '%s': %s" % (classification, j.job_type_name))
 
         if retriggers:
-            self.logger.log("All jobs completed, we found the following unclassified failures, going to retrigger: " + str(retriggers), level=LogLevel.Info)
+            self.logger.log("All jobs completed, we found the following unclassified failures, going to retrigger %s jobs. " % len(retriggers), level=LogLevel.Info)
             self.taskclusterProvider.retrigger_jobs(job_list, retriggers)
             existing_job.status = JOBSTATUS.AWAITING_RETRIGGER_RESULTS
             self.dbProvider.update_job_status(existing_job)

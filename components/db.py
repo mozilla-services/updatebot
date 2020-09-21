@@ -46,24 +46,28 @@ class HardcodedDatabase:
 # ==================================================================================
 
 
+CURRENT_DATABASE_CONFIG_VERSION = 3
+
 CREATION_QUERIES = {
     "config": """
       CREATE TABLE `config` (
         `k` varchar(255) NOT NULL,
         `v` varchar(255) NOT NULL
       )
-      ENGINE = InnoDB DEFAULT CHARSET = utf8
+      ENGINE = InnoDB DEFAULT CHARSET = UTF8MB4
       """,
     "status_types": """
       CREATE TABLE `status_types` (
         `id` TINYINT NOT NULL,
-        `name` VARCHAR(255) NOT NULL
+        `name` VARCHAR(255) NOT NULL,
+        PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,
     "outcome_types": """
       CREATE TABLE `outcome_types` (
         `id` TINYINT NOT NULL,
-        `name` VARCHAR(255) NOT NULL
+        `name` VARCHAR(255) NOT NULL,
+        PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,
     "jobs": """
@@ -93,7 +97,12 @@ CREATION_QUERIES = {
       """
 }
 
-CURRENT_DATABASE_CONFIG_VERSION = 2
+ALTER_QUERIES = {
+    'job-outcome':
+        "ALTER TABLE jobs ADD FOREIGN KEY (outcome) REFERENCES outcome_types(id)",
+    'job-status':
+        "ALTER TABLE jobs ADD FOREIGN KEY (status) REFERENCES status_types(id)",
+}
 
 INSERTION_QUERIES = [
     Struct(**{
@@ -197,11 +206,16 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                             if 'outcome_types' in q.query:
                                 self._query_execute(q.query, q.args)
 
-                        query = "UPDATE config SET v=%s WHERE k = 'database_version'"
-                        args = (CURRENT_DATABASE_CONFIG_VERSION)
-                        self._query_execute(query, args)
-                        return CURRENT_DATABASE_CONFIG_VERSION
-                except:
+                    elif config_version == 2 and CURRENT_DATABASE_CONFIG_VERSION == 3:
+                        # Add (all of) the constraints
+                        for query_name in ALTER_QUERIES:
+                            self._query_execute(ALTER_QUERIES[query_name])
+
+                    query = "UPDATE config SET v=%s WHERE k = 'database_version'"
+                    args = (CURRENT_DATABASE_CONFIG_VERSION)
+                    self._query_execute(query, args)
+                    return CURRENT_DATABASE_CONFIG_VERSION
+                except Exception as e:
                     self.logger.log("We don't handle exceptions raised during database upgrade elegantly. Your database is in an unknown state.", level=LogLevel.Fatal)
                     self.logger.log_exception(e)
                     raise e
@@ -217,6 +231,8 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         try:
             for table_name in CREATION_QUERIES:
                 self._query_execute(CREATION_QUERIES[table_name])
+            for query_name in ALTER_QUERIES:
+                self._query_execute(ALTER_QUERIES[query_name])
             for q in INSERTION_QUERIES:
                 self._query_execute(q.query, q.args)
         except Exception as e:

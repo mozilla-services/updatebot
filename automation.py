@@ -13,7 +13,7 @@ from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
 from components.bugzilla import BugzillaProvider, CommentTemplates
 from components.hg import MercurialProvider
-from apis.taskcluster import TaskclusterProvider, RETRIGGER_NUMBER
+from apis.taskcluster import TaskclusterProvider, TRIGGER_TOTAL
 from apis.phabricator import PhabricatorProvider
 
 DEFAULT_OBJECTS = {
@@ -226,7 +226,7 @@ class Updatebot:
         AWAITING_TRY_RESULTS
           If we see a build failure, comment, set assignee, needinfo, and state to JOB_PROCESSING_DONE. Finish.
           If we see still-running jobs, keep state as-is, and finish.
-          If we see test failures, accumulate them all, then retrigger each RETRIGGER_NUMBER-1 times, set state to AWAITING_RETRIGGER_RESULTS. Finish
+          If we see test failures, accumulate them all, then retrigger each TRIGGER_TOTAL-1 times, set state to AWAITING_RETRIGGER_RESULTS. Finish
           If we see a lint failure, add ths note to a comment we will post.
           If we see a failures labeled intermittent, add this note to a comment we will post.
           If we have a comment accumulated, post it, set assignee, needinfo, set reviewer, and set state to JOB_PROCESSING_DONE
@@ -314,31 +314,43 @@ class Updatebot:
     @logEntryExitNoArgs
     def _process_job_details_for_awaiting_retrigger_results(self, library, existing_job, job_list):
         self.logger.log("Handling revision %s in Awaiting Retrigger Results" % existing_job.try_revision)
-        failure_groups = {}
+        job_groups = {}
 
+        # Group all the jobs into a list of the runs for each type
         for j in job_list:
-            if j.result != "success":
-                classification = self.taskclusterProvider.failure_classifications[j.failure_classification_id]
-                self.logger.log("  Job %s (%i) Failed, Classification: %s" % (j.job_type_name, j.id, classification), level=LogLevel.Debug)
+            if j.job_type_name in job_groups:
+                job_groups[j.job_type_name].append(j)
+            else:
+                job_groups[j.job_type_name] = [j]
+
+        # Filter that list to only groups containing failures
+        job_groups_with_failures = {k: v for (k, v) in job_groups.items() if any([j.result != "success" for j in v])}
+        job_group_to_unclassified_failure_count = {k: 0 for k, v in job_groups_with_failures.items()}
+
+        # Populate the mapping of job group to number of *unclassified* failures
+        # (The unclassified bit is why this is a little more complicated than a one-liner, also I want the log output)
+        for job_name in job_groups_with_failures:
+            for job in job_groups_with_failures[job_name]:
+                if job.result == "success":
+                    continue
+
+                classification = self.taskclusterProvider.failure_classifications[job.failure_classification_id]
+                self.logger.log("  Job %s (%i) Failed, Classification: %s" % (job.job_type_name, job.id, classification), level=LogLevel.Debug)
 
                 if classification == "not classified":
-                    if j.job_type_name in failure_groups:
-                        failure_groups[j.job_type_name].append(j)
-                    else:
-                        failure_groups[j.job_type_name] = [j]
+                    job_group_to_unclassified_failure_count[job.job_type_name] += 1
 
+        # Comment on the bug
         comment_bullets = []
-        for fg in failure_groups:
-            if len(fg) != RETRIGGER_NUMBER:
-                self.logger.log("Failure Group %s has %i entries, doesn't match %i retriggers." % (fg, len(failure_groups[fg]), RETRIGGER_NUMBER), level=LogLevel.Error)
+        for job_name in job_groups_with_failures:
+            num_jobs_ran = len(job_groups_with_failures[job_name])
 
-            pass_count = 0
-            for j in failure_groups[fg]:
-                if j.result == "success":
-                    pass_count += 1
-            comment_bullets.append("unclassified failure in %s - %i of %i jobs succeeded" % (j.job_type_name, pass_count, len(failure_groups[fg])))
+            if num_jobs_ran != TRIGGER_TOTAL and "mozlint" not in job_name:
+                self.logger.log("Job Group %s has %i entries, doesn't match %i triggers." % (job_name, num_jobs_ran, TRIGGER_TOTAL), level=LogLevel.Error)
 
-        comment = "The job is done, we found %i unclassified failures.\n" % len(comment_bullets)
+            comment_bullets.append("%i of %i jobs were unclassified failures in %s" % (job_group_to_unclassified_failure_count[job_name], len(job_groups_with_failures[job_name]), job_name))
+
+        comment = "The try push is done, we found %i jobs with unclassified failures.\n" % len(comment_bullets)
         self.logger.log(comment.strip(), level=LogLevel.Info)
         for c in comment_bullets:
             comment_line = "  - %s\n" % c

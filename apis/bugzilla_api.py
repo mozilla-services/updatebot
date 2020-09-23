@@ -34,7 +34,12 @@ def fileBug(url, apikey, product, component, summary, description, severity, see
         data['see_also'] = see_also
 
     r = requests.post(url + "bug?api_key=" + apikey, json=data)
-    j = json.loads(r.text)
+
+    try:
+        j = json.loads(r.text)
+    except Exception as e:
+        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+
     if 'id' in j:
         return j['id']
 
@@ -60,7 +65,12 @@ def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
         url + "bug/" + str(bugID) + "?api_key=" + apikey,
         json=data
     )
-    j = json.loads(r.text)
+
+    try:
+        j = json.loads(r.text)
+    except Exception as e:
+        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+
     if 'bugs' in j:
         if len(j['bugs']) > 0:
             if j['bugs'][0]['id'] == bugID:
@@ -81,7 +91,12 @@ def closeBug(url, apikey, bugID, comment):
         url + "bug/" + str(bugID) + "?api_key=" + apikey,
         json=data
     )
-    j = json.loads(r.text)
+
+    try:
+        j = json.loads(r.text)
+    except Exception as e:
+        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+
     if 'bugs' in j:
         if len(j['bugs']) > 0:
             if j['bugs'][0]['id'] == bugID:

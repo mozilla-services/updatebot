@@ -13,7 +13,8 @@ from components.utilities import Struct
 from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
-RETRIGGER_NUMBER = 3
+# We want to run tests a total of four times
+TRIGGER_TOTAL = 4
 
 
 class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
@@ -174,7 +175,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         context = {
             'taskGroupId': retrigger_action['hookPayload']['decision']['action']['taskGroupId'],
             'taskId': None,
-            'input': {'requests': [{'tasks': retrigger_tasks, 'times': RETRIGGER_NUMBER}]}
+            'input': {'requests': [{'tasks': retrigger_tasks, 'times': TRIGGER_TOTAL - 1}]}
         }
         template = retrigger_action['hookPayload']
 

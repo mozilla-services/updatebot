@@ -28,6 +28,7 @@ from apis.phabricator import PhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_treeherder_server import MockTreeherderServer
+from tests.database import transform_db_config_to_tmp_db
 
 try:
     from localconfig import localconfig
@@ -137,11 +138,12 @@ class TestFunctionality(unittest.TestCase):
 
     @staticmethod
     def _setup(try_revision, library_filter):
+        db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         configs = {
             'General': {'env': 'dev'},
             'Command': {'test_mappings': None},
             'Logging': localconfig['Logging'],
-            'Database': localconfig['Database'],
+            'Database': db_config,
             'Vendor': {},
             'Bugzilla': {'filed_bug_id': None},
             'Mercurial': {},

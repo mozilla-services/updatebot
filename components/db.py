@@ -138,15 +138,37 @@ for p in dir(JOBOUTCOME):
 
 class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     def __init__(self, database_config):
+        self._successfully_created_tmp_db = False
+        self.database_config = database_config
         self.connection = pymysql.connect(
             host=database_config['host'],
             user=database_config['user'],
             password=database_config['password'],
-            db=database_config['db'],
             charset='utf8',
-            cursorclass=pymysql.cursors.DictCursor)
+            cursorclass=pymysql.cursors.DictCursor,
+            autocommit=True)
+
+        if database_config.get('use_tmp_db', False):
+            with self.connection.cursor() as cursor:
+                cursor.execute("create database " + database_config['db'] + ";")
+                self._successfully_created_tmp_db = True
+                cursor.execute("use " + database_config['db'])
+
+            with self.connection.cursor() as cursor:
+                cursor.execute("show tables")
+                results = cursor.fetchall()
+                for r in results:
+                    print(r)
+        else:
+            cursor.execute("use " + database_config['db'])
 
         self.libraries = None
+
+    def __del__(self):
+        if self.database_config.get('use_tmp_db', False) and self._successfully_created_tmp_db:
+            with self.connection.cursor() as cursor:
+                self.logger.log("Dropping database " + self.database_config['db'], level=LogLevel.Info)
+                cursor.execute("drop database " + self.database_config['db'])
 
     def _query_get_single(self, query):
         with self.connection.cursor() as cursor:
@@ -180,7 +202,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def _check_and_get_configuration(self):
-        query = "SELECT * FROM information_schema.tables WHERE table_schema = 'updatebot' AND table_name = 'config' LIMIT 1"
+        query = "SELECT * FROM information_schema.tables WHERE table_schema = '%s' AND table_name = 'config' LIMIT 1" % self.database_config['db']
         cursor = self.connection.cursor()
         cursor.execute(query)
         if not cursor.fetchall():

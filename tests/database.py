@@ -5,6 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import sys
+import time
+import copy
+import random
 import unittest
 
 sys.path.append(".")
@@ -21,19 +24,29 @@ except ImportError:
     sys.exit(1)
 
 
-class TestDatabaseCreation(unittest.TestCase):
-    pass
-    # Commented out to avoid the test harness from deleting your database.
-    # def test_creation_deletion(self):
-    # db = DatabaseProvider(localconfig['Database'])
-    # db.check_database()
-    # db.delete_database()
+def transform_db_config_to_tmp_db(config):
+    database_name = 'updatebot_test_' \
+        + str(int(time.time() * 1000000)) \
+        + "_" \
+        + str(random.randint(0, 10000))
 
+    # Without deepcopy, we would be editing the original localconfig
+    #     which would be stored in the Database's instance.
+    # One test would finish, but not del the DB; and a second DB would be
+    #     created which would edit the localconfig. When we went to del
+    #     the first DB, it would use the db value from the shared localconfig
+    config = copy.deepcopy(localconfig['Database'])
+    config['db'] = database_name
+    config['use_tmp_db'] = True
+
+    return config
 
 class TestDatabaeQueries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.db = DatabaseProvider(localconfig['Database'])
+        db_config = transform_db_config_to_tmp_db(localconfig['Database'])
+
+        cls.db = DatabaseProvider(db_config)
         cls.db.update_config(SimpleLoggerConfig)
         cls.db.check_database()
 

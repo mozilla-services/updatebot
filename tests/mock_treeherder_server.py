@@ -8,6 +8,8 @@ import os
 
 from http import server
 
+from components.logging import log, LogLevel
+
 FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id":3,"name":"expected fail"},{"id":2,"name":"fixed by commit"},{"id":5,"name":"infra"},{"id":4,"name":"intermittent"},{"id":1,"name":"not classified"}]"""
 
 EXPECTEDPATH_PUSH = "push/?revision="
@@ -97,7 +99,7 @@ def get_appropriate_filename(path):
     seen_counter = find_and_increment_seen_counter(key)
     key += "_" + seen_counter
 
-    print("Checking for push_id", push_id, "page", page, "seen", seen_counter)
+    log("Checking for push_id", push_id, "page", page, "seen", seen_counter, level=LogLevel.Debug)
 
     if key not in PUSH_IDS:
         key = push_id + "_" + page + "_" + "A"
@@ -126,7 +128,7 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
 
         if EXPECTEDPATH_PUSH in self.path:
             revision = self.path[self.path.index(EXPECTEDPATH_PUSH) + len(EXPECTEDPATH_PUSH):]
-            print("MockTreeherderServer: Looking for revision %s" % revision)
+            log("MockTreeherderServer: Looking for revision %s" % revision, level=LogLevel.Info)
 
             if revision not in TRY_REVISIONS:
                 assert False, "MockTreeherderServer: Could not find that revision"
@@ -145,7 +147,7 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
             else:
                 assert False, "MockTreeherderServer GET got a path it didn't expect: " + self.path
 
-            print("MockTreeherderServer: Streaming %s" % filename)
+            log("MockTreeherderServer: Streaming %s" % filename, level=LogLevel.Info)
 
             with open(prefix + filename, "rb") as f:
                 for line in f:

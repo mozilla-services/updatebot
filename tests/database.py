@@ -41,6 +41,7 @@ def transform_db_config_to_tmp_db(config):
 
     return config
 
+
 class TestDatabaeQueries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

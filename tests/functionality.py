@@ -18,7 +18,7 @@ from automation import Updatebot
 
 from components.utilities import Struct
 from components.providerbase import BaseProvider
-from components.logging import LoggingProvider, log
+from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExit
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
@@ -124,7 +124,7 @@ class MockedBugzillaProvider(BaseProvider):
         pass
 
 
-class TestFunctionality(unittest.TestCase):
+class TestFunctionality(SimpleLoggingTest):
     @classmethod
     def setUpClass(cls):
         cls.server = server.HTTPServer(('', 27490), MockTreeherderServer)
@@ -213,6 +213,7 @@ class TestFunctionality(unittest.TestCase):
             tc.assertEqual(
                 expected_values.try_revision_id, j.try_revision)
 
+    @logEntryExit
     def testAllNewJobs(self):
         (u, expected_values, _check_jobs) = TestFunctionality._setup("try_rev", "")
         u.run()
@@ -220,6 +221,7 @@ class TestFunctionality(unittest.TestCase):
         TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded
+    @logEntryExit
     def testExistingJobSucceeded(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup("e152bb86666565ee6619c15f60156cd6c79580a9", library_filter)
@@ -241,6 +243,7 @@ class TestFunctionality(unittest.TestCase):
             TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Build Failed
+    @logEntryExit
     def testExistingJobBuildFailed(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup("55ca6286e3e4f4fba5d0448333fa99fc5a404a73", library_filter)
@@ -262,6 +265,7 @@ class TestFunctionality(unittest.TestCase):
             TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Lint and Classified Failure
+    @logEntryExit
     def testExistingJobClassifiedFailure(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup("56082fc4acfacba40993e47ef8302993c59e264e", library_filter)
@@ -283,6 +287,7 @@ class TestFunctionality(unittest.TestCase):
             TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
+    @logEntryExit
     def testExistingJobUnclassifiedFailure(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup("ab2232a04301f1d2dbeea7050488f8ec2dde5451", library_filter)

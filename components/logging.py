@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import unittest
 import traceback
 from functools import partial
 
@@ -76,11 +77,11 @@ class LocalLogger(LoggerInstance):
     def log(self, *args, level, category):
         prefix = "[" + level + "] "
         prefix += category + ":" if category else ""
-        print(prefix, *args)
+        print(prefix, *args, flush=True)
 
     def log_exception(self, e):
         bt = traceback.format_exc()
-        print(bt)
+        print(bt, flush=True)
 
 
 class SentryLogger(LoggerInstance):
@@ -124,6 +125,13 @@ class SimpleLogger(LoggingProvider):
         super().__init__({'local': True})
 
 
+class SimpleLoggingTest(unittest.TestCase, SimpleLogger):
+    def __init__(self, *kwargs):
+        SimpleLogger.__init__(self)
+        unittest.TestCase.__init__(self, *kwargs)
+        self.logger = self
+
+
 simpleLogger = SimpleLogger()
 
 SimpleLoggerConfig = {
@@ -131,5 +139,5 @@ SimpleLoggerConfig = {
 }
 
 
-def log(*args):
-    simpleLogger.log(*args)
+def log(*args, **kwargs):
+    simpleLogger.log(*args, **kwargs)

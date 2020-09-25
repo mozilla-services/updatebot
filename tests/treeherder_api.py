@@ -19,6 +19,7 @@ from apis.taskcluster import TaskclusterProvider
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_treeherder_server import MockTreeherderServer, FAILURE_CLASSIFICATIONS, EXPECTED_RETRIGGER_DECISION_TASK
 
+
 class TestTaskclusterProvider(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

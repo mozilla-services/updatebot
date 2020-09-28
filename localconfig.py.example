@@ -15,8 +15,8 @@ localconfig = {
     },
     'Database': {
         'host': 'localhost',
-        'user': 'username',
-        'password': 'p4ssw0rd',
+        'user': 'root',
+        'password': 'rootpw',
         'db': 'updatebot'
     },
     'Bugzilla': {

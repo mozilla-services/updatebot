@@ -7,9 +7,8 @@ jobs:
       - image: circleci/mysql:8.0.19
         command: [--default-authentication-plugin=mysql_native_password]
         environment:
+          MYSQL_ROOT_PASSWORD: rootpw
           MYSQL_DATABASE: updatebot
-          MYSQL_USER: username
-          MYSQL_PASSWORD: p4ssw0rd
     steps:
       - checkout
       - restore_cache:
@@ -29,11 +28,6 @@ jobs:
             done
             echo Failed waiting for MySQL && exit 1
           name: Waiting for MySQL to be ready
-      - run:
-          command: |
-            sudo apt-get install default-mysql-client
-            mysql -h 127.0.0.1 -u username -pp4ssw0rd -e 'CREATE DATABASE IF NOT EXISTS updatebot;'
-          name: Create updatebot database
       - save_cache:
           key: deps-{{ checksum "poetry.lock" }}
           paths:
@@ -44,9 +38,8 @@ jobs:
       - image: circleci/mysql:8.0.19
         command: [--default-authentication-plugin=mysql_native_password]
         environment:
+          MYSQL_ROOT_PASSWORD: rootpw
           MYSQL_DATABASE: updatebot
-          MYSQL_USER: username
-          MYSQL_PASSWORD: p4ssw0rd
     steps:
       - checkout
       - restore_cache:
@@ -123,9 +116,8 @@ jobs:
       - image: circleci/mysql:8.0.19
         command: [--default-authentication-plugin=mysql_native_password]
         environment:
+          MYSQL_ROOT_PASSWORD: rootpw
           MYSQL_DATABASE: updatebot
-          MYSQL_USER: username
-          MYSQL_PASSWORD: p4ssw0rd
     steps:
       - run:
           # Our primary container isn't MySQL so run a sleep command until it's ready.
@@ -141,7 +133,7 @@ jobs:
       - run:
           command: |
             sudo apt-get install default-mysql-client
-            mysql -h 127.0.0.1 -u username -pp4ssw0rd -e 'DROP DATABASE updatebot;'
+            mysql -h 127.0.0.1 -u root -prootpw -e 'DROP DATABASE updatebot;'
           name: clear database
 
 workflows:

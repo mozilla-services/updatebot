@@ -16,7 +16,8 @@ EXPECTEDPATH_PUSH = "push/?revision="
 EXPECTEDPATH_JOBS = "jobs/?push_id="
 EXPECTEDPATH_FAILURECLASSIFICATION = "/failureclassification"
 EXPECTEDPATH_ACTIONSJSON = "api/queue/v1/task"
-EXPECTEDPATH_RETRIGGER = "/api/hooks/v1/hooks"
+EXPECTEDPATH_RETRIGGER = "api/hooks/v1/hooks"
+EXPECTEDPATH_PUSHHEALTH = "api/push/health/?revision="
 
 TRY_REVISIONS = {
     'rev_broken': "{\"results\":[{\"missing_id\":0}]}",
@@ -25,6 +26,10 @@ TRY_REVISIONS = {
     '55ca6286e3e4f4fba5d0448333fa99fc5a404a73': "{\"results\":[{\"id\":3}]}",
     '56082fc4acfacba40993e47ef8302993c59e264e': "{\"results\":[{\"id\":4}]}",
     'ab2232a04301f1d2dbeea7050488f8ec2dde5451': "{\"results\":[{\"id\":5}]}",
+}
+
+HEALTH_REVISIONS = {
+    "rev_good": "treeherder_api_response_health_good.txt"
 }
 
 PUSH_IDS = {
@@ -126,20 +131,32 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
         self.send_header("Content-type", "application/json")
         self.end_headers()
 
+        file_prefix = "tests/" if not os.getcwd().endswith("tests") else ""
+
         if EXPECTEDPATH_PUSH in self.path:
             revision = self.path[self.path.index(EXPECTEDPATH_PUSH) + len(EXPECTEDPATH_PUSH):]
-            log("MockTreeherderServer: Looking for revision %s" % revision, level=LogLevel.Info)
+            log("MockTreeherderServer (push): Looking for revision %s" % revision, level=LogLevel.Info)
 
             if revision not in TRY_REVISIONS:
                 assert False, "MockTreeherderServer: Could not find that revision"
 
             self.wfile.write(TRY_REVISIONS[revision].encode())
+            return
 
         elif EXPECTEDPATH_FAILURECLASSIFICATION in self.path:
             self.wfile.write(FAILURE_CLASSIFICATIONS.encode())
+            return
+
+        elif EXPECTEDPATH_PUSHHEALTH in self.path:
+            revision = self.path[self.path.index(EXPECTEDPATH_PUSHHEALTH) + len(EXPECTEDPATH_PUSHHEALTH):]
+            log("MockTreeherderServer (push health): Looking for revision %s" % revision, level=LogLevel.Info)
+
+            if revision not in HEALTH_REVISIONS:
+                assert False, "MockTreeherderServer: Could not find that revision"
+
+            filename = HEALTH_REVISIONS[revision]
 
         else:
-            prefix = "tests/" if not os.getcwd().endswith("tests") else ""
             if EXPECTEDPATH_JOBS in self.path:
                 filename = get_appropriate_filename(self.path)
             elif EXPECTEDPATH_ACTIONSJSON in self.path:
@@ -147,8 +164,8 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
             else:
                 assert False, "MockTreeherderServer GET got a path it didn't expect: " + self.path
 
-            log("MockTreeherderServer: Streaming %s" % filename, level=LogLevel.Info)
+        log("MockTreeherderServer: Streaming %s" % filename, level=LogLevel.Info)
 
-            with open(prefix + filename, "rb") as f:
-                for line in f:
-                    self.wfile.write(line)
+        with open(file_prefix + filename, "rb") as f:
+            for line in f:
+                self.wfile.write(line)

@@ -43,12 +43,12 @@ class TestTaskclusterProvider(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
 
-    def testFailureClassification(self):
+    def test_failure_classification(self):
         f = self.taskclusterProvider.failure_classifications
         j = json.loads(FAILURE_CLASSIFICATIONS)
         self.assertEqual(j[0]['name'], f[7])
 
-    def testPushExceptionHandling(self):
+    def test_push_exception_handling(self):
         try:
             self.taskclusterProvider.get_job_details('rev_broken')
         except Exception:
@@ -56,11 +56,16 @@ class TestTaskclusterProvider(unittest.TestCase):
         else:
             self.assertTrue(False, "Expected an exception from taskclusterProvider but didn't see it.")
 
-    def testFunctionality(self):
+    def test_job_details(self):
         job_list = self.taskclusterProvider.get_job_details('rev_good')
         self.assertEqual(len(job_list), 3737, "Did not receive the correct number of jobs from the server.")
 
-    def testTransform(self):
+    def test_push_health(self):
+        push_health = self.taskclusterProvider.get_push_health("rev_good")
+        self.assertEqual(len(push_health['metrics']['tests']['details']['needInvestigation']), 38, "Did not get expected number of needs-investigation tests")
+        self.assertEqual(len(push_health['metrics']['tests']['details']['knownIssues']), 14, "Did not get expected number of known-issue tests")
+
+    def test_transform(self):
         properties = [
             'hello',
             'world'
@@ -77,7 +82,7 @@ class TestTaskclusterProvider(unittest.TestCase):
         self.assertEqual(data[1].hello, "WHAT")
         self.assertEqual(data[1].world, "UP")
 
-    def testRetrigger(self):
+    def test_retrigger(self):
         job_list = self.taskclusterProvider.get_job_details('rev_good')
         to_retrigger = [j for j in job_list if j.job_type_name == "source-test-mozlint-mingw-cap"]
         decision_task = self.taskclusterProvider.retrigger_jobs(job_list, to_retrigger)

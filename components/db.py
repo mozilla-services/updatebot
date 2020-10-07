@@ -46,7 +46,7 @@ class HardcodedDatabase:
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 3
+CURRENT_DATABASE_CONFIG_VERSION = 4
 
 CREATION_QUERIES = {
     "config": """
@@ -105,6 +105,10 @@ ALTER_QUERIES = {
 }
 
 INSERTION_QUERIES = [
+    Struct(**{
+        'query': "INSERT INTO `config` (`k`, `v`) VALUES ('enabled', %s)",
+        'args': (1)
+    }),
     Struct(**{
         'query': "INSERT INTO `config` (`k`, `v`) VALUES ('database_version', %s)",
         'args': (CURRENT_DATABASE_CONFIG_VERSION)
@@ -233,6 +237,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                         for query_name in ALTER_QUERIES:
                             self._query_execute(ALTER_QUERIES[query_name])
 
+                    elif config_version == 3 and CURRENT_DATABASE_CONFIG_VERSION == 4:
+                        # Add killswitch
+                        for q in INSERTION_QUERIES:
+                            if 'config' in q.query and 'enabled' in q.query:
+                                self._query_execute(q.query, q.args)
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -261,6 +271,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
             self.logger.log("We don't handle exceptions raised during database creation elegantly. Your database is in an unknown state.", level=LogLevel.Fatal)
             self.logger.log_exception(e)
             raise e
+
+    @logEntryExit
+    def updatebot_is_enabled(self):
+        enabled = self._query_get_single(
+            "SELECT CAST(v as UNSIGNED) FROM config WHERE k = 'enabled'")
+        return enabled
 
     @logEntryExit
     def check_database(self):

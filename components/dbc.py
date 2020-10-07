@@ -16,6 +16,9 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def _update_config(self, config):
         self.db.update_config(config)
 
+    def updatebot_is_enabled(self):
+        return self.db.updatebot_is_enabled()
+
     def check_database(self):
         return self.db.check_database()
 

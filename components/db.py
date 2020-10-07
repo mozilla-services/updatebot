@@ -164,7 +164,8 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                 for r in results:
                     print(r)
         else:
-            cursor.execute("use " + database_config['db'])
+            with self.connection.cursor() as cursor:
+                cursor.execute("use " + database_config['db'])
 
         self.libraries = None
 

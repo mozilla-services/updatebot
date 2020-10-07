@@ -144,6 +144,22 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     # =================================================================
     # =================================================================
 
+    @logEntryExit
+    def get_push_health(self, revision):
+        push_health_url = self.url_treeherder + "api/push/health/?revision=%s" % revision
+        self.logger.log("Requesting push health for revision %s from %s" % (revision, push_health_url), level=LogLevel.Info)
+
+        r = requests.get(push_health_url, headers=self.HEADERS)
+        try:
+            push_health = r.json()
+        except Exception:
+            raise Exception("Could not parse the result of the push_list as json. Url: %s Response:\n%s" % (push_health_url, r.text))
+
+        return push_health
+
+    # =================================================================
+    # =================================================================
+
     @logEntryExitNoArgs
     def retrigger_jobs(self, job_list, retrigger_list):
         # Go through the jobs and find the decision task

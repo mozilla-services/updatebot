@@ -130,6 +130,10 @@ class Updatebot:
 
     def run(self, library_filter=""):
         try:
+            if not self.dbProvider.updatebot_is_enabled():
+                self.logger.log("Updatebot is disabled per the config database, not doing anything and ending execution.", level=LogLevel.Warning)
+                return
+
             if 'gecko-path' in self.config_dictionary['General']:
                 os.chdir(self.config_dictionary['General']['gecko-path'])
 

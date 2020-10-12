@@ -26,10 +26,11 @@ TRY_REVISIONS = {
     '55ca6286e3e4f4fba5d0448333fa99fc5a404a73': "{\"results\":[{\"id\":3}]}",
     '56082fc4acfacba40993e47ef8302993c59e264e': "{\"results\":[{\"id\":4}]}",
     'ab2232a04301f1d2dbeea7050488f8ec2dde5451': "{\"results\":[{\"id\":5}]}",
+    'health_rev': "{\"results\":[{\"id\":6}]}",
 }
 
 HEALTH_REVISIONS = {
-    "rev_good": "treeherder_api_response_health_good.txt"
+    "health_rev": "treeherder_api_response_pushhealth_health.txt"
 }
 
 PUSH_IDS = {
@@ -54,6 +55,9 @@ PUSH_IDS = {
     '5_1_1': "treeherder_api_response_jobs_still_running.txt",
     '5_1_2': "treeherder_api_response_jobs_one_unclassified_failure.txt",
     '5_1_3': "treeherder_api_response_jobs_unclassified_failure_retriggers_done.txt",
+    # push_health stuff
+    '6_1_A': "treeherder_api_response_pushhealth_jobdetails.txt",
+
 }
 
 EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"

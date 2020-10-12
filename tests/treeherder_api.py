@@ -61,9 +61,34 @@ class TestTaskclusterProvider(unittest.TestCase):
         self.assertEqual(len(job_list), 3737, "Did not receive the correct number of jobs from the server.")
 
     def test_push_health(self):
-        push_health = self.taskclusterProvider.get_push_health("rev_good")
+        push_health = self.taskclusterProvider.get_push_health("health_rev")
         self.assertEqual(len(push_health['metrics']['tests']['details']['needInvestigation']), 38, "Did not get expected number of needs-investigation tests")
         self.assertEqual(len(push_health['metrics']['tests']['details']['knownIssues']), 14, "Did not get expected number of known-issue tests")
+
+    def test_correlation(self):
+        job_list = self.taskclusterProvider.get_job_details('health_rev')
+        push_health = self.taskclusterProvider.get_push_health("health_rev")
+
+        results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
+
+        self.assertEqual(len(results['to_retrigger']), 21, "Did not get the expected number of jobs to retrigger.")
+
+        return  # Debugging code below
+        print("Known Issues:")
+        for t in results['known_issues']:
+            print("\t", t)
+            for j in results['known_issues'][t]:
+                print("\t\t-", j.job_type_name)
+
+        print("Needs Investigation:")
+        for t in results['to_investigate']:
+            print("\t", t)
+            for j in results['to_investigate'][t]:
+                print("\t\t-", j.job_type_name)
+
+        print("To Retrigger (%s):" % len(results['to_retrigger']))
+        for j in results['to_retrigger']:
+            print("\t-", j.job_type_name)
 
     def test_transform(self):
         properties = [

@@ -95,6 +95,79 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     # =================================================================
     # =================================================================
 
+    @logEntryExitNoArgs
+    def determine_jobs_to_retrigger(self, push_health, job_details):
+        need_investigation = push_health['metrics']['tests']['details']['needInvestigation']
+        known_issues = push_health['metrics']['tests']['details']['knownIssues']
+
+        # This function goes through the need_investigation and known_issues results
+        #    and produces a mapping of test-failure to jobs that test failed in
+        def _correlate(detail_obj):
+            detail_by_testname = {}
+
+            for i in detail_obj:
+                jobs = [j for j in job_details if ("%s" % (j.job_type_name)) == i['jobName']]
+                assert len(jobs) == 1, "Somehow found more than one job for %s, ids %s" % (i['jobName'], ",".join([j.task_id for j in jobs]))
+                job_obj = jobs[0]
+
+                if i['testName'] not in detail_by_testname:
+                    detail_by_testname[i['testName']] = [job_obj]
+                else:
+                    detail_by_testname[i['testName']].append(job_obj)
+
+            return detail_by_testname
+
+        ni_by_test = _correlate(need_investigation)
+        ki_by_test = _correlate(known_issues)
+
+        # Now get all the failed jobs in the push - not just those indicated in the ni/ki push health data
+        failed_jobs = set().union([j for j in job_details if j.result not in ["retry", "success"]])
+
+        # We need a unique key for each job
+        failed_jobs_task_ids = set().union([j.task_id for j in failed_jobs])
+
+        # Now get all the unique keys for the jobs that failed due to something classified by push health
+        failed_jobs_from_health_classifications = set()
+        failed_jobs_from_health_classifications = failed_jobs_from_health_classifications.union([j.task_id for l in ni_by_test.values() for j in l])
+        failed_jobs_from_health_classifications = failed_jobs_from_health_classifications.union([j.task_id for l in ki_by_test.values() for j in l])
+
+        # Now get all the unique keys for failed jobs that *weren't* classified by push health
+        jobs_failed_with_no_health_classification_task_ids = failed_jobs_task_ids - failed_jobs_from_health_classifications
+        # And go back from unique key to the full job object
+        jobs_failed_with_no_health_classification = [j for j in failed_jobs if j.task_id in jobs_failed_with_no_health_classification_task_ids]
+
+        # Now, go through and determine what jobs we need to retrigger.
+        jobs_to_retrigger = set()
+
+        # We retrigger jobs where it contained a test that failed on only a single job
+        #    We omit jobs where a test failed more than one time. BUT that same job might
+        #    still be retriggered if it contained a test that did only fail one time.
+        for t in ni_by_test:
+            jobs = ni_by_test[t]
+            if len(jobs) == 1:
+                jobs_to_retrigger.add(jobs[0])
+
+        # And we retrigger non-build, non-lint jobs that weren't classified by push health
+        #    We don't retrigger jobs that failed because of a known issue.
+        for j in jobs_failed_with_no_health_classification:
+            if "build" in j.job_type_name:
+                pass
+            elif "lint" in j.job_type_name:
+                pass
+            else:
+                jobs_to_retrigger.add(j)
+
+        # Return the list of jobs to retrigger, as well as information about the test failures
+        #    and job mappings
+        return {
+            'to_retrigger': jobs_to_retrigger,
+            'to_investigate': ni_by_test,
+            'known_issues': ki_by_test
+        }
+
+    # =================================================================
+    # =================================================================
+
     @logEntryExit
     def get_job_details(self, revision):
         push_list_url = self.url_treeherder + "api/project/try/push/?revision=%s" % revision

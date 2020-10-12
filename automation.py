@@ -13,7 +13,7 @@ from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
 from components.bugzilla import BugzillaProvider, CommentTemplates
 from components.hg import MercurialProvider
-from apis.taskcluster import TaskclusterProvider, TRIGGER_TOTAL
+from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
 DEFAULT_OBJECTS = {

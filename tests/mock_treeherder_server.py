@@ -25,12 +25,13 @@ TRY_REVISIONS = {
     'e152bb86666565ee6619c15f60156cd6c79580a9': "{\"results\":[{\"id\":2}]}",
     '55ca6286e3e4f4fba5d0448333fa99fc5a404a73': "{\"results\":[{\"id\":3}]}",
     '56082fc4acfacba40993e47ef8302993c59e264e': "{\"results\":[{\"id\":4}]}",
-    'ab2232a04301f1d2dbeea7050488f8ec2dde5451': "{\"results\":[{\"id\":5}]}",
+    '4173dda99ea962d907e3fa043db5e26711085ed2': "{\"results\":[{\"id\":5}]}",
     'health_rev': "{\"results\":[{\"id\":6}]}",
 }
 
 HEALTH_REVISIONS = {
-    "health_rev": "treeherder_api_response_pushhealth_health.txt"
+    "health_rev": "treeherder_api_response_pushhealth_health.txt",
+    "4173dda99ea962d907e3fa043db5e26711085ed2": "health_unclassified_failures_multiple_per_test.txt"
 }
 
 PUSH_IDS = {
@@ -46,15 +47,14 @@ PUSH_IDS = {
     '2_1_1': "treeherder_api_response_jobs_still_running.txt",
     '2_1_2': "treeherder_api_response_all_succeeded.txt",
     # testExistingJobBuildFailed
-    '3_1_1': "treeherder_api_response_jobs_still_running.txt",
-    '3_1_2': "treeherder_api_response_build_failed.txt",
+    '3_1_1': "jobs_still_running.txt",
+    '3_1_2': "build_failed.txt",
     # testExistingJobClassifiedFailure
     '4_1_1': "treeherder_api_response_jobs_still_running.txt",
     '4_1_2': "treeherder_api_response_classified_failure.txt",
     # testExistingJobUnclassifiedFailure
-    '5_1_1': "treeherder_api_response_jobs_still_running.txt",
-    '5_1_2': "treeherder_api_response_jobs_one_unclassified_failure.txt",
-    '5_1_3': "treeherder_api_response_jobs_unclassified_failure_retriggers_done.txt",
+    '5_1_1': "jobs_still_running.txt",
+    '5_1_2': "jobs_unclassified_failures_multiple_per_test.txt",
     # push_health stuff
     '6_1_A': "treeherder_api_response_pushhealth_jobdetails.txt",
 
@@ -136,6 +136,7 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
         self.end_headers()
 
         file_prefix = "tests/" if not os.getcwd().endswith("tests") else ""
+        file_prefix += "treeherder_api_responses/"
 
         if EXPECTEDPATH_PUSH in self.path:
             revision = self.path[self.path.index(EXPECTEDPATH_PUSH) + len(EXPECTEDPATH_PUSH):]

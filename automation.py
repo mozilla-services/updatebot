@@ -352,41 +352,12 @@ class Updatebot:
     @logEntryExitNoArgs
     def _process_job_details_for_awaiting_retrigger_results(self, library, existing_job, job_list):
         self.logger.log("Handling revision %s in Awaiting Retrigger Results" % existing_job.try_revision)
-        job_groups = {}
 
-        # Group all the jobs into a list of the runs for each type
-        for j in job_list:
-            if j.job_type_name in job_groups:
-                job_groups[j.job_type_name].append(j)
-            else:
-                job_groups[j.job_type_name] = [j]
+        # Get the push health and a comment string we will use in the bug
+        results, comment_lines = self._get_comments_on_push(existing_job, job_list)
+        self._process_unclassified_failures(library, existing_job, comment_lines)
 
-        # Filter that list to only groups containing failures
-        job_groups_with_failures = {k: v for (k, v) in job_groups.items() if any([j.result != "success" for j in v])}
-        job_group_to_unclassified_failure_count = {k: 0 for k, v in job_groups_with_failures.items()}
-
-        # Populate the mapping of job group to number of *unclassified* failures
-        # (The unclassified bit is why this is a little more complicated than a one-liner, also I want the log output)
-        for job_name in job_groups_with_failures:
-            for job in job_groups_with_failures[job_name]:
-                if job.result == "success":
-                    continue
-
-                classification = self.taskclusterProvider.failure_classifications[job.failure_classification_id]
-                self.logger.log("  Job %s (%i) Failed, Classification: %s" % (job.job_type_name, job.id, classification), level=LogLevel.Debug)
-
-                if classification == "not classified":
-                    job_group_to_unclassified_failure_count[job.job_type_name] += 1
-
-        # Comment on the bug
-        comment_bullets = []
-        for job_name in job_groups_with_failures:
-            num_jobs_ran = len(job_groups_with_failures[job_name])
-
-            if num_jobs_ran != TRIGGER_TOTAL and "mozlint" not in job_name:
-                self.logger.log("Job Group %s has %i entries, doesn't match %i triggers." % (job_name, num_jobs_ran, TRIGGER_TOTAL), level=LogLevel.Error)
-
-            comment_bullets.append("%i of %i jobs were unclassified failures in %s" % (job_group_to_unclassified_failure_count[job_name], len(job_groups_with_failures[job_name]), job_name))
+    # ==================================
 
     @logEntryExit
     def _process_unclassified_failures(self, library, existing_job, comment_bullets):

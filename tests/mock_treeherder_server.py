@@ -30,7 +30,7 @@ TRY_REVISIONS = {
 }
 
 HEALTH_REVISIONS = {
-    "health_rev": "treeherder_api_response_pushhealth_health.txt",
+    "health_rev": "health_correlation_example.txt",
     "4173dda99ea962d907e3fa043db5e26711085ed2": "health_unclassified_failures_multiple_per_test.txt"
 }
 
@@ -41,8 +41,8 @@ PUSH_IDS = {
     #  x: request number. The first time a document is requested, this will be 1, the second time, 2, etc
     #     specify 'A' to indicate this response should be used for all requests
     # rev_broken/good
-    '1_1_A': "treeherder_api_response_1.txt",
-    '1_2_A': "treeherder_api_response_2.txt",
+    '1_1_A': "jobs_paged_1.txt",
+    '1_2_A': "jobs_paged_2.txt",
     # testExistingJobSucceeded
     '2_1_1': "treeherder_api_response_jobs_still_running.txt",
     '2_1_2': "treeherder_api_response_all_succeeded.txt",
@@ -56,7 +56,7 @@ PUSH_IDS = {
     '5_1_1': "jobs_still_running.txt",
     '5_1_2': "jobs_unclassified_failures_multiple_per_test.txt",
     # push_health stuff
-    '6_1_A': "treeherder_api_response_pushhealth_jobdetails.txt",
+    '6_1_A': "jobs_correlation_example.txt",
 
 }
 
@@ -165,7 +165,7 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
             if EXPECTEDPATH_JOBS in self.path:
                 filename = get_appropriate_filename(self.path)
             elif EXPECTEDPATH_ACTIONSJSON in self.path:
-                filename = "taskcluster_api_response_actionsjson.txt"
+                filename = "actionsjson.txt"
             else:
                 assert False, "MockTreeherderServer GET got a path it didn't expect: " + self.path
 

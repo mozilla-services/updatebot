@@ -297,49 +297,47 @@ class Updatebot:
     def _process_job_details_for_awaiting_try_results(self, library, existing_job, job_list):
         self.logger.log("Handling revision %s in Awaiting Try Results" % existing_job.try_revision)
 
-        def handle_build_failure():
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer)
-            self.phabricatorProvider.abandon(existing_job.phab_revision)
-            existing_job.status = JOBSTATUS.DONE
-            existing_job.outcome = JOBOUTCOME.BUILD_FAILED
-            self.dbProvider.update_job_status(existing_job)
-            return
-
-        retriggers = []
-        comment_bullets = []
+        # First, look for any failed build jobs
         for j in job_list:
             if j.result not in ["retry", "success"]:
-                classification = self.taskclusterProvider.failure_classifications[j.failure_classification_id]
-                self.logger.log("  Job %s (%i) Failed, Classification: %s" % (j.job_type_name, j.id, classification), level=LogLevel.Debug)
+                if "build" in j.job_type_name:
+                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer)
+                    self.phabricatorProvider.abandon(existing_job.phab_revision)
+                    existing_job.status = JOBSTATUS.DONE
+                    existing_job.outcome = JOBOUTCOME.BUILD_FAILED
+                    self.dbProvider.update_job_status(existing_job)
+                    return
 
-                if classification == "not classified":
-                    if "build" in j.job_type_name:
-                        return handle_build_failure()
-                    elif "mozlint" in j.job_type_name:
-                        comment_bullets.append("lint job failed: %s" % j.job_type_name)
-                    else:
-                        retriggers.append(j)
-                else:
-                    comment_bullets.append("failure classified '%s': %s" % (classification, j.job_type_name))
+        # Get the push health and a comment string we may use in the bug
+        results, comment_lines = self._get_comments_on_push(existing_job, job_list)
 
-        if retriggers:
-            self.logger.log("All jobs completed, we found the following unclassified failures, going to retrigger %s jobs. " % len(retriggers), level=LogLevel.Info)
-            self.taskclusterProvider.retrigger_jobs(job_list, retriggers)
+        # If we need to retrigger jobs
+        if results['to_retrigger']:
+            self.logger.log("All jobs completed, we found failures we need to retrigger, going to retrigger %s jobs. " % len(results['to_retrigger']), level=LogLevel.Info)
+            self.taskclusterProvider.retrigger_jobs(job_list, results['to_retrigger'])
             existing_job.status = JOBSTATUS.AWAITING_RETRIGGER_RESULTS
             self.dbProvider.update_job_status(existing_job)
             return
 
-        if comment_bullets:
-            comment = "All jobs completed, we found %i classified failures.\n" % len(comment_bullets)
+        # We don't need to retrigger jobs, but we do have unclassified failures:
+        if results['to_investigate'] and comment_lines:
+            # This updates the job status to DONE, so return immediately after
+            self._process_unclassified_failures(library, existing_job, comment_lines)
+            return
+
+        # We don't need to retrigger and we don't have unclassified failures but we do have failures
+        if comment_lines:
+            comment = "All jobs completed, we found the following issues.\n"
             self.logger.log(comment, level=LogLevel.Info)
             existing_job.outcome = JOBOUTCOME.CLASSIFIED_FAILURES
-            for c in comment_bullets:
-                comment_line = "  - %s\n" % c
+            for c in comment_lines:
+                self.logger.log(c, level=LogLevel.Debug)
+                comment += c + "\n"
 
-                comment += comment_line
-                self.logger.log(comment_line.strip(), level=LogLevel.Debug)
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer, assignee=library.maintainer)
             self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+
+        # Everything.... succeeded?
         else:
             self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
             existing_job.outcome = JOBOUTCOME.ALL_SUCCESS
@@ -390,13 +388,14 @@ class Updatebot:
 
             comment_bullets.append("%i of %i jobs were unclassified failures in %s" % (job_group_to_unclassified_failure_count[job_name], len(job_groups_with_failures[job_name]), job_name))
 
-        comment = "The try push is done, we found %i jobs with unclassified failures.\n" % len(comment_bullets)
+    @logEntryExit
+    def _process_unclassified_failures(self, library, existing_job, comment_bullets):
+        comment = "The try push is done, we found jobs with unclassified failures.\n"
         self.logger.log(comment.strip(), level=LogLevel.Info)
-        for c in comment_bullets:
-            comment_line = "  - %s\n" % c
 
-            comment += comment_line
-            self.logger.log(comment_line.strip(), level=LogLevel.Debug)
+        for c in comment_bullets:
+            comment += c + "\n"
+            self.logger.log(c, level=LogLevel.Debug)
 
         self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer)
         self.phabricatorProvider.abandon(existing_job.phab_revision)

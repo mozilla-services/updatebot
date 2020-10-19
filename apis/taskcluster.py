@@ -106,7 +106,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             detail_by_testname = {}
 
             for i in detail_obj:
-                jobs = [j for j in job_details if ("%s" % (j.job_type_name)) == i['jobName']]
+                jobs = [j for j in job_details if ("%s" % (j.job_type_name)) == i['jobName'] and j.result not in ["retry"]]
                 assert len(jobs) == 1, "Somehow found more than one job for %s, ids %s" % (i['jobName'], ",".join([j.task_id for j in jobs]))
                 job_obj = jobs[0]
 

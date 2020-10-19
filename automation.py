@@ -258,6 +258,42 @@ class Updatebot:
     # ==================================
 
     @logEntryExitNoArgs
+    def _get_comments_on_push(self, existing_job, job_list):
+        # Fetch and process the push health
+        push_health = self.taskclusterProvider.get_push_health(existing_job.try_revision)
+        results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
+
+        # Before we retrieve the push health, process the failed jobs for build or lint failures.
+        comment_lines = []
+        printed_lint_header = False
+        for j in job_list:
+            if j.result not in ["retry", "success"]:
+                if "mozlint" in j.job_type_name:
+                    if not printed_lint_header:
+                        comment_lines.append("Lint Jobs Failed:")
+                        printed_lint_header = True
+                    comment_lines.append("\t\t-%s" % j.job_type_name)
+
+        # Build up the comment we will leave
+        if results['known_issues']:
+            comment_lines.append("Known Issues:")
+            for t in results['known_issues']:
+                comment_lines.append("\t" + t)
+                for j in results['known_issues'][t]:
+                    comment_lines.append("\t\t-%s" % j.job_type_name)
+
+        if results['to_investigate']:
+            comment_lines.append("Needs Investigation:")
+            for t in results['to_investigate']:
+                comment_lines.append("\t" + t)
+                for j in results['to_investigate'][t]:
+                    comment_lines.append("\t\t-%s" % j.job_type_name)
+
+        return (results, comment_lines)
+
+    # ==================================
+
+    @logEntryExitNoArgs
     def _process_job_details_for_awaiting_try_results(self, library, existing_job, job_list):
         self.logger.log("Handling revision %s in Awaiting Try Results" % existing_job.try_revision)
 

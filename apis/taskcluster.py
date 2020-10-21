@@ -127,12 +127,17 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         failed_jobs_task_ids = set().union([j.task_id for j in failed_jobs])
 
         # Now get all the unique keys for the jobs that failed due to something classified by push health
-        failed_jobs_from_health_classifications = set()
-        failed_jobs_from_health_classifications = failed_jobs_from_health_classifications.union([j.task_id for l in ni_by_test.values() for j in l])
-        failed_jobs_from_health_classifications = failed_jobs_from_health_classifications.union([j.task_id for l in ki_by_test.values() for j in l])
+        failed_jobs_with_health_classifications_task_ids = set()
+        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for l in ni_by_test.values() for j in l])
+        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for l in ki_by_test.values() for j in l])
 
-        # Now get all the unique keys for failed jobs that *weren't* classified by push health
-        jobs_failed_with_no_health_classification_task_ids = failed_jobs_task_ids - failed_jobs_from_health_classifications
+        # Now get all the jobs that failed that were classified by Taskcluster as a known intermittent or issue
+        failed_jobs_with_taskcluster_classification = [j for j in failed_jobs if self.failure_classifications[j.failure_classification_id] != "not classified"]
+        failed_jobs_with_taskcluster_classification_task_ids = set([j.task_id for j in failed_jobs_with_taskcluster_classification])
+
+        # Now get all the unique keys for failed jobs that *weren't* classified by push health or Taskcluster
+        jobs_failed_with_no_health_classification_task_ids = failed_jobs_task_ids - failed_jobs_with_health_classifications_task_ids - failed_jobs_with_taskcluster_classification_task_ids
+
         # And go back from unique key to the full job object
         jobs_failed_with_no_health_classification = [j for j in failed_jobs if j.task_id in jobs_failed_with_no_health_classification_task_ids]
 
@@ -162,7 +167,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         return {
             'to_retrigger': jobs_to_retrigger,
             'to_investigate': ni_by_test,
-            'known_issues': ki_by_test
+            'known_issues': ki_by_test,
+            'taskcluster_classified': failed_jobs_with_taskcluster_classification
         }
 
     # =================================================================

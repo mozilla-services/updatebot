@@ -272,22 +272,27 @@ class Updatebot:
                     if not printed_lint_header:
                         comment_lines.append("Lint Jobs Failed:")
                         printed_lint_header = True
-                    comment_lines.append("\t\t-%s" % j.job_type_name)
+                    comment_lines.append("\t\t-%s (%s)" % (j.job_type_name, j.task_id))
 
         # Build up the comment we will leave
         if results['known_issues']:
-            comment_lines.append("Known Issues:")
+            comment_lines.append("Known Issues (From Push Health):")
             for t in results['known_issues']:
                 comment_lines.append("\t" + t)
                 for j in results['known_issues'][t]:
-                    comment_lines.append("\t\t-%s" % j.job_type_name)
+                    comment_lines.append("\t\t-%s (%s)" % (j.job_type_name, j.task_id))
+
+        if results['taskcluster_classified']:
+            comment_lines.append("Known Issues (From Taskcluster):")
+            for j in results['taskcluster_classified']:
+                comment_lines.append("\t\t-%s (%s) - %s" % (j.job_type_name, j.task_id, self.taskclusterProvider.failure_classifications[j.failure_classification_id]))
 
         if results['to_investigate']:
             comment_lines.append("Needs Investigation:")
             for t in results['to_investigate']:
                 comment_lines.append("\t" + t)
                 for j in results['to_investigate'][t]:
-                    comment_lines.append("\t\t-%s" % j.job_type_name)
+                    comment_lines.append("\t\t-%s (%s)" % (j.job_type_name, j.task_id))
 
         return (results, comment_lines)
 
@@ -313,7 +318,9 @@ class Updatebot:
 
         # If we need to retrigger jobs
         if results['to_retrigger']:
-            self.logger.log("All jobs completed, we found failures we need to retrigger, going to retrigger %s jobs. " % len(results['to_retrigger']), level=LogLevel.Info)
+            self.logger.log("All jobs completed, we found failures we need to retrigger, going to retrigger %s jobs: " % len(results['to_retrigger']), level=LogLevel.Info)
+            for j in results['to_retrigger']:
+                self.logger.log(j.job_type_name + " " + j.task_id, level=LogLevel.Debug)
             self.taskclusterProvider.retrigger_jobs(job_list, results['to_retrigger'])
             existing_job.status = JOBSTATUS.AWAITING_RETRIGGER_RESULTS
             self.dbProvider.update_job_status(existing_job)
@@ -359,7 +366,7 @@ class Updatebot:
 
     # ==================================
 
-    @logEntryExit
+    @logEntryExitNoArgs
     def _process_unclassified_failures(self, library, existing_job, comment_bullets):
         comment = "The try push is done, we found jobs with unclassified failures.\n"
         self.logger.log(comment.strip(), level=LogLevel.Info)

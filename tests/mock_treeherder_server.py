@@ -31,7 +31,8 @@ TRY_REVISIONS = {
 
 HEALTH_REVISIONS = {
     "health_rev": "health_correlation_example.txt",
-    "4173dda99ea962d907e3fa043db5e26711085ed2": "health_unclassified_failures_multiple_per_test.txt"
+    "4173dda99ea962d907e3fa043db5e26711085ed2": "health_unclassified_failures_multiple_per_test.txt",
+    "e152bb86666565ee6619c15f60156cd6c79580a9": "health_classified_failures.txt"
 }
 
 PUSH_IDS = {
@@ -43,9 +44,9 @@ PUSH_IDS = {
     # rev_broken/good
     '1_1_A': "jobs_paged_1.txt",
     '1_2_A': "jobs_paged_2.txt",
-    # testExistingJobSucceeded
-    '2_1_1': "treeherder_api_response_jobs_still_running.txt",
-    '2_1_2': "treeherder_api_response_all_succeeded.txt",
+    # testExistingJobClassifiedFailures
+    '2_1_1': "jobs_still_running.txt",
+    '2_1_2': "jobs_classified_failures.txt",
     # testExistingJobBuildFailed
     '3_1_1': "jobs_still_running.txt",
     '3_1_2': "build_failed.txt",

@@ -220,10 +220,9 @@ class TestFunctionality(SimpleLoggingTest):
         _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
         TestFunctionality._cleanup(u, expected_values)
 
-    # Create -> Jobs are Running -> Jobs succeeded
+    # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
     @logEntryExit
-    def testExistingJobSucceeded(self):
-        return
+    def testExistingJobClassifiedFailures(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup("e152bb86666565ee6619c15f60156cd6c79580a9", library_filter)
 
@@ -239,7 +238,7 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it again, this time we'll tell it the jobs succeeded
             u.run(library_filter=library_filter)
             # Should be DONE
-            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
         finally:
             TestFunctionality._cleanup(u, expected_values)
 

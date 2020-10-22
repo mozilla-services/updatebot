@@ -264,10 +264,9 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             TestFunctionality._cleanup(u, expected_values)
 
-    # Create -> Jobs are Running -> Lint and Classified Failure
+    # Create -> Jobs are Running -> All Success
     @logEntryExit
-    def testExistingJobClassifiedFailure(self):
-        return
+    def testExistingJobAllSuccess(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup("56082fc4acfacba40993e47ef8302993c59e264e", library_filter)
 
@@ -283,7 +282,7 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it again, this time we'll tell it a build job failed
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
-            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
         finally:
             TestFunctionality._cleanup(u, expected_values)
 

@@ -107,13 +107,11 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
             for i in detail_obj:
                 jobs = [j for j in job_details if ("%s" % (j.job_type_name)) == i['jobName'] and j.result not in ["retry"]]
-                assert len(jobs) == 1, "Somehow found more than one job for %s, ids %s" % (i['jobName'], ",".join([j.task_id for j in jobs]))
-                job_obj = jobs[0]
 
                 if i['testName'] not in detail_by_testname:
-                    detail_by_testname[i['testName']] = [job_obj]
+                    detail_by_testname[i['testName']] = jobs
                 else:
-                    detail_by_testname[i['testName']].append(job_obj)
+                    detail_by_testname[i['testName']].extend(jobs)
 
             return detail_by_testname
 
@@ -232,7 +230,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         try:
             push_health = r.json()
         except Exception:
-            raise Exception("Could not parse the result of the push_list as json. Url: %s Response:\n%s" % (push_health_url, r.text))
+            raise Exception("Could not parse the result of the push health as json. Url: %s Response:\n%s" % (push_health_url, r.text))
 
         return push_health
 

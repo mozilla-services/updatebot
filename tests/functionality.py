@@ -311,7 +311,6 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
     @logEntryExit
     def testExistingJobUnclassifiedFailuresNeedingRetriggers(self):
-        return
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup("ab2232a04301f1d2dbeea7050488f8ec2dde5451", library_filter)
 

@@ -115,11 +115,11 @@ INSERTION_QUERIES = [
     })
 ]
 
-for l in LIBRARIES:
+for lib in LIBRARIES:
     INSERTION_QUERIES.append(
         Struct(**{
             'query': "INSERT INTO `libraries` (`shortname`, `yaml_path`, `bugzilla_product`, `bugzilla_component`, `maintainer`, `maintainer_phab`) VALUES (%s, %s, %s, %s, %s, %s)",
-            'args': (l.shortname, l.yaml_path, l.bugzilla_product, l.bugzilla_component, l.maintainer, l.maintainer_phab)
+            'args': (lib.shortname, lib.yaml_path, lib.bugzilla_product, lib.bugzilla_component, lib.maintainer, lib.maintainer_phab)
         }))
 
 for p in dir(JOBSTATUS):

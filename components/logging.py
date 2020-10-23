@@ -47,16 +47,16 @@ class LoggingProvider(BaseProvider):
             self.loggers.append(SentryLogger(config))
 
     def _update_config(self, additional_config):
-        for l in self.loggers:
-            l.update_config(additional_config)
+        for logger in self.loggers:
+            logger.update_config(additional_config)
 
     def log(self, *args, level=LogLevel.Info, category=None):
-        for l in self.loggers:
-            l.log(*args, level=level, category=category)
+        for logger in self.loggers:
+            logger.log(*args, level=level, category=category)
 
     def log_exception(self, e):
-        for l in self.loggers:
-            l.log_exception(e)
+        for logger in self.loggers:
+            logger.log_exception(e)
 
 
 class LoggerInstance(BaseProvider):

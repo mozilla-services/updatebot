@@ -138,12 +138,12 @@ class Updatebot:
                 os.chdir(self.config_dictionary['General']['gecko-path'])
 
             libraries = self.dbProvider.get_libraries()
-            for l in libraries:
-                if library_filter and library_filter not in l.shortname:
-                    self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (l.shortname, library_filter), level=LogLevel.Info)
+            for lib in libraries:
+                if library_filter and library_filter not in lib.shortname:
+                    self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (lib.shortname, library_filter), level=LogLevel.Info)
                     continue
                 try:
-                    self._process_library(l)
+                    self._process_library(lib)
                 except Exception as e:
                     self.logger.log("Caught an exception while processing a library.", level=LogLevel.Error)
                     self.logger.log_exception(e)

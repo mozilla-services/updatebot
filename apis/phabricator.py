@@ -29,8 +29,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         phab_revision = None
         r = re.compile(self.url + "D([0-9]+)")
-        for l in output.split("\n"):
-            s = r.search(l)
+        for line in output.split("\n"):
+            s = r.search(line)
             if s:
                 phab_revision = s.groups(0)[0]
                 break

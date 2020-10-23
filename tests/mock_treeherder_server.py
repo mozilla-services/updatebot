@@ -27,13 +27,15 @@ TRY_REVISIONS = {
     '56082fc4acfacba40993e47ef8302993c59e264e': "{\"results\":[{\"id\":4}]}",
     '4173dda99ea962d907e3fa043db5e26711085ed2': "{\"results\":[{\"id\":5}]}",
     'health_rev': "{\"results\":[{\"id\":6}]}",
+    'ab2232a04301f1d2dbeea7050488f8ec2dde5451': "{\"results\":[{\"id\":7}]}",
 }
 
 HEALTH_REVISIONS = {
     "health_rev": "health_correlation_example.txt",
     "4173dda99ea962d907e3fa043db5e26711085ed2": "health_unclassified_failures_multiple_per_test.txt",
     "e152bb86666565ee6619c15f60156cd6c79580a9": "health_classified_failures.txt",
-    "56082fc4acfacba40993e47ef8302993c59e264e": "health_all_success.txt"
+    "56082fc4acfacba40993e47ef8302993c59e264e": "health_all_success.txt",
+    "ab2232a04301f1d2dbeea7050488f8ec2dde5451": "health_unclassified_failures_before_retriggers.txt",
 }
 
 PUSH_IDS = {
@@ -59,7 +61,10 @@ PUSH_IDS = {
     '5_1_2': "jobs_unclassified_failures_multiple_per_test.txt",
     # push_health stuff
     '6_1_A': "jobs_correlation_example.txt",
-
+    # testExistingJobUnclassifiedFailuresNeedingRetriggers
+    '7_1_1': "jobs_still_running.txt",
+    '7_1_2': "jobs_unclassified_failures_before_retriggers.txt",
+    '7_1_3': "jobs_unclassified_failures_after_retriggers.txt",
 }
 
 EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"

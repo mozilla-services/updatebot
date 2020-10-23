@@ -42,11 +42,11 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         isNext = False
         try_link = None
-        for l in output.split("\n"):
+        for line in output.split("\n"):
             if isNext:
-                try_link = l.replace("remote:", "").strip()
+                try_link = line.replace("remote:", "").strip()
                 break
-            if "Follow the progress of your build on Treeherder:" in l:
+            if "Follow the progress of your build on Treeherder:" in line:
                 isNext = True
 
         if not try_link or "#/jobs?repo=try&revision=" not in try_link:
@@ -126,8 +126,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         # Now get all the unique keys for the jobs that failed due to something classified by push health
         failed_jobs_with_health_classifications_task_ids = set()
-        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for l in ni_by_test.values() for j in l])
-        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for l in ki_by_test.values() for j in l])
+        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in ni_by_test.values() for j in job_list])
+        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in ki_by_test.values() for j in job_list])
 
         # Now get all the jobs that failed that were classified by Taskcluster as a known intermittent or issue
         failed_jobs_with_taskcluster_classification = [j for j in failed_jobs if self.failure_classifications[j.failure_classification_id] != "not classified"]

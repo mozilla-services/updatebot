@@ -183,28 +183,28 @@ class TestFunctionality(SimpleLoggingTest):
 
         # Ensure we don't have a dirty database with existing jobs
         tc = unittest.TestCase()
-        for l in u.dbProvider.get_libraries():
-            j = u.dbProvider.get_job(l, expected_values.library_version_id)
+        for lib in u.dbProvider.get_libraries():
+            j = u.dbProvider.get_job(lib, expected_values.library_version_id)
             tc.assertEqual(j, None, "When running %s, we found an existing job, indicating the database is dirty and should be cleaned." % inspect.stack()[1].function)
 
         return (u, expected_values, _check_jobs)
 
     @staticmethod
     def _cleanup(u, expected_values):
-        for l in u.dbProvider.get_libraries():
-            u.dbProvider.delete_job(l, expected_values.library_version_id)
+        for lib in u.dbProvider.get_libraries():
+            u.dbProvider.delete_job(lib, expected_values.library_version_id)
 
     @staticmethod
     def _check_jobs(u, library_filter, expected_values, status, outcome):
         tc = unittest.TestCase()
 
-        for l in u.dbProvider.get_libraries():
-            if library_filter not in l.shortname:
+        for lib in u.dbProvider.get_libraries():
+            if library_filter not in lib.shortname:
                 continue
-            j = u.dbProvider.get_job(l, expected_values.library_version_id)
+            j = u.dbProvider.get_job(lib, expected_values.library_version_id)
 
             tc.assertNotEqual(j, None)
-            tc.assertEqual(l.shortname, j.library_shortname)
+            tc.assertEqual(lib.shortname, j.library_shortname)
             tc.assertEqual(expected_values.library_version_id, j.version)
             tc.assertEqual(status, j.status)
             tc.assertEqual(outcome, j.outcome)

@@ -115,8 +115,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
             return detail_by_testname
 
-        ni_by_test = _correlate(need_investigation)
-        ki_by_test = _correlate(known_issues)
+        need_investigation_by_test = _correlate(need_investigation)
+        known_issues_by_test = _correlate(known_issues)
 
         # Now get all the failed jobs in the push - not just those indicated in the ni/ki push health data
         failed_jobs = set().union([j for j in job_details if j.result not in ["retry", "success"]])
@@ -126,8 +126,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         # Now get all the unique keys for the jobs that failed due to something classified by push health
         failed_jobs_with_health_classifications_task_ids = set()
-        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in ni_by_test.values() for j in job_list])
-        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in ki_by_test.values() for j in job_list])
+        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in need_investigation_by_test.values() for j in job_list])
+        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in known_issues_by_test.values() for j in job_list])
 
         # Now get all the jobs that failed that were classified by Taskcluster as a known intermittent or issue
         failed_jobs_with_taskcluster_classification = [j for j in failed_jobs if self.failure_classifications[j.failure_classification_id] != "not classified"]
@@ -145,8 +145,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         # We retrigger jobs where it contained a test that failed on only a single job
         #    We omit jobs where a test failed more than one time. BUT that same job might
         #    still be retriggered if it contained a test that did only fail one time.
-        for t in ni_by_test:
-            jobs = ni_by_test[t]
+        for t in need_investigation_by_test:
+            jobs = need_investigation_by_test[t]
             if len(jobs) == 1:
                 jobs_to_retrigger.add(jobs[0])
 
@@ -164,8 +164,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         #    and job mappings
         return {
             'to_retrigger': jobs_to_retrigger,
-            'to_investigate': ni_by_test,
-            'known_issues': ki_by_test,
+            'to_investigate': need_investigation_by_test,
+            'known_issues': known_issues_by_test,
             'taskcluster_classified': failed_jobs_with_taskcluster_classification
         }
 

@@ -165,7 +165,7 @@ class Updatebot:
         self.logger.log("Processing %s for an upstream revision %s." % (library.origin["name"], new_version), level=LogLevel.Info)
         existing_job = self.dbProvider.get_job(library, new_version)
         if existing_job:
-            self.logger.log("%s has an existing job with try revision %s and status %s" % (new_version, existing_job.try_revision, existing_job.status), level=LogLevel.Info)
+            self.logger.log("%s has an existing job with %s try revisions (%s) and status %s" % (new_version, len(existing_job.try_runs), existing_job.get_try_run_ids(), existing_job.status), level=LogLevel.Info)
             self._process_existing_job(library, existing_job)
         else:
             self.logger.log("%s is a brand new revision to updatebot." % (new_version), level=LogLevel.Info)
@@ -218,9 +218,10 @@ class Updatebot:
             self.logger.log("This job has already been completed")
             return
 
-        try_run_results = self.taskclusterProvider.get_job_details(existing_job.try_revision)
+        try_revision = existing_job.try_runs[0].revision
+        try_run_results = self.taskclusterProvider.get_job_details(try_revision)  # TODO
         if not try_run_results:
-            self.logger.log("Try revision %s has no job results. Skipping this job." % existing_job.try_revision, level=LogLevel.Warning)
+            self.logger.log("Try revision %s has no job results. Skipping this job." % try_revision, level=LogLevel.Warning)
             return
 
         self._process_job_details(library, existing_job, try_run_results)
@@ -248,7 +249,7 @@ class Updatebot:
         assert existing_job.status != JOBSTATUS.DONE
         for j in job_list:
             if j.state not in ["completed", "failed", "exception"]:
-                self.logger.log("Not all jobs on try revision %s are completed, so skipping this job until they are." % existing_job.try_revision, level=LogLevel.Info)
+                self.logger.log("Not all jobs on try revision %s are completed, so skipping this job until they are." % existing_job.try_runs[0].revision, level=LogLevel.Info)
                 return
 
         if existing_job.status == JOBSTATUS.AWAITING_TRY_RESULTS:
@@ -256,14 +257,14 @@ class Updatebot:
         elif existing_job.status == JOBSTATUS.AWAITING_RETRIGGER_RESULTS:
             self._process_job_details_for_awaiting_retrigger_results(library, existing_job, job_list)
         else:
-            raise Exception("In _process_job_details for job with try revision %s got a status %s I don't know how to handle." % (existing_job.try_revision, existing_job.status))
+            raise Exception("In _process_job_details for job with try revision %s got a status %s I don't know how to handle." % (existing_job.try_runs[0].revision, existing_job.status))  # TODO
 
     # ==================================
 
     @logEntryExitNoArgs
     def _get_comments_on_push(self, existing_job, job_list):
         # Fetch and process the push health
-        push_health = self.taskclusterProvider.get_push_health(existing_job.try_revision)
+        push_health = self.taskclusterProvider.get_push_health(existing_job.try_runs[0].revision)  # TODO
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
 
         # Before we retrieve the push health, process the failed jobs for build or lint failures.
@@ -303,7 +304,7 @@ class Updatebot:
 
     @logEntryExitNoArgs
     def _process_job_details_for_awaiting_try_results(self, library, existing_job, job_list):
-        self.logger.log("Handling revision %s in Awaiting Try Results" % existing_job.try_revision)
+        self.logger.log("Handling revision %s in Awaiting Try Results" % existing_job.try_runs[0].revision)  # TODO
 
         # First, look for any failed build jobs
         for j in job_list:
@@ -361,7 +362,7 @@ class Updatebot:
 
     @logEntryExitNoArgs
     def _process_job_details_for_awaiting_retrigger_results(self, library, existing_job, job_list):
-        self.logger.log("Handling revision %s in Awaiting Retrigger Results" % existing_job.try_revision)
+        self.logger.log("Handling revision %s in Awaiting Retrigger Results" % existing_job.try_runs[0].revision)  # TODO
 
         # Get the push health and a comment string we will use in the bug
         results, comment_lines = self._get_comments_on_push(existing_job, job_list)

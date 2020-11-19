@@ -77,9 +77,12 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(newJob.outcome, JOBOUTCOME.PENDING)
             self.assertEqual(newJob.bugzilla_id, bugid)
             self.assertEqual(newJob.phab_revision, phab_revision)
-            self.assertEqual(newJob.try_revision, try_link)
+            self.assertEqual(len(newJob.try_runs), 1)
+            self.assertEqual(newJob.try_runs[0].revision, try_link)
+            self.assertEqual(newJob.try_runs[0].job_id, newJob.id)
+            self.assertEqual(newJob.try_runs[0].purpose, 'initial platform')
         finally:
-            self.db.delete_job(library, version)
+            self.db.delete_job(job_id=newJob.id)
 
 
 if __name__ == '__main__':

@@ -199,7 +199,7 @@ class TestFunctionality(SimpleLoggingTest):
     @staticmethod
     def _cleanup(u, expected_values):
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
-            u.dbProvider.delete_job(lib, expected_values.library_version_id)
+            u.dbProvider.delete_job(library=lib, version=expected_values.library_version_id)
 
     @staticmethod
     def _check_jobs(u, library_filter, expected_values, status, outcome):
@@ -217,8 +217,10 @@ class TestFunctionality(SimpleLoggingTest):
             tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))
             tc.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
             tc.assertEqual(expected_values.phab_revision, j.phab_revision)
+            tc.assertEqual(len(j.try_runs), 1)
             tc.assertEqual(
-                expected_values.try_revision_id, j.try_revision)
+                expected_values.try_revision_id, j.try_runs[0].revision)
+            tc.assertEqual('initial run', j.try_runs[0].purpose)
 
     @logEntryExit
     def testAllNewJobs(self):

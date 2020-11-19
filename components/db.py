@@ -8,7 +8,7 @@ from components.utilities import Struct
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
-from components.dbmodels import Job, JOBSTATUS, JOBOUTCOME
+from components.dbmodels import TryRun, transform_job_and_try_results_into_objects, JOBSTATUS, JOBOUTCOME
 
 import pymysql
 
@@ -32,7 +32,7 @@ class HardcodedDatabase:
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 5
+CURRENT_DATABASE_CONFIG_VERSION = 6
 
 CREATION_QUERIES = {
     "config": """
@@ -68,7 +68,16 @@ CREATION_QUERIES = {
         `try_revision` VARCHAR(40) NULL,
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
-      """
+      """,
+    "try_runs": """
+      CREATE TABLE `try_runs` (
+        `id` INT NOT NULL AUTO_INCREMENT,
+        `revision` VARCHAR(40) NULL,
+        `job_id` INT NOT NULL,
+        `purpose` VARCHAR(255) NOT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE = InnoDB;
+      """,
 }
 
 # To support the --delete-database option, the key to this dictionary must be table_name|constraint_name
@@ -77,6 +86,8 @@ ALTER_QUERIES = {
         "ALTER TABLE jobs ADD CONSTRAINT fk_job_outcome FOREIGN KEY (outcome) REFERENCES outcome_types(id)",
     'jobs|fk_job_status':
         "ALTER TABLE jobs ADD CONSTRAINT fk_job_status FOREIGN KEY (status) REFERENCES status_types(id)",
+    'try_runs|fk_tryrun_job':
+        "ALTER TABLE try_runs ADD CONSTRAINT fk_tryrun_job FOREIGN KEY (job_id) REFERENCES jobs(id)",
 }
 
 INSERTION_QUERIES = [
@@ -167,9 +178,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return results[0] if results else None
 
     def _query_execute(self, query, args=()):
+        insert_id = None
         with self.connection.cursor() as cursor:
             cursor.execute(query, args)
+            insert_id = cursor.lastrowid
         self.connection.commit()
+        return insert_id
 
     @logEntryExit
     def _check_and_get_configuration(self):
@@ -213,6 +227,26 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                     elif config_version == 4 and CURRENT_DATABASE_CONFIG_VERSION == 5:
                         # Remove libraries table
                         self._query_execute("DROP TABLE IF EXISTS libraries")
+
+                    elif config_version == 5 and CURRENT_DATABASE_CONFIG_VERSION == 6:
+                        # Create the try_runs table, and port the existing try runs across to it
+                        for table_name in CREATION_QUERIES:
+                            if table_name == 'try_runs':
+                                self._query_execute(CREATION_QUERIES[table_name])
+
+                        for query_name in ALTER_QUERIES:
+                            if 'tryrun' in query_name:
+                                self._query_execute(ALTER_QUERIES[query_name])
+
+                        results = None
+                        with self.connection.cursor() as cursor:
+                            cursor.execute("SELECT * FROM jobs")
+                            results = cursor.fetchall()
+                        for r in results:
+                            self._query_execute("INSERT INTO `try_runs` (`revision`, `job_id`, `purpose`) VALUES (%s, %s, %s)",
+                                                (r['try_revision'], r['id'], 'ported from job table'))
+
+                        self._query_execute("ALTER TABLE jobs DROP try_revision")
 
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
@@ -283,29 +317,57 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def get_all_jobs(self):
-        query = "SELECT * FROM jobs ORDER BY id ASC"
+        query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
+                   FROM jobs as j
+                   INNER JOIN try_runs as t
+                       ON j.id = t.job_id
+                   ORDER BY j.id ASC"""
         results = self._query_get_rows(query)
-        return [Job(r) for r in results]
+        return transform_job_and_try_results_into_objects(results)
+
+    @logEntryExit
+    def get_all_try_runs(self):
+        query = "SELECT * FROM try_runs ORDER BY id ASC"
+        results = self._query_get_rows(query)
+        return [TryRun(r) for r in results]
 
     @logEntryExit
     def get_all_active_jobs_for_library(self, library):
-        query = "SELECT * FROM jobs WHERE library = %s AND status<>%s ORDER BY id ASC"
+        query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
+                   FROM jobs as j
+                   INNER JOIN try_runs as t
+                       ON j.id = t.job_id
+                   WHERE j.library = %s
+                     AND j.status<>%s
+                   ORDER BY j.id ASC"""
         args = (library.origin["name"], JOBSTATUS.DONE)
         results = self._query_get_rows(query, args)
-        return [Job(r) for r in results]
+        return transform_job_and_try_results_into_objects(results)
 
     @logEntryExit
     def get_job(self, library, new_version):
-        query = "SELECT * FROM jobs WHERE library = %s AND version = %s"
+        query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
+                   FROM jobs as j
+                   INNER JOIN try_runs as t
+                       ON j.id = t.job_id
+                   WHERE j.library = %s
+                     AND j.version = %s
+                   ORDER BY j.id ASC"""
         args = (library.origin["name"], new_version)
-        results = self._query_get_row_maybe(query, args)
-        return Job(results) if results else None
+        results = self._query_get_rows(query, args)
+        jobs = transform_job_and_try_results_into_objects(results)
+        return jobs[0] if jobs else None
 
     @logEntryExit
     def create_job(self, library, new_version, status, outcome, bug_id, phab_revision, try_run):
-        query = "INSERT INTO jobs(library, version, status, outcome, bugzilla_id, phab_revision, try_revision) VALUES(%s, %s, %s, %s, %s, %s, %s)"
-        args = (library.origin["name"], new_version, status, outcome, bug_id, phab_revision, try_run)
-        self._query_execute(query, args)
+        query = "INSERT INTO jobs(library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s)"
+        args = (library.origin["name"], new_version, status, outcome, bug_id, phab_revision)
+        job_id = self._query_execute(query, args)
+
+        if try_run:
+            query = "INSERT INTO try_runs(revision, job_id, purpose) VALUES(%s, %s, %s)"
+            args = (try_run, job_id, 'initial platform')
+            self._query_execute(query, args)
 
     @logEntryExit
     def update_job_status(self, existing_job):
@@ -313,7 +375,28 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         args = (existing_job.status, existing_job.outcome, existing_job.library_shortname, existing_job.version)
         self._query_execute(query, args)
 
-    def delete_job(self, library, new_version):
-        query = "DELETE FROM jobs WHERE library = %s AND version = %s"
-        args = (library.origin["name"], new_version)
-        self._query_execute(query, args)
+    @logEntryExit
+    def delete_job(self, library=None, version=None, job_id=None):
+        assert job_id or (library and version), "You must provide a way to delete a job"
+
+        if job_id:
+            query = "DELETE FROM try_runs WHERE job_id = %s"
+            args = (job_id)
+            self._query_execute(query, args)
+
+            query = "DELETE FROM jobs WHERE id = %s"
+            args = (job_id)
+            self._query_execute(query, args)
+        else:
+            query = """DELETE t.*
+                       FROM try_runs as t
+                       INNER JOIN jobs as j
+                          ON j.id = t.job_id
+                       WHERE j.library = %s
+                         AND j.version = %s"""
+            args = (library.origin["name"], version)
+            self._query_execute(query, args)
+
+            query = "DELETE FROM jobs WHERE library = %s AND version = %s"
+            args = (library.origin["name"], version)
+            self._query_execute(query, args)

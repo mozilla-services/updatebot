@@ -37,6 +37,22 @@ class JOBOUTCOME(IntEnum):
         return str(self.value)
 
 
+def transform_job_and_try_results_into_objects(rows):
+    """
+    In this function we are given an array of rows where the try runs
+    have been inner-joined into the jobs table, so we have duplicate job
+    data.
+    We're going to transform this data into objects
+    """
+    jobs = {}
+    for r in rows:
+        jobs[r['job_id']] = Job(r)
+    for r in rows:
+        jobs[r['job_id']].try_runs.append(TryRun(r, id_column='try_run_id'))
+
+    return list(jobs.values())
+
+
 class Job:
     def __init__(self, row=None):
         if row:
@@ -47,4 +63,16 @@ class Job:
             self.outcome = JOBOUTCOME(row['outcome'])
             self.bugzilla_id = row['bugzilla_id']
             self.phab_revision = row['phab_revision']
-            self.try_revision = row['try_revision']
+            self.try_runs = []
+
+    def get_try_run_ids(self):
+        return ",".join([t.revision for t in self.try_runs])
+
+
+class TryRun:
+    def __init__(self, row=None, id_column='id'):
+        if row:
+            self.id = row[id_column]
+            self.revision = row['revision']
+            self.job_id = row['job_id']
+            self.purpose = row['purpose']

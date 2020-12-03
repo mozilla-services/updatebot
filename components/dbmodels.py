@@ -9,9 +9,10 @@ from enum import unique, IntEnum
 
 @unique
 class JOBSTATUS(IntEnum):
-    AWAITING_TRY_RESULTS = 1
-    AWAITING_RETRIGGER_RESULTS = 2
-    DONE = 3
+    AWAITING_INITIAL_PLATFORM_TRY_RESULTS = 1
+    AWAITING_SECOND_PLATFORMS_TRY_RESULTS = 2
+    AWAITING_RETRIGGER_RESULTS = 3
+    DONE = 4
 
     # pymysql expects simple arguments, e.g. ints and strings.
     # Rather than putting foo.value everywhere, we're just going
@@ -49,6 +50,12 @@ def transform_job_and_try_results_into_objects(rows):
         jobs[r['job_id']] = Job(r)
     for r in rows:
         jobs[r['job_id']].try_runs.append(TryRun(r, id_column='try_run_id'))
+
+    # Make sure the try runs are in ascending order. Uses a database-internal
+    # key which is a bad practice, because what if the key turns into a guid
+    # in the future?
+    for j in jobs:
+        jobs[j].try_runs.sort(key=lambda i: i.id)
 
     return list(jobs.values())
 

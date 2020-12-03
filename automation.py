@@ -203,37 +203,26 @@ class Updatebot:
             return
 
         self.mercurialProvider.commit(library, bugzilla_id, new_version)
-        try_revision = self.taskclusterProvider.submit_to_try(library)
+        try_revision = self.taskclusterProvider.submit_to_try(library, "linux64")
 
         self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
         phab_revision = self.phabricatorProvider.submit_patch()
-        self.dbProvider.create_job(library, new_version, JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision)
+        self.dbProvider.create_job(library, new_version, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision)
 
     # ====================================================================
     # ====================================================================
 
     @logEntryExit
     def _process_existing_job(self, library, existing_job):
-        if existing_job.status == JOBSTATUS.DONE:
-            self.logger.log("This job has already been completed")
-            return
-
-        try_revision = existing_job.try_runs[0].revision
-        try_run_results = self.taskclusterProvider.get_job_details(try_revision)  # TODO
-        if not try_run_results:
-            self.logger.log("Try revision %s has no job results. Skipping this job." % try_revision, level=LogLevel.Warning)
-            return
-
-        self._process_job_details(library, existing_job, try_run_results)
-
-    # ==================================
-
-    @logEntryExitNoArgs
-    def _process_job_details(self, library, existing_job, job_list):
         """
-        AWAITING_TRY_RESULTS
-          If we see a build failure, comment, set assignee, needinfo, and state to JOB_PROCESSING_DONE. Finish.
+        AWAITING_INITIAL_PLATFORM_TRY_RESULTS
           If we see still-running jobs, keep state as-is, and finish.
+          If we see a build failure, comment, set assignee, needinfo, and state to JOB_PROCESSING_DONE. Finish.
+          Otherwise, trigger the rest of the platforms, set state to AWAITING_SECOND_PLATFORMS_TRY_RESULTS
+
+        AWAITING_SECOND_PLATFORMS_TRY_RESULTS
+          If we see still-running jobs, keep state as-is, and finish.
+          If we see a build failure, comment, set assignee, needinfo, and state to JOB_PROCESSING_DONE. Finish.
           If we see test failures, accumulate them all, then retrigger each TRIGGER_TOTAL-1 times, set state to AWAITING_RETRIGGER_RESULTS. Finish
           If we see a lint failure, add ths note to a comment we will post.
           If we see a failures labeled intermittent, add this note to a comment we will post.
@@ -246,25 +235,44 @@ class Updatebot:
             If some of the jobs succeeded, add this note to a comment we will post.
           Post the comment, set assignee, needinfo, set reviewr, and set state to JOB_PROCESSING_DONE
         """
-        assert existing_job.status != JOBSTATUS.DONE
-        for j in job_list:
-            if j.state not in ["completed", "failed", "exception"]:
-                self.logger.log("Not all jobs on try revision %s are completed, so skipping this job until they are." % existing_job.try_runs[0].revision, level=LogLevel.Info)
-                return
+        if existing_job.status == JOBSTATUS.DONE:
+            self.logger.log("This job has already been completed")
+            return
 
-        if existing_job.status == JOBSTATUS.AWAITING_TRY_RESULTS:
-            self._process_job_details_for_awaiting_try_results(library, existing_job, job_list)
+        if existing_job.status == JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS:
+            if len(existing_job.try_runs) != 1:
+                self.logger.log("State is AWAITING_INITIAL_PLATFORM_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
+                return
+            self._process_job_details_for_awaiting_initial_platform_results(library, existing_job)
+        elif existing_job.status == JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS:
+            if len(existing_job.try_runs) != 2:
+                self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
+                return
+            self._process_job_details_for_awaiting_second_platform_results(library, existing_job)
         elif existing_job.status == JOBSTATUS.AWAITING_RETRIGGER_RESULTS:
-            self._process_job_details_for_awaiting_retrigger_results(library, existing_job, job_list)
+            if len(existing_job.try_runs) != 2:
+                self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
+                return
+            self._process_job_details_for_awaiting_retrigger_results(library, existing_job)
         else:
-            raise Exception("In _process_job_details for job with try revision %s got a status %s I don't know how to handle." % (existing_job.try_runs[0].revision, existing_job.status))  # TODO
+            raise Exception("In _process_job_details for job with try revisions %s got a status %s I don't know how to handle." % (existing_job.get_try_run_ids(), existing_job.status))
 
     # ==================================
 
-    @logEntryExitNoArgs
-    def _get_comments_on_push(self, existing_job, job_list):
-        # Fetch and process the push health
-        push_health = self.taskclusterProvider.get_push_health(existing_job.try_runs[0].revision)  # TODO
+    @logEntryExit
+    def _get_comments_on_push(self, library, existing_job):
+        # Fetch the job list (and double check its status), and the push health
+        job_list = []
+        push_health = {}
+        for t in existing_job.try_runs:
+            this_job_list = self.taskclusterProvider.get_job_details(t.revision)
+            if not self._job_is_completed_without_build_failures(library, existing_job, this_job_list):
+                return (False, None, None)
+            job_list = self.taskclusterProvider.combine_job_lists(job_list, this_job_list)
+
+            this_push_health = self.taskclusterProvider.get_push_health(t.revision)
+            push_health = self.taskclusterProvider.combine_push_healths(push_health, this_push_health)
+
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
 
         # Before we retrieve the push health, process the failed jobs for build or lint failures.
@@ -298,13 +306,18 @@ class Updatebot:
                 for j in results['to_investigate'][t]:
                     comment_lines.append("\t\t-%s (%s)" % (j.job_type_name, j.task_id))
 
-        return (results, comment_lines)
-
-    # ==================================
+        return (True, results, comment_lines)
 
     @logEntryExitNoArgs
-    def _process_job_details_for_awaiting_try_results(self, library, existing_job, job_list):
-        self.logger.log("Handling revision %s in Awaiting Try Results" % existing_job.try_runs[0].revision)  # TODO
+    def _job_is_completed_without_build_failures(self, library, existing_job, job_list):
+        if not job_list:
+            self.logger.log("Try revision had no job results. Skipping this job.", level=LogLevel.Warning)
+            return False
+
+        for j in job_list:
+            if j.state not in ["completed", "failed", "exception"]:
+                self.logger.log("Not all jobs on the try revision are completed, so skipping this job until they are.", level=LogLevel.Info)
+                return False
 
         # First, look for any failed build jobs
         for j in job_list:
@@ -315,17 +328,46 @@ class Updatebot:
                     existing_job.status = JOBSTATUS.DONE
                     existing_job.outcome = JOBOUTCOME.BUILD_FAILED
                     self.dbProvider.update_job_status(existing_job)
-                    return
+                    return False
 
-        # Get the push health and a comment string we may use in the bug
-        results, comment_lines = self._get_comments_on_push(existing_job, job_list)
+        return True
+
+    # ==================================
+
+    @logEntryExitNoArgs
+    def _process_job_details_for_awaiting_initial_platform_results(self, library, existing_job):
+        try_revision_1 = existing_job.try_runs[0].revision
+        self.logger.log("Handling try revision %s in Awaiting Initial Platform Results" % try_revision_1)
+
+        job_list = self.taskclusterProvider.get_job_details(try_revision_1)
+        if not self._job_is_completed_without_build_failures(library, existing_job, job_list):
+            return
+
+        self.logger.log("All jobs completed, we're going to go to the next set of platforms.", level=LogLevel.Info)
+        try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")
+        self.dbProvider.add_try_run(existing_job, try_revision_2)
+        existing_job.status = JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
+        self.dbProvider.update_job_status(existing_job)
+
+    # ==================================
+
+    @logEntryExitNoArgs
+    def _process_job_details_for_awaiting_second_platform_results(self, library, existing_job):
+        second_try_revision = existing_job.try_runs[1].revision
+        self.logger.log("Handling second try revision %s in Awaiting Second Platform Results" % second_try_revision)
+
+        # Get the push health and a comment string we may use in the bug.
+        # Along the way, confirm that all the jobs have succeeded and there are no build failures
+        success, results, comment_lines = self._get_comments_on_push(library, existing_job)
+        if not success:
+            return
 
         # If we need to retrigger jobs
         if results['to_retrigger']:
             self.logger.log("All jobs completed, we found failures we need to retrigger, going to retrigger %s jobs: " % len(results['to_retrigger']), level=LogLevel.Info)
             for j in results['to_retrigger']:
                 self.logger.log(j.job_type_name + " " + j.task_id, level=LogLevel.Debug)
-            self.taskclusterProvider.retrigger_jobs(job_list, results['to_retrigger'])
+            self.taskclusterProvider.retrigger_jobs(results['to_retrigger'])
             existing_job.status = JOBSTATUS.AWAITING_RETRIGGER_RESULTS
             self.dbProvider.update_job_status(existing_job)
             return
@@ -361,12 +403,13 @@ class Updatebot:
     # ==================================
 
     @logEntryExitNoArgs
-    def _process_job_details_for_awaiting_retrigger_results(self, library, existing_job, job_list):
-        self.logger.log("Handling revision %s in Awaiting Retrigger Results" % existing_job.try_runs[0].revision)  # TODO
+    def _process_job_details_for_awaiting_retrigger_results(self, library, existing_job):
+        self.logger.log("Handling try runs in Awaiting Retrigger Results")
 
         # Get the push health and a comment string we will use in the bug
-        results, comment_lines = self._get_comments_on_push(existing_job, job_list)
-        self._process_unclassified_failures(library, existing_job, comment_lines)
+        success, results, comment_lines = self._get_comments_on_push(library, existing_job)
+        if success:
+            self._process_unclassified_failures(library, existing_job, comment_lines)
 
     # ==================================
 

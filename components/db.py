@@ -376,6 +376,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
+    def add_try_run(self, existing_job, try_revision):
+        query = "INSERT INTO try_runs(revision, job_id, purpose) VALUES(%s, %s, %s)"
+        args = (try_revision, existing_job.id, 'more platforms')
+        self._query_execute(query, args)
+
+    @logEntryExit
     def delete_job(self, library=None, version=None, job_id=None):
         assert job_id or (library and version), "You must provide a way to delete a job"
 

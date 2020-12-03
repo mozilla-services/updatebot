@@ -35,9 +35,14 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     # =================================================================
     # =================================================================
     @logEntryExit
-    def submit_to_try(self, library):
+    def submit_to_try(self, library, platform_filter):
+        if platform_filter[0] == "!":
+            platform_filter = ["--tasks-regex-exclude", platform_filter[1:]]
+        else:
+            platform_filter = ["--tasks-regex", platform_filter]
+
         ret = self.run(
-            ["./mach", "try", "auto"])
+            ["./mach", "try", "auto"] + platform_filter)
         output = ret.stdout.decode()
 
         isNext = False

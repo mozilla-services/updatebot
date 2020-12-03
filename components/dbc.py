@@ -56,6 +56,9 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def update_job_status(self, existing_job):
         return self.db.update_job_status(existing_job)
 
+    def add_try_run(self, existing_job, try_revision):
+        return self.db.add_try_run(existing_job, try_revision)
+
     def print(self):
         def get_column_widths(objects, columns):
             widths = []

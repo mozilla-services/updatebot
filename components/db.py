@@ -97,11 +97,12 @@ CREATION_QUERIES = {
       """
 }
 
+# To support the --delete-database option, the key to this dictionary must be table_name|constraint_name
 ALTER_QUERIES = {
-    'job-outcome':
-        "ALTER TABLE jobs ADD FOREIGN KEY (outcome) REFERENCES outcome_types(id)",
-    'job-status':
-        "ALTER TABLE jobs ADD FOREIGN KEY (status) REFERENCES status_types(id)",
+    'jobs|fk_job_outcome':
+        "ALTER TABLE jobs ADD CONSTRAINT fk_job_outcome FOREIGN KEY (outcome) REFERENCES outcome_types(id)",
+    'jobs|fk_job_status':
+        "ALTER TABLE jobs ADD CONSTRAINT fk_job_status FOREIGN KEY (status) REFERENCES status_types(id)",
 }
 
 INSERTION_QUERIES = [
@@ -286,6 +287,9 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     @logEntryExit
     def delete_database(self):
         try:
+            for constraint_key in ALTER_QUERIES:
+                (constraint_table, constraint_name) = constraint_key.split("|")
+                self._query_execute("ALTER TABLE " + constraint_table + " DROP FOREIGN KEY " + constraint_name)
             for table_name in CREATION_QUERIES:
                 self._query_execute("DROP TABLE " + table_name)
         except Exception as e:

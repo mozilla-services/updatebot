@@ -17,4 +17,4 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
     @logEntryExit
     def vendor(self, library):
         self.run(
-            ["./mach", "vendor", library.yaml_path, "--ignore-modified"])
+            ["./mach", "vendor", library.yaml_path, "--ignore-modified", "--revision", "a902d6e3"])

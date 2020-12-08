@@ -59,7 +59,7 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
 """
 
     @staticmethod
-    def VENDOR_FAILED(message):
+    def COULD_NOT_VENDOR(message):
         s = "`./mach vendor %s` failed"
         if message:
             s += " with the following message:\n\n"

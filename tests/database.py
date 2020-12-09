@@ -12,10 +12,10 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from components.dbmodels import Library, JOBSTATUS, JOBOUTCOME
-from components.db import LIBRARIES
+from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.dbc import DatabaseProvider
 from components.logging import SimpleLoggerConfig, log
+from components.utilities import Struct
 
 try:
     from localconfig import localconfig
@@ -51,32 +51,13 @@ class TestDatabaeQueries(unittest.TestCase):
         cls.db.update_config(SimpleLoggerConfig)
         cls.db.check_database()
 
-    def testLibraries(self):
-        libs = self.db.get_libraries()
-
-        def check_list(list_a, list_b, list_name):
-            for a in list_a:
-                try:
-                    b = next(x for x in list_b if x.shortname == a.shortname)
-                    for prop in dir(a):
-                        if not prop.startswith("__") and prop != "id":
-                            try:
-                                self.assertTrue(
-                                    getattr(b, prop), getattr(a, prop))
-                            except AttributeError:
-                                self.assertTrue(
-                                    False, "The attribute {0} was not found on the {1} list's object".format(prop, list_name))
-                except StopIteration:
-                    self.assertTrue(False, "{0} was not found in the {1} list of libraries".format(
-                        a.shortname, list_name))
-
-        check_list(libs, LIBRARIES, "original")
-        check_list(LIBRARIES, libs, "database's")
-
     def testJobs(self):
-        library = Library()
-        library.shortname = "test_library"
-        library.yaml_path = "path/to/moz.yaml"
+        library = Struct(**{
+            'origin': {
+                'name': 'test_library'
+            },
+            'yaml_path': 'path/to/moz.yaml',
+        })
         version = "test_new_version"
         bugid = 50
         phab_revision = 30
@@ -90,7 +71,7 @@ class TestDatabaeQueries(unittest.TestCase):
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
-            self.assertEqual(newJob.library_shortname, library.shortname)
+            self.assertEqual(newJob.library_shortname, library.origin["name"])
             self.assertEqual(newJob.version, version)
             self.assertEqual(newJob.status, JOBSTATUS.AWAITING_TRY_RESULTS)
             self.assertEqual(newJob.outcome, JOBOUTCOME.PENDING)

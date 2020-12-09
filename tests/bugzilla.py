@@ -103,9 +103,13 @@ class TestBugzillaProvider(unittest.TestCase):
 
     def testFile(self):
         library = Struct(**{
-            'shortname': 'dav1d',
-            'bugzilla_product': 'Core',
-            'bugzilla_component': 'ImageLib',
+            'origin': {
+                'name': 'dav1d'
+            },
+            'bugzilla': {
+                'product': 'Core',
+                'component': 'ImageLib',
+            }
         })
         self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00')
 

@@ -8,34 +8,20 @@ from components.utilities import Struct
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
-from components.dbmodels import Job, Library, JOBSTATUS, JOBOUTCOME
+from components.dbmodels import Job, JOBSTATUS, JOBOUTCOME
 
 import pymysql
 
-
-LIBRARIES = [
-    Struct(**{
-        'shortname': 'dav1d',
-        'yaml_path': 'media/libdav1d/moz.yaml',
-        'bugzilla_product': 'Core',
-        'bugzilla_component': 'ImageLib',
-        'maintainer': 'tom@ritter.vg',
-        'maintainer_phab': 'tjr'
-    })
-]
 
 # ==================================================================================
 
 
 class HardcodedDatabase:
     def __init__(self, database_config):
-        self.libraries = LIBRARIES
+        pass
 
     def check_database(self):
         return 1
-
-    def get_libraries(self):
-        return self.libraries
 
     def have_job(self, library, new_version):
         return False
@@ -46,7 +32,7 @@ class HardcodedDatabase:
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 4
+CURRENT_DATABASE_CONFIG_VERSION = 5
 
 CREATION_QUERIES = {
     "config": """
@@ -82,18 +68,6 @@ CREATION_QUERIES = {
         `try_revision` VARCHAR(40) NULL,
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
-      """,
-    "libraries": """
-      CREATE TABLE `libraries` (
-        `id` INT NOT NULL AUTO_INCREMENT,
-        `shortname` VARCHAR(255) NOT NULL,
-        `yaml_path` VARCHAR(1024) NOT NULL,
-        `bugzilla_product` VARCHAR(255) NOT NULL ,
-        `bugzilla_component` VARCHAR(255) NOT NULL,
-        `maintainer` VARCHAR(1024) NOT NULL,
-        `maintainer_phab` VARCHAR(1024) NOT NULL,
-        PRIMARY KEY (`id`)
-      ) ENGINE = InnoDB;
       """
 }
 
@@ -114,13 +88,6 @@ INSERTION_QUERIES = [
         'args': (CURRENT_DATABASE_CONFIG_VERSION)
     })
 ]
-
-for lib in LIBRARIES:
-    INSERTION_QUERIES.append(
-        Struct(**{
-            'query': "INSERT INTO `libraries` (`shortname`, `yaml_path`, `bugzilla_product`, `bugzilla_component`, `maintainer`, `maintainer_phab`) VALUES (%s, %s, %s, %s, %s, %s)",
-            'args': (lib.shortname, lib.yaml_path, lib.bugzilla_product, lib.bugzilla_component, lib.maintainer, lib.maintainer_phab)
-        }))
 
 for p in dir(JOBSTATUS):
     if p[0] != '_':
@@ -166,8 +133,6 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         else:
             with self.connection.cursor() as cursor:
                 cursor.execute("use " + database_config['db'])
-
-        self.libraries = None
 
     def __del__(self):
         if self.database_config.get('use_tmp_db', False) and self._successfully_created_tmp_db:
@@ -244,6 +209,10 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                             if 'config' in q.query and 'enabled' in q.query:
                                 self._query_execute(q.query, q.args)
 
+                    elif config_version == 4 and CURRENT_DATABASE_CONFIG_VERSION == 5:
+                        # Remove libraries table
+                        self._query_execute("DROP TABLE IF EXISTS libraries", '')
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -293,14 +262,6 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
             self.logger.log_exception(e)
             raise e
 
-    def get_libraries(self):
-        if not self.libraries:
-            query = "SELECT * FROM libraries"
-            results = self._query_get_rows(query)
-            self.libraries = [Library(r) for r in results]
-
-        return self.libraries
-
     def get_configuration(self):
         query = "SELECT * FROM config"
         results = self._query_get_rows(query)
@@ -325,21 +286,21 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     @logEntryExit
     def get_all_active_jobs_for_library(self, library):
         query = "SELECT * FROM jobs WHERE library = %s AND status<>%s ORDER BY id ASC"
-        args = (library.shortname, JOBSTATUS.DONE)
+        args = (library.origin["name"], JOBSTATUS.DONE)
         results = self._query_get_rows(query, args)
         return [Job(r) for r in results]
 
     @logEntryExit
     def get_job(self, library, new_version):
         query = "SELECT * FROM jobs WHERE library = %s AND version = %s"
-        args = (library.shortname, new_version)
+        args = (library.origin["name"], new_version)
         results = self._query_get_row_maybe(query, args)
         return Job(results) if results else None
 
     @logEntryExit
     def create_job(self, library, new_version, status, outcome, bug_id, phab_revision, try_run):
         query = "INSERT INTO jobs(library, version, status, outcome, bugzilla_id, phab_revision, try_revision) VALUES(%s, %s, %s, %s, %s, %s, %s)"
-        args = (library.shortname, new_version, status, outcome, bug_id, phab_revision, try_run)
+        args = (library.origin["name"], new_version, status, outcome, bug_id, phab_revision, try_run)
         self._query_execute(query, args)
 
     @logEntryExit
@@ -350,5 +311,5 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     def delete_job(self, library, new_version):
         query = "DELETE FROM jobs WHERE library = %s AND version = %s"
-        args = (library.shortname, new_version)
+        args = (library.origin["name"], new_version)
         self._query_execute(query, args)

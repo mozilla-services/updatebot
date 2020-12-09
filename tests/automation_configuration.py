@@ -94,6 +94,15 @@ class TestConfigCommandProvider(BaseTestConfigProvider):
         self.also_expected = "Made it!"
 
 
+class TestConfigLibraryProvider(BaseTestConfigProvider):
+    def __init__(self, config):
+        self.expected = 'library!'
+        super(TestConfigLibraryProvider, self).__init__(config)
+
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
+
+
 class TestCommandRunner(unittest.TestCase):
     def testConfigurationPassing(self):
         configs = {
@@ -106,6 +115,7 @@ class TestCommandRunner(unittest.TestCase):
             'Phabricator': {'specialkey': 'phab!'},
             'Command': {'specialkey': 'command!'},
             'Logging': {'specialkey': 'logging!'},
+            'Library': {'specialkey': 'library!'},
         }
         providers = {
             'Database': TestConfigDatabaseProvider,
@@ -116,6 +126,7 @@ class TestCommandRunner(unittest.TestCase):
             'Phabricator': TestConfigPhabricatorProvider,
             'Logging': TestConfigLoggingProvider,
             'Command': TestConfigCommandProvider,
+            'Library': TestConfigLibraryProvider,
         }
         u = Updatebot(configs, providers)
 

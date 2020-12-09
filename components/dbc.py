@@ -25,9 +25,6 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def delete_database(self):
         return self.db.delete_database()
 
-    def get_libraries(self):
-        return self.db.get_libraries()
-
     def get_configuration(self):
         return self.db.get_configuration()
 
@@ -109,7 +106,3 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
                        'status', 'outcome', 'bugzilla_id', 'phab_revision',
                        'try_revision']
         print_objects("JOBS", self.get_all_jobs(), job_columns)
-
-        library_columns = ['id', 'shortname', 'yaml_path', 'bugzilla_product',
-                           'bugzilla_component', 'maintainer', 'maintainer_phab']
-        print_objects("LIBRARIES", self.get_libraries(), library_columns)

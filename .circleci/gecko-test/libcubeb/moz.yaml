@@ -24,5 +24,5 @@ origin:
 
 updatebot:
   enabled: False
-  maintainer-needinfo: nobody@mozilla.com
+  maintainer-bz: nobody@mozilla.com
   maintainer-phab: nobody

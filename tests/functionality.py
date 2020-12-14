@@ -27,6 +27,7 @@ from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
+from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServer
 from tests.database import transform_db_config_to_tmp_db
 
@@ -140,7 +141,10 @@ class TestFunctionality(SimpleLoggingTest):
     def _setup(try_revision, library_filter):
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         configs = {
-            'General': {'env': 'dev'},
+            'General': {
+                'env': 'dev',
+                'gecko-path': '.'
+            },
             'Command': {'test_mappings': None},
             'Logging': localconfig['Logging'],
             'Database': db_config,
@@ -163,6 +167,8 @@ class TestFunctionality(SimpleLoggingTest):
             'Database': DatabaseProvider,
             # Not Mocked At All
             'Vendor': VendorProvider,
+            # Fully Mocked
+            'Library': MockLibraryProvider,
             # Fully Mocked, avoids needing to make a fake
             # bugzilla server which provides no additional logic coverage
             'Bugzilla': MockedBugzillaProvider,
@@ -183,7 +189,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         # Ensure we don't have a dirty database with existing jobs
         tc = unittest.TestCase()
-        for lib in u.dbProvider.get_libraries():
+        for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
             j = u.dbProvider.get_job(lib, expected_values.library_version_id)
             tc.assertEqual(j, None, "When running %s, we found an existing job, indicating the database is dirty and should be cleaned." % inspect.stack()[1].function)
 
@@ -191,20 +197,20 @@ class TestFunctionality(SimpleLoggingTest):
 
     @staticmethod
     def _cleanup(u, expected_values):
-        for lib in u.dbProvider.get_libraries():
+        for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
             u.dbProvider.delete_job(lib, expected_values.library_version_id)
 
     @staticmethod
     def _check_jobs(u, library_filter, expected_values, status, outcome):
         tc = unittest.TestCase()
 
-        for lib in u.dbProvider.get_libraries():
-            if library_filter not in lib.shortname:
+        for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
+            if library_filter not in lib.origin["name"]:
                 continue
             j = u.dbProvider.get_job(lib, expected_values.library_version_id)
 
             tc.assertNotEqual(j, None)
-            tc.assertEqual(lib.shortname, j.library_shortname)
+            tc.assertEqual(lib.origin["name"], j.library_shortname)
             tc.assertEqual(expected_values.library_version_id, j.version)
             tc.assertEqual(status, j.status)
             tc.assertEqual(outcome, j.outcome)

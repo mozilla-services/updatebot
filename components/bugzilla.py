@@ -99,12 +99,12 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
             pass
 
         summary = "Update %s to new version %s from %s" % (
-            library.shortname, new_release_version, release_timestamp)
+            library.origin["name"], new_release_version, release_timestamp)
         description = ""
         severity = "normal" if self.config['General']['env'] == "dev" else "S3"
 
         bugID = fileBug(self.config['url'], self.config['apikey'],
-                        library.bugzilla_product, library.bugzilla_component,
+                        library.bugzilla['product'], library.bugzilla['component'],
                         summary, description, severity, see_also)
         self.logger.log("Filed Bug with ID", bugID, level=LogLevel.Info)
         return bugID

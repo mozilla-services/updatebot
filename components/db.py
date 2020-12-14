@@ -212,7 +212,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                     elif config_version == 4 and CURRENT_DATABASE_CONFIG_VERSION == 5:
                         # Remove libraries table
-                        self._query_execute("DROP TABLE IF EXISTS libraries", '')
+                        self._query_execute("DROP TABLE IF EXISTS libraries")
 
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)

@@ -43,7 +43,10 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             with open(file, "r") as mozyaml:
                 new_library = yaml.safe_load(mozyaml.read())
                 new_library['yaml_path'] = file
-                libraries.append(self.validate_library(new_library))
+
+                # Only process libraries that are enabled for processing
+                if new_library['updatebot']['enabled']:
+                    libraries.append(self.validate_library(new_library))
         return libraries
 
     def validate_library(self, library):

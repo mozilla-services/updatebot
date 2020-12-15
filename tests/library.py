@@ -17,30 +17,6 @@ from components.logging import SimpleLoggerConfig
 
 LIBRARIES = [
     Struct(**{
-        "bugzilla": {"product": "Core", "component": "Audio/Video: cubeb"},
-        "origin": {
-            "name": "cubeb",
-        },
-        "updatebot": {
-            "enabled": False,
-            "maintainer-bz": "nobody@mozilla.com",
-            "maintainer-phab": "nobody"
-        },
-        "yaml_path": "{0}/.circleci/gecko-test/libcubeb/moz.yaml".format(os.getcwd())
-    }),
-    Struct(**{
-        "bugzilla": {"product": "Core", "component": "Audio/Video: Playback"},
-        "origin": {
-            "name": "aom",
-        },
-        "updatebot": {
-            "enabled": False,
-            "maintainer-bz": "",
-            "maintainer-phab": ""
-        },
-        "yaml_path": "{0}/.circleci/gecko-test/libaom/moz.yaml".format(os.getcwd())
-    }),
-    Struct(**{
         "bugzilla": {"product": "Core", "component": "Audio/Video: Playback"},
         "origin": {
             "name": "dav1d",

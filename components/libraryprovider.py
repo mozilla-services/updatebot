@@ -45,12 +45,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 new_library['yaml_path'] = file
 
                 # Only process libraries that are enabled for processing
-                try:
-                    if new_library['updatebot']['enabled']:
-                        libraries.append(self.validate_library(new_library))
-                except KeyError:
-                    # Key isn't present, but that's okay
-                    pass
+                if 'updatebot' in new_library and 'enabled' in new_library['updatebot'] and new_library['updatebot']['enabled']:
+                    libraries.append(self.validate_library(new_library))
         return libraries
 
     def validate_library(self, library):

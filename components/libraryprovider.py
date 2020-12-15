@@ -53,7 +53,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 'component': ''
             },
             'origin': {
-                'name': ''
+                'name': '',
+                'revision': ''
             },
             'updatebot': {
                 'enabled': False,
@@ -74,6 +75,10 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             # Clarify exception by name of file imported since we assign that
             # ourselves at import
             raise AttributeError('library imported from {0} is missing origin: name field'.format(library['yaml_path']))
+
+        # Attempt to get the revision (not required by moz.yaml) if present
+        if 'origin' in library and 'revision' in library['origin']:
+            validated_library.origin['revision'] = library['origin']['revision']
 
         # From here on we can use the library's name in the exception since we
         # know it exists

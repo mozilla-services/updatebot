@@ -240,7 +240,7 @@ class TestFunctionality(SimpleLoggingTest):
     def testAllNewJobs(self):
         (u, expected_values, _check_jobs) = TestFunctionality._setup("try_rev", "")
         u.run()
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+        _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
         TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
@@ -275,11 +275,11 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it a build job failed
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.

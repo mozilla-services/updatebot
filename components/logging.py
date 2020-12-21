@@ -3,23 +3,24 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+from enum import unique, IntEnum
 import unittest
 import traceback
 from functools import partial
 
 from sentry_sdk import init as sentry_init, add_breadcrumb, capture_exception, configure_scope
 
-from components.utilities import Struct
 from components.providerbase import BaseProvider
 from components.commandrunner import _run
 
-LogLevel = Struct(**{
-    'Fatal': 'fatal',
-    'Error': 'error',
-    'Warning': 'warning',
-    'Info': 'info',
-    'Debug': 'debug'
-})
+
+@unique
+class LogLevel(IntEnum):
+    Fatal = 1
+    Error = 2
+    Warning = 3
+    Info = 4
+    Debug = 5
 
 
 def logEntryExit(func, print_arg_list=True):
@@ -72,12 +73,20 @@ class LoggerInstance(BaseProvider):
 
 class LocalLogger(LoggerInstance):
     def __init__(self, config):
-        pass
+        if 'UPDATEBOT_LOG_LEVEL' in os.environ:
+            self.min_log_level = LogLevel(int(os.environ['UPDATEBOT_LOG_LEVEL']))
+        else:
+            self.min_log_level = LogLevel.Info
+
+        self.log_component = os.environ.get('UPDATEBOT_LOG_COMPONENT', "").lower()
 
     def log(self, *args, level, category):
-        prefix = "[" + level + "] "
-        prefix += category + ":" if category else ""
-        print(prefix, *args, flush=True)
+        if category and self.log_component not in category.lower():
+            return
+        if level.value <= self.min_log_level:
+            prefix = "[" + level.name + "] "
+            prefix += category + ":" if category else ""
+            print(prefix, *args, flush=True)
 
     def log_exception(self, e):
         bt = traceback.format_exc()

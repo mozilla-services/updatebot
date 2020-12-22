@@ -212,8 +212,8 @@ class TestFunctionality(SimpleLoggingTest):
             tc.assertNotEqual(j, None)
             tc.assertEqual(lib.origin["name"], j.library_shortname)
             tc.assertEqual(expected_values.library_version_id, j.version)
-            tc.assertEqual(status, j.status)
-            tc.assertEqual(outcome, j.outcome)
+            tc.assertEqual(status, j.status, "Expected status %s, got status %s" % (status.name, j.status.name))
+            tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))
             tc.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
             tc.assertEqual(expected_values.phab_revision, j.phab_revision)
             tc.assertEqual(

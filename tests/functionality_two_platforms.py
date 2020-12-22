@@ -94,11 +94,12 @@ CONDUIT_EDIT_OUTPUT = """
 """
 
 
-def DEFAULT_EXPECTED_VALUES(revision):
+def DEFAULT_EXPECTED_VALUES(revision1, revision2=None):
     return Struct(**{
-        'library_version_id': "newversion_" + revision,
+        'library_version_id': "newversion_" + revision1,
         'filed_bug_id': 50,
-        'try_revision_id': revision,
+        'try_revision_1': revision1,
+        'try_revision_2': revision2,
         'phab_revision': 83119
     })
 
@@ -106,7 +107,8 @@ def DEFAULT_EXPECTED_VALUES(revision):
 def COMMAND_MAPPINGS(expected_values):
     return {
         "./mach vendor": expected_values.library_version_id + " 2020-08-21T15:13:49.000+02:00",
-        "./mach try auto": TRY_OUTPUT(expected_values.try_revision_id),
+        "./mach try auto --tasks-regex ": TRY_OUTPUT(expected_values.try_revision_1),
+        "./mach try auto --tasks-regex-exclude ": TRY_OUTPUT(expected_values.try_revision_2),
         "hg commit": "",
         "arc diff --verbatim": ARC_OUTPUT,
         "echo '{\"constraints\"": CONDUIT_USERNAME_SEARCH_OUTPUT,
@@ -139,7 +141,7 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(try_revision, library_filter):
+    def _setup(library_filter, try_revision_1, try_revision_2=None):
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         configs = {
             'General': {
@@ -181,7 +183,7 @@ class TestFunctionality(SimpleLoggingTest):
             'Phabricator': PhabricatorProvider,
         }
 
-        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
+        expected_values = DEFAULT_EXPECTED_VALUES(try_revision_1, try_revision_2)
         configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 
@@ -217,10 +219,22 @@ class TestFunctionality(SimpleLoggingTest):
             tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))
             tc.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
             tc.assertEqual(expected_values.phab_revision, j.phab_revision)
-            tc.assertEqual(len(j.try_runs), 1)
+            tc.assertTrue(len(j.try_runs) <= 2)
+            tc.assertEqual('initial platform', j.try_runs[0].purpose)
             tc.assertEqual(
-                expected_values.try_revision_id, j.try_runs[0].revision)
-            tc.assertEqual('initial run', j.try_runs[0].purpose)
+                expected_values.try_revision_1, j.try_runs[0].revision)
+
+            if len(j.try_runs) == 2:
+                tc.assertEqual('more platforms', j.try_runs[1].purpose)
+                tc.assertEqual(
+                    expected_values.try_revision_2, j.try_runs[1].revision)
+
+            elif len(j.try_runs) == 1 and j.status > JOBSTATUS.DONE:
+                # Ony check in the DONE status because this test may set try_revision_2
+                # (so the expected value is non-null), but we're performing this check
+                # before we've submitted a second try run.
+                tc.assertEqual(
+                    expected_values.try_revision_2, None)
 
     @logEntryExit
     def testAllNewJobs(self):
@@ -233,7 +247,7 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testExistingJobClassifiedFailures(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup("e152bb86666565ee6619c15f60156cd6c79580a9", library_filter)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "e152bb86666565ee6619c15f60156cd6c79580a9")
 
         try:
             # Run it
@@ -255,7 +269,7 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testExistingJobBuildFailed(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup("55ca6286e3e4f4fba5d0448333fa99fc5a404a73", library_filter)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "55ca6286e3e4f4fba5d0448333fa99fc5a404a73")
 
         try:
             # Run it
@@ -277,7 +291,7 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testExistingJobAllSuccess(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup("56082fc4acfacba40993e47ef8302993c59e264e", library_filter)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "56082fc4acfacba40993e47ef8302993c59e264e")
 
         try:
             # Run it
@@ -299,7 +313,7 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testExistingJobUnclassifiedFailureNoRetriggers(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup("4173dda99ea962d907e3fa043db5e26711085ed2", library_filter)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "4173dda99ea962d907e3fa043db5e26711085ed2")
 
         try:
             # Run it
@@ -321,7 +335,7 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testExistingJobUnclassifiedFailuresNeedingRetriggers(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup("ab2232a04301f1d2dbeea7050488f8ec2dde5451", library_filter)
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "ab2232a04301f1d2dbeea7050488f8ec2dde5451")
 
         try:
             # Run it

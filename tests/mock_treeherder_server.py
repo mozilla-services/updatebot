@@ -119,7 +119,7 @@ def get_appropriate_filename(path):
 
     if key not in PUSH_IDS:
         key = push_id + "_" + page + "_" + "A"
-        print("Response-specific key missing, checking for key ", key)
+        log("Response-specific key missing, checking for key ", key, level=LogLevel.Debug)
         if key not in PUSH_IDS:
             assert False, "Could not find either key in PUSH_IDS"
 
@@ -170,12 +170,15 @@ class MockTreeherderServer(server.BaseHTTPRequestHandler):
 
         else:
             if EXPECTEDPATH_JOBS in self.path:
+                log("MockTreeherderServer (jobs): Got path %s" % self.path, level=LogLevel.Info)
                 filename = get_appropriate_filename(self.path)
             elif EXPECTEDPATH_ACTIONSJSON in self.path:
+                log("MockTreeherderServer (actiosnjson)", level=LogLevel.Info)
                 filename = "actionsjson.txt"
             else:
                 assert False, "MockTreeherderServer GET got a path it didn't expect: " + self.path
 
+        assert filename, "MockTreeherderServer somehow got a blank filename"
         log("MockTreeherderServer: Streaming %s" % filename, level=LogLevel.Info)
 
         with open(file_prefix + filename, "rb") as f:

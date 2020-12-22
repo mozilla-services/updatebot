@@ -21,6 +21,7 @@ class LogLevel(IntEnum):
     Warning = 3
     Info = 4
     Debug = 5
+    Debug2 = 6
 
 
 def logEntryExit(func, print_arg_list=True):
@@ -29,7 +30,7 @@ def logEntryExit(func, print_arg_list=True):
         assert 'logger' in dir(obj), "If @logEntryExit is applied to a class method, it must inherit INeedsLoggingProvider"
         obj.logger.log("================================================", level=LogLevel.Debug)
         obj.logger.log("Beginning %s" % func.__qualname__, level=LogLevel.Info)
-        obj.logger.log(" Arguments: %s" % (str(args) if print_arg_list else "[Omitted]"), level=LogLevel.Info)
+        obj.logger.log(" Arguments: %s" % (str(args) if print_arg_list else "[Omitted]"), level=LogLevel.Debug)
         ret = func(*args, **kwargs)
         obj.logger.log("Ending %s" % func.__qualname__, level=LogLevel.Info)
         return ret

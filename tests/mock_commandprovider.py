@@ -23,13 +23,14 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
         argument_string = " ".join(args)
         self.logger.log("Mocked Command executed", argument_string, level=LogLevel.Info)
 
-        stdout = ""
+        stdout = None
         for m in self.mappings:
             if argument_string.startswith(m):
                 stdout = self.mappings[m]
                 self.logger.log("We found a mapped response, providing it.", level=LogLevel.Info)
+                self.logger.log("---\n%s\n---" % stdout, level=LogLevel.Debug2)
                 break
-        if not stdout:
-            self.logger.log("We did not find a mapped response.", level=LogLevel.Warning)
+        if stdout is None:
+            self.logger.log("We did not find a mapped response for the command `%s`." % argument_string, level=LogLevel.Warning)
         return Struct(**{'stdout':
                          Struct(**{'decode': lambda: stdout})})

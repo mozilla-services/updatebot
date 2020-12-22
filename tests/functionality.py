@@ -107,6 +107,7 @@ def COMMAND_MAPPINGS(expected_values):
     return {
         "./mach vendor": expected_values.library_version_id + " 2020-08-21T15:13:49.000+02:00",
         "./mach try auto": TRY_OUTPUT(expected_values.try_revision_id),
+        "hg commit": "",
         "arc diff --verbatim": ARC_OUTPUT,
         "echo '{\"constraints\"": CONDUIT_USERNAME_SEARCH_OUTPUT,
         "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT

@@ -9,7 +9,7 @@ import jsone
 import requests
 from urllib.parse import quote_plus
 
-from components.utilities import Struct
+from components.utilities import Struct, merge_dictionaries
 from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -219,6 +219,10 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         return new_job_list
 
+    @logEntryExitNoArgs
+    def combine_job_lists(self, job_list_1, job_list_2):
+        return job_list_1 + job_list_2
+
     # =================================================================
     # =================================================================
 
@@ -234,6 +238,11 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             raise Exception("Could not parse the result of the push health as json. Url: %s Response:\n%s" % (push_health_url, r.text))
 
         return push_health
+
+    @logEntryExitNoArgs
+    def combine_push_healths(self, push_health_1, push_health_2):
+        combined = merge_dictionaries(push_health_1, push_health_2)
+        return combined
 
     # =================================================================
     # =================================================================

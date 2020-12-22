@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 import json
 import unittest
@@ -64,6 +65,32 @@ class TestTaskclusterProvider(unittest.TestCase):
         push_health = self.taskclusterProvider.get_push_health("health_rev")
         self.assertEqual(len(push_health['metrics']['tests']['details']['needInvestigation']), 38, "Did not get expected number of needs-investigation tests")
         self.assertEqual(len(push_health['metrics']['tests']['details']['knownIssues']), 14, "Did not get expected number of known-issue tests")
+
+    def test_combine(self):
+        file_prefix = "tests/" if not os.getcwd().endswith("tests") else ""
+        file_prefix += "treeherder_api_responses/"
+
+        data = {}
+
+        to_populate = [
+            ('jobs_1', "jobs_unclassified_failures_linuxonly_before_retriggers.txt"),
+            ('jobs_2', "jobs_unclassified_failures_notlinux_before_retriggers.txt"),
+            ('health_1', "health_unclassified_failures_linuxonly_before_retriggers.txt"),
+            ('health_2', "health_unclassified_failures_notlinux_before_retriggers.txt"),
+        ]
+        for var, file in to_populate:
+            with open(file_prefix + file) as f:
+                lines = f.readlines()
+            data[var] = json.loads("".join(lines))
+
+        data['jobs_1'] = TaskclusterProvider._transform_job_list(data['jobs_1']['job_property_names'], data['jobs_1']['results'])
+        data['jobs_2'] = TaskclusterProvider._transform_job_list(data['jobs_2']['job_property_names'], data['jobs_2']['results'])
+        combined_jobs = self.taskclusterProvider.combine_job_lists(data['jobs_1'], data['jobs_2'])
+        self.assertEqual(len(combined_jobs), 189, "Did not receive the correct number of jobs from the server.")
+
+        combined_health = self.taskclusterProvider.combine_push_healths(data['health_1'], data['health_2'])
+        self.assertEqual(len(combined_health['metrics']['tests']['details']['needInvestigation']), 43 + 7, "Did not get expected number of needs-investigation tests")
+        self.assertEqual(len(combined_health['metrics']['tests']['details']['knownIssues']), 0 + 2, "Did not get expected number of known-issue tests")
 
     def test_correlation(self):
         job_list = self.taskclusterProvider.get_job_details('health_rev')

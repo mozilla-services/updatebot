@@ -65,12 +65,23 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @staticmethod
     def _transform_job_list(property_names, job_list):
+        decision_task = None
         new_job_list = []
+        # We will need to reference the decision task, so we find populate that here also.
         for j in job_list:
             d = {}
             for i in range(len(property_names)):
                 d[property_names[i]] = j[i]
-            new_job_list.append(Struct(**d))
+
+            job_obj = Struct(**d, decision_task=None)
+            new_job_list.append(job_obj)
+
+            if "Gecko Decision Task" == job_obj.job_type_name:
+                decision_task = job_obj
+
+        for j in new_job_list:
+            j.decision_task = decision_task
+
         return new_job_list
 
     # =================================================================
@@ -251,56 +262,63 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     # =================================================================
     # =================================================================
-
     @logEntryExitNoArgs
-    def retrigger_jobs(self, job_list, retrigger_list):
-        # Go through the jobs and find the decision task
-        decision_task = None
-        for j in job_list:
-            if "Gecko Decision Task" == j.job_type_name:
-                decision_task = j
-                break
-        assert decision_task is not None
+    def retrigger_jobs(self, retrigger_list):
+        # Group the jobs to retrigger by decision task
+        decision_task_groups = {}
+        for j in retrigger_list:
+            assert j.decision_task is not None
+            if j.decision_task not in decision_task_groups:
+                decision_task_groups[j.decision_task] = []
+            decision_task_groups[j.decision_task].append(j)
 
-        # Download its actions.json
-        artifact_url = self.url_taskcluster + "api/queue/v1/task/%s/runs/0/artifacts/public/actions.json" % (decision_task.task_id)
-        r = requests.get(artifact_url, headers=self.HEADERS)
-        try:
-            actions = r.json()
-        except Exception:
-            raise Exception("Could not parse the result of the actions.json artifact as json. Url: %s Response:\n%s" % (artifact_url, r.text))
+        retrigger_decision_task_ids = []
+        # Go through each group:
+        for decision_task in decision_task_groups:
+            self.logger.log("Processing decision task %s" % decision_task.task_id, level=LogLevel.Info)
+            to_retrigger = decision_task_groups[decision_task]
 
-        # Find the retrigger action
-        retrigger_action = None
-        for a in actions['actions']:
-            if "retrigger-multiple" == a['name']:
-                retrigger_action = a
-                break
-        assert retrigger_action is not None
+            # Download its actions.json
+            artifact_url = self.url_taskcluster + "api/queue/v1/task/%s/runs/0/artifacts/public/actions.json" % (decision_task.task_id)
+            r = requests.get(artifact_url, headers=self.HEADERS)
+            try:
+                actions = r.json()
+            except Exception:
+                raise Exception("Could not parse the result of the actions.json artifact as json. Url: %s Response:\n%s" % (artifact_url, r.text))
 
-        # Fill in the taskId of the job I want to retrigger using JSON-E
-        retrigger_tasks = [i.job_type_name for i in retrigger_list]
-        context = {
-            'taskGroupId': retrigger_action['hookPayload']['decision']['action']['taskGroupId'],
-            'taskId': None,
-            'input': {'requests': [{'tasks': retrigger_tasks, 'times': TRIGGER_TOTAL - 1}]}
-        }
-        template = retrigger_action['hookPayload']
+            # Find the retrigger action
+            retrigger_action = None
+            for a in actions['actions']:
+                if "retrigger-multiple" == a['name']:
+                    retrigger_action = a
+                    break
+            assert retrigger_action is not None
 
-        payload = jsone.render(template, context)
-        payload = json.dumps(payload).replace("\\n", " ")
+            # Fill in the taskId of the jobs I want to retrigger using JSON-E
+            retrigger_tasks = [i.job_type_name for i in to_retrigger]
+            context = {
+                'taskGroupId': retrigger_action['hookPayload']['decision']['action']['taskGroupId'],
+                'taskId': None,
+                'input': {'requests': [{'tasks': retrigger_tasks, 'times': TRIGGER_TOTAL - 1}]}
+            }
+            template = retrigger_action['hookPayload']
 
-        trigger_url = self.url_taskcluster + "api/hooks/v1/hooks/%s/%s/trigger" % \
-            (quote_plus(retrigger_action["hookGroupId"]), quote_plus(retrigger_action["hookId"]))
+            payload = jsone.render(template, context)
+            payload = json.dumps(payload).replace("\\n", " ")
 
-        self.logger.log("Issuing a retrigger to %s" % (trigger_url), level=LogLevel.Info)
-        r = requests.post(trigger_url, data=payload)
-        try:
-            if r.status_code == 200:
-                output = r.json()
-                self.logger.log("Succeeded, the decision taskid is %s" % output["status"]["taskId"], level=LogLevel.Info)
-                return output["status"]["taskId"]
-            else:
-                raise Exception("Task retrigger did not complete successfully, status code is " + str(r.status_code) + "\n\n" + r.text)
-        except Exception as e:
-            raise Exception("Task retrigger did not complete successfully (exception raised during processing), response is\n" + r.text) from e
+            trigger_url = self.url_taskcluster + "api/hooks/v1/hooks/%s/%s/trigger" % \
+                (quote_plus(retrigger_action["hookGroupId"]), quote_plus(retrigger_action["hookId"]))
+
+            self.logger.log("Issuing a retrigger to %s" % (trigger_url), level=LogLevel.Info)
+            r = requests.post(trigger_url, data=payload)
+            try:
+                if r.status_code == 200:
+                    output = r.json()
+                    retrigger_decision_task_ids.append(output["status"]["taskId"])
+                    self.logger.log("Succeeded, the response taskid is %s" % output["status"]["taskId"], level=LogLevel.Info)
+                else:
+                    raise Exception("Task retrigger did not complete successfully, status code is " + str(r.status_code) + "\n\n" + r.text)
+            except Exception as e:
+                raise Exception("Task retrigger did not complete successfully (exception raised during json parsing), response is\n" + r.text) from e
+
+        return retrigger_decision_task_ids

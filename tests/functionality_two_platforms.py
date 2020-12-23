@@ -335,24 +335,26 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testExistingJobUnclassifiedFailuresNeedingRetriggers(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "ab2232a04301f1d2dbeea7050488f8ec2dde5451")
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "fa34db961043c78c150bef6b03d7426501aabd8b", "3fe6e60f4126d7a9737480f17d1e3e8da384ca75")
 
         try:
-            # Run it
+            # Run it, check that we created the job successfully
             u.run(library_filter=library_filter)
-            # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
-            # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-            # Run it again, this time we'll tell it a test failed
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll trigger the next platform
             u.run(library_filter=library_filter)
-            # Should be DONE and Failed.
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, we'll say jobs are still running
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a test failed and it needs to retrigger
+            u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_RETRIGGER_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it all the tests failed
             u.run(library_filter=library_filter)
-            # Should be DONE and Failed.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
         finally:
             TestFunctionality._cleanup(u, expected_values)

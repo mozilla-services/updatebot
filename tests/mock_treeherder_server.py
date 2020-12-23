@@ -28,6 +28,8 @@ TRY_REVISIONS = {
     '4173dda99ea962d907e3fa043db5e26711085ed2': "{\"results\":[{\"id\":5}]}",
     'health_rev': "{\"results\":[{\"id\":6}]}",
     'ab2232a04301f1d2dbeea7050488f8ec2dde5451': "{\"results\":[{\"id\":7}]}",
+    'fa34db961043c78c150bef6b03d7426501aabd8b': "{\"results\":[{\"id\":8}]}",
+    '3fe6e60f4126d7a9737480f17d1e3e8da384ca75': "{\"results\":[{\"id\":9}]}",
 }
 
 HEALTH_REVISIONS = {
@@ -36,6 +38,8 @@ HEALTH_REVISIONS = {
     "e152bb86666565ee6619c15f60156cd6c79580a9": "health_classified_failures.txt",
     "56082fc4acfacba40993e47ef8302993c59e264e": "health_all_success.txt",
     "ab2232a04301f1d2dbeea7050488f8ec2dde5451": "health_unclassified_failures_before_retriggers.txt",
+    'fa34db961043c78c150bef6b03d7426501aabd8b': "health_unclassified_failures_linuxonly_before_retriggers.txt",
+    '3fe6e60f4126d7a9737480f17d1e3e8da384ca75': "health_unclassified_failures_notlinux_before_retriggers.txt",
 }
 
 PUSH_IDS = {
@@ -65,6 +69,15 @@ PUSH_IDS = {
     '7_1_1': "jobs_still_running.txt",
     '7_1_2': "jobs_unclassified_failures_before_retriggers.txt",
     '7_1_3': "jobs_unclassified_failures_after_retriggers.txt",
+    # testExistingJobUnclassifiedFailuresNeedingRetriggers
+    '8_1_1': "jobs_still_running.txt",
+    '8_1_2': "jobs_unclassified_failures_linuxonly_before_retriggers.txt",
+    '8_1_3': "jobs_unclassified_failures_linuxonly_before_retriggers.txt",
+    '8_1_4': "jobs_unclassified_failures_linuxonly_before_retriggers.txt",
+    '8_1_5': "jobs_unclassified_failures_linuxonly_before_retriggers.txt",
+    '9_1_1': "jobs_still_running.txt",
+    '9_1_2': "jobs_unclassified_failures_notlinux_before_retriggers.txt",
+    '9_1_3': "jobs_unclassified_failures_notlinux_before_retriggers.txt",
 }
 
 EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"

@@ -120,25 +120,28 @@ class TestTaskclusterProvider(unittest.TestCase):
     def test_transform(self):
         properties = [
             'hello',
-            'world'
+            'world',
+            'job_type_name'
         ]
         values = [
-            ["HI", "EARTH"],
-            ["WHAT", "UP"]
+            ["HI", "EARTH", "Win Build"],
+            ["WHAT", "UP", "Gecko Decision Task"]
         ]
         data = self.taskclusterProvider._transform_job_list(properties, values)
 
         self.assertEqual(data[0].hello, "HI")
         self.assertEqual(data[0].world, "EARTH")
+        self.assertEqual(data[0].decision_task.hello, "WHAT")
 
         self.assertEqual(data[1].hello, "WHAT")
         self.assertEqual(data[1].world, "UP")
+        self.assertEqual(data[1].decision_task.hello, "WHAT")
 
     def test_retrigger(self):
         job_list = self.taskclusterProvider.get_job_details('rev_good')
         to_retrigger = [j for j in job_list if j.job_type_name == "source-test-mozlint-mingw-cap"]
-        decision_task = self.taskclusterProvider.retrigger_jobs(job_list, to_retrigger)
-        self.assertEqual(EXPECTED_RETRIGGER_DECISION_TASK, decision_task)
+        decision_tasks = self.taskclusterProvider.retrigger_jobs(to_retrigger)
+        self.assertEqual(EXPECTED_RETRIGGER_DECISION_TASK, decision_tasks[0])
 
 
 if __name__ == '__main__':

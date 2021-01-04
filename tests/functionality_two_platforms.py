@@ -18,7 +18,7 @@ from automation import Updatebot
 
 from components.utilities import Struct
 from components.providerbase import BaseProvider
-from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExit
+from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExitHeaderLine
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
@@ -211,6 +211,7 @@ class TestFunctionality(SimpleLoggingTest):
             if library_filter not in lib.origin["name"]:
                 continue
             j = u.dbProvider.get_job(lib, expected_values.library_version_id)
+            log("In _check_jobs looking for status %s and outcome %s" % (status, outcome))
 
             tc.assertNotEqual(j, None)
             tc.assertEqual(lib.origin["name"], j.library_shortname)
@@ -236,7 +237,7 @@ class TestFunctionality(SimpleLoggingTest):
                 tc.assertEqual(
                     expected_values.try_revision_2, None)
 
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testAllNewJobs(self):
         (u, expected_values, _check_jobs) = TestFunctionality._setup("try_rev", "")
         u.run()
@@ -244,7 +245,7 @@ class TestFunctionality(SimpleLoggingTest):
         TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobClassifiedFailures(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "e152bb86666565ee6619c15f60156cd6c79580a9")
@@ -266,7 +267,7 @@ class TestFunctionality(SimpleLoggingTest):
             TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Build Failed
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobBuildFailed(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "55ca6286e3e4f4fba5d0448333fa99fc5a404a73")
@@ -288,7 +289,7 @@ class TestFunctionality(SimpleLoggingTest):
             TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> All Success
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobAllSuccess(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e")
@@ -310,7 +311,7 @@ class TestFunctionality(SimpleLoggingTest):
             TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Same test on multiple platforms -> Unclassified Failure
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobUnclassifiedFailureNoRetriggers(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "4173dda99ea962d907e3fa043db5e26711085ed2")
@@ -332,7 +333,7 @@ class TestFunctionality(SimpleLoggingTest):
             TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobUnclassifiedFailuresNeedingRetriggers(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "fa34db961043c78c150bef6b03d7426501aabd8b", "3fe6e60f4126d7a9737480f17d1e3e8da384ca75")

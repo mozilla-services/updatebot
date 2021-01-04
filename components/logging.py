@@ -24,10 +24,12 @@ class LogLevel(IntEnum):
     Debug2 = 6
 
 
-def logEntryExit(func, print_arg_list=True):
+def logEntryExit(func, print_arg_list=True, header_line=False):
     def func_wrapper(*args, **kwargs):
         obj = args[0]
         assert 'logger' in dir(obj), "If @logEntryExit is applied to a class method, it must inherit INeedsLoggingProvider"
+        if header_line:  # When header_line & Debug, we print two on purpose
+            obj.logger.log("================================================", level=LogLevel.Info)
         obj.logger.log("================================================", level=LogLevel.Debug)
         obj.logger.log("Beginning %s" % func.__qualname__, level=LogLevel.Info)
         obj.logger.log(" Arguments: %s" % (str(args) if print_arg_list else "[Omitted]"), level=LogLevel.Debug)
@@ -37,7 +39,8 @@ def logEntryExit(func, print_arg_list=True):
     return func_wrapper
 
 
-logEntryExitNoArgs = partial(logEntryExit, print_arg_list=False)
+logEntryExitNoArgs = partial(logEntryExit, print_arg_list=False, header_line=False)
+logEntryExitHeaderLine = partial(logEntryExit, print_arg_list=False, header_line=True)
 
 
 class LoggingProvider(BaseProvider):
@@ -85,8 +88,8 @@ class LocalLogger(LoggerInstance):
         if category and self.log_component not in category.lower():
             return
         if level.value <= self.min_log_level:
-            prefix = "[" + level.name + "] "
-            prefix += category + ":" if category else ""
+            prefix = ("[" + level.name + "]").ljust(9)
+            prefix += (" " + category + ":") if category else ""
             print(prefix, *args, flush=True)
 
     def log_exception(self, e):

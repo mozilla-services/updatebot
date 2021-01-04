@@ -152,6 +152,7 @@ def get_appropriate_filename(path):
 class MockTreeherderServer(server.BaseHTTPRequestHandler):
     def do_POST(self):
         if EXPECTEDPATH_RETRIGGER in self.path:
+            log("MockTreeherderServer (retrigger): streaming standard retrigger response", level=LogLevel.Info)
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()

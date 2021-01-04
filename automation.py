@@ -346,6 +346,7 @@ class Updatebot:
         self.logger.log("All jobs completed, we're going to go to the next set of platforms.", level=LogLevel.Info)
         try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")
         self.dbProvider.add_try_run(existing_job, try_revision_2)
+        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision_2, another=True))
         existing_job.status = JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
         self.dbProvider.update_job_status(existing_job)
 

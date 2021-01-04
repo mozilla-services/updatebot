@@ -314,20 +314,20 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExitHeaderLine
     def testExistingJobUnclassifiedFailureNoRetriggers(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "4173dda99ea962d907e3fa043db5e26711085ed2")
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "4173dda99ea962d907e3fa043db5e26711085ed2", "2529ff21c5717182ebf32e180dcc6bfd3917a78c")
 
         try:
-            # Run it
-            u.run(library_filter=library_filter)
             # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
-            # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-            # Run it again, this time we'll tell it some tests failed, same test, multiple platforms
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are done
             u.run(library_filter=library_filter)
-            # Should be DONE and Failed.
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it everything is done
+            u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
         finally:
             TestFunctionality._cleanup(u, expected_values)

@@ -248,20 +248,20 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExitHeaderLine
     def testExistingJobClassifiedFailures(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "e152bb86666565ee6619c15f60156cd6c79580a9")
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "e152bb86666565ee6619c15f60156cd6c79580a9", "456dc4f24e790a9edb3f45eca85104607ca52168")
 
         try:
-            # Run it
+            # Run it, then check that we created the job successfully
             u.run(library_filter=library_filter)
-            # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
-            # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-            # Run it again, this time we'll tell it the jobs succeeded
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are done
             u.run(library_filter=library_filter)
-            # Should be DONE
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it a final time, and we should see that the failures are classified
+            u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
         finally:
             TestFunctionality._cleanup(u, expected_values)

@@ -139,18 +139,22 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         # We need a unique key for each job
         failed_jobs_task_ids = set().union([j.task_id for j in failed_jobs])
+        self.logger.log("failed_jobs_task_ids: %s" % failed_jobs_task_ids, level=LogLevel.Debug)
 
         # Now get all the unique keys for the jobs that failed due to something classified by push health
         failed_jobs_with_health_classifications_task_ids = set()
         failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in need_investigation_by_test.values() for j in job_list])
         failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in known_issues_by_test.values() for j in job_list])
+        self.logger.log("failed_jobs_with_health_classifications_task_ids: %s" % failed_jobs_with_health_classifications_task_ids, level=LogLevel.Debug)
 
         # Now get all the jobs that failed that were classified by Taskcluster as a known intermittent or issue
         failed_jobs_with_taskcluster_classification = [j for j in failed_jobs if self.failure_classifications[j.failure_classification_id] != "not classified"]
         failed_jobs_with_taskcluster_classification_task_ids = set([j.task_id for j in failed_jobs_with_taskcluster_classification])
+        self.logger.log("failed_jobs_with_taskcluster_classification_task_ids: %s" % failed_jobs_with_taskcluster_classification_task_ids, level=LogLevel.Debug)
 
         # Now get all the unique keys for failed jobs that *weren't* classified by push health or Taskcluster
         jobs_failed_with_no_health_classification_task_ids = failed_jobs_task_ids - failed_jobs_with_health_classifications_task_ids - failed_jobs_with_taskcluster_classification_task_ids
+        self.logger.log("jobs_failed_with_no_health_classification_task_ids: %s" % jobs_failed_with_no_health_classification_task_ids, level=LogLevel.Debug)
 
         # And go back from unique key to the full job object
         jobs_failed_with_no_health_classification = [j for j in failed_jobs if j.task_id in jobs_failed_with_no_health_classification_task_ids]

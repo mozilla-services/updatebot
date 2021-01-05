@@ -79,6 +79,8 @@ class LocalLogger(LoggerInstance):
     def __init__(self, config):
         if 'UPDATEBOT_LOG_LEVEL' in os.environ:
             self.min_log_level = LogLevel(int(os.environ['UPDATEBOT_LOG_LEVEL']))
+        elif 'general' in config and 'level' in config['general']:
+            self.min_log_level = LogLevel(config['general']['level'])
         else:
             self.min_log_level = LogLevel.Info
 
@@ -135,7 +137,7 @@ class SentryLogger(LoggerInstance):
 
 class SimpleLogger(LoggingProvider):
     def __init__(self):
-        super().__init__({'local': True})
+        super().__init__({'general': {'level': 5}, 'local': True})
 
 
 class SimpleLoggingTest(unittest.TestCase, SimpleLogger):

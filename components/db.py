@@ -230,6 +230,16 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                     elif config_version == 5 and CURRENT_DATABASE_CONFIG_VERSION == 6:
                         # Create the try_runs table, and port the existing try runs across to it
+                        # The first time I wrote this migration, it was broken because I didn't
+                        #   'select * from jobs' I called get_all_jobs which had been rewritten to
+                        #   inner join the (new) try_runs table (which was therefore empty) and didn't
+                        #   return anything. I fixed it to use a raw sql query to obtain data which is
+                        #   the better idea.
+                        # Then, I messed it up again - I edited the enum values but I didn't update
+                        #   the existing values in the jobs table. So jobs that were 'DONE' then became
+                        #   'AWAITING_RETRIGGER_RESULTS'. This mistake was not corrected because we're
+                        #   still in development so the db is empty and I can get away with it, but
+                        #   documenting it to hopefully help someone in the future.
                         for table_name in CREATION_QUERIES:
                             if table_name == 'try_runs':
                                 self._query_execute(CREATION_QUERIES[table_name])

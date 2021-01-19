@@ -171,6 +171,8 @@ class Updatebot:
             self.logger.log("%s is a brand new revision to updatebot." % (new_version), level=LogLevel.Info)
             self._process_new_job(library, new_version, timestamp)
 
+        # TODO #119: We need to remove any commits we made so the repo is clean for the next library.
+
     # ====================================================================
 
     @logEntryExit
@@ -344,6 +346,10 @@ class Updatebot:
             return
 
         self.logger.log("All jobs completed, we're going to go to the next set of platforms.", level=LogLevel.Info)
+
+        self.vendorProvider.vendor(library)
+        self.mercurialProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
+
         try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")
         self.dbProvider.add_try_run(existing_job, try_revision_2)
         self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision_2, another=True))

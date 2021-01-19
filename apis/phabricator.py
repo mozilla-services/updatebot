@@ -6,7 +6,7 @@
 import re
 import json
 
-from components.logging import logEntryExit
+from components.logging import logEntryExit, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
@@ -38,6 +38,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         if not phab_revision:
             raise Exception("Could not find a phabricator revision in the output of arc diff using regex %s" % r.pattern)
 
+        self.logger.log("Submitted phabricator patch at {0}".format(self.url + phab_revision), level=LogLevel.Info)
         return phab_revision
 
     @logEntryExit

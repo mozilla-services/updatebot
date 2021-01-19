@@ -81,6 +81,8 @@ class LocalLogger(LoggerInstance):
             self.min_log_level = LogLevel(int(os.environ['UPDATEBOT_LOG_LEVEL']))
         elif 'general' in config and 'level' in config['general']:
             self.min_log_level = LogLevel(config['general']['level'])
+        elif "TASK_ID" in os.environ:
+            self.min_log_level = LogLevel.Debug
         else:
             self.min_log_level = LogLevel.Info
 

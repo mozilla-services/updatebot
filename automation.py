@@ -133,6 +133,9 @@ class Updatebot:
 
     def run(self, library_filter=""):
         try:
+            version = self.cmdProvider.run(["git", "log", "-1", "--oneline"], shell=False, clean_return=True).stdout.decode().strip()
+            self.logger.log("Running Updatebot version: {0}".format(version), level=LogLevel.Info)
+
             if not self.dbProvider.updatebot_is_enabled():
                 self.logger.log_exception(Exception("Updatebot is disabled per the config database, not doing anything and ending execution."))
                 return

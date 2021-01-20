@@ -71,7 +71,7 @@ jobs:
               echo $COMMAND_OUTPUT
             else
               echo $COMMAND_OUTPUT
-              COMMAND_OUTPUT=$(jq -nc --arg str "$COMMAND_OUTPUT" '$str')
+              COMMAND_OUTPUT=$(jq -nc --arg str "<pre>$COMMAND_OUTPUT</pre>" '$str')
               . .circleci/pr_comment.sh
               exit 1
             fi
@@ -104,7 +104,7 @@ jobs:
               echo $COMMAND_OUTPUT
             else
               echo $COMMAND_OUTPUT
-              COMMAND_OUTPUT=$(jq -nc --arg str "$COMMAND_OUTPUT" '$str')
+              COMMAND_OUTPUT=$(jq -nc --arg str "<pre>$COMMAND_OUTPUT</pre>" '$str')
               . .circleci/pr_comment.sh
               exit 1
             fi

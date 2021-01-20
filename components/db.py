@@ -369,14 +369,14 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return jobs[0] if jobs else None
 
     @logEntryExit
-    def create_job(self, library, new_version, status, outcome, bug_id, phab_revision, try_run):
+    def create_job(self, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run):
         query = "INSERT INTO jobs(library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s)"
         args = (library.origin["name"], new_version, status, outcome, bug_id, phab_revision)
         job_id = self._query_execute(query, args)
 
         if try_run:
             query = "INSERT INTO try_runs(revision, job_id, purpose) VALUES(%s, %s, %s)"
-            args = (try_run, job_id, 'initial platform')
+            args = (try_run, job_id, try_run_type)
             self._query_execute(query, args)
 
     @logEntryExit
@@ -386,9 +386,9 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
-    def add_try_run(self, existing_job, try_revision):
+    def add_try_run(self, existing_job, try_revision, try_run_type):
         query = "INSERT INTO try_runs(revision, job_id, purpose) VALUES(%s, %s, %s)"
-        args = (try_revision, existing_job.id, 'more platforms')
+        args = (try_revision, existing_job.id, try_run_type)
         self._query_execute(query, args)
 
     @logEntryExit

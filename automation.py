@@ -139,6 +139,8 @@ class Updatebot:
 
             if 'gecko-path' in self.config_dictionary['General']:
                 os.chdir(self.config_dictionary['General']['gecko-path'])
+            if 'separate-platforms' not in self.config_dictionary['General']:
+                self.config_dictionary['General']['separate-platforms'] = False
 
             libraries = self.libraryProvider.get_libraries(self.config_dictionary['General']['gecko-path'])
             for lib in libraries:
@@ -196,20 +198,25 @@ class Updatebot:
         # Now we can process the new job
         bugzilla_id = self.bugzillaProvider.file_bug(library, new_version, timestamp, see_also)
 
+        try_run_type = 'initial platform' if self.config_dictionary['General']['separate-platforms'] else 'all platforms'
+
         try:
             self.vendorProvider.vendor(library)
         except Exception:
             # Handle `./mach vendor` failing
-            self.dbProvider.create_job(library, new_version, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
+            self.dbProvider.create_job(library, new_version, try_run_type, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
             self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(""))  # TODO, put error message
             return
 
         self.mercurialProvider.commit(library, bugzilla_id, new_version)
-        try_revision = self.taskclusterProvider.submit_to_try(library, "linux64")
+
+        platform_restriction = "linux64" if self.config_dictionary['General']['separate-platforms'] else ""
+        next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config_dictionary['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
+        try_revision = self.taskclusterProvider.submit_to_try(library, platform_restriction)
 
         self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
         phab_revision = self.phabricatorProvider.submit_patch()
-        self.dbProvider.create_job(library, new_version, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision)
+        self.dbProvider.create_job(library, new_version, try_run_type, next_status, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision)
 
     # ====================================================================
     # ====================================================================
@@ -247,12 +254,18 @@ class Updatebot:
                 return
             self._process_job_details_for_awaiting_initial_platform_results(library, existing_job)
         elif existing_job.status == JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS:
-            if len(existing_job.try_runs) != 2:
+            if not self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
+                self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
+                return
+            elif self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
                 self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
             self._process_job_details_for_awaiting_second_platform_results(library, existing_job)
         elif existing_job.status == JOBSTATUS.AWAITING_RETRIGGER_RESULTS:
-            if len(existing_job.try_runs) != 2:
+            if not self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
+                self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
+                return
+            elif self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
                 self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
             self._process_job_details_for_awaiting_retrigger_results(library, existing_job)
@@ -351,7 +364,7 @@ class Updatebot:
         self.mercurialProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
 
         try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")
-        self.dbProvider.add_try_run(existing_job, try_revision_2)
+        self.dbProvider.add_try_run(existing_job, try_revision_2, 'more platforms')
         self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision_2, another=True))
         existing_job.status = JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
         self.dbProvider.update_job_status(existing_job)
@@ -360,8 +373,9 @@ class Updatebot:
 
     @logEntryExitNoArgs
     def _process_job_details_for_awaiting_second_platform_results(self, library, existing_job):
-        second_try_revision = existing_job.try_runs[1].revision
-        self.logger.log("Handling second try revision %s in Awaiting Second Platform Results" % second_try_revision)
+        try_run_index = 1 if self.config_dictionary['General']['separate-platforms'] else 0
+        try_revision = existing_job.try_runs[try_run_index].revision
+        self.logger.log("Handling try revision number %i (%s) in Awaiting Second Platform Results" % (try_run_index + 1, try_revision), level=LogLevel.Info)
 
         # Get the push health and a comment string we may use in the bug.
         # Along the way, confirm that all the jobs have succeeded and there are no build failures

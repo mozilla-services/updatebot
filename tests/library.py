@@ -20,6 +20,7 @@ LIBRARIES = [
         "bugzilla": {"product": "Core", "component": "Audio/Video: Playback"},
         "origin": {
             "name": "dav1d",
+            "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e"
         },
         "updatebot": {
             "enabled": True,
@@ -67,7 +68,7 @@ class TestLibraryProvider(unittest.TestCase):
                     for prop in dir(a):
                         if not prop.startswith("__") and prop != "id":
                             try:
-                                self.assertTrue(
+                                self.assertEqual(
                                     getattr(b, prop), getattr(a, prop))
                             except AttributeError:
                                 self.assertTrue(

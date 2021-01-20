@@ -284,29 +284,29 @@ class Updatebot:
             if j.result not in ["retry", "success"]:
                 if "mozlint" in j.job_type_name:
                     if not printed_lint_header:
-                        comment_lines.append("Lint Jobs Failed:")
+                        comment_lines.append("**Lint Jobs Failed**:")
                         printed_lint_header = True
-                    comment_lines.append("\t\t-%s (%s)" % (j.job_type_name, j.task_id))
+                    comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
         # Build up the comment we will leave
         if results['known_issues']:
-            comment_lines.append("Known Issues (From Push Health):")
+            comment_lines.append("**Known Issues (From Push Health)**:")
             for t in results['known_issues']:
                 comment_lines.append("\t" + t)
                 for j in results['known_issues'][t]:
-                    comment_lines.append("\t\t-%s (%s)" % (j.job_type_name, j.task_id))
+                    comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
         if results['taskcluster_classified']:
-            comment_lines.append("Known Issues (From Taskcluster):")
+            comment_lines.append("**Known Issues (From Taskcluster)**:")
             for j in results['taskcluster_classified']:
-                comment_lines.append("\t\t-%s (%s) - %s" % (j.job_type_name, j.task_id, self.taskclusterProvider.failure_classifications[j.failure_classification_id]))
+                comment_lines.append("\t\t- %s (%s) - %s" % (j.job_type_name, j.task_id, self.taskclusterProvider.failure_classifications[j.failure_classification_id]))
 
         if results['to_investigate']:
-            comment_lines.append("Needs Investigation:")
+            comment_lines.append("**Needs Investigation**:")
             for t in results['to_investigate']:
                 comment_lines.append("\t" + t)
                 for j in results['to_investigate'][t]:
-                    comment_lines.append("\t\t-%s (%s)" % (j.job_type_name, j.task_id))
+                    comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
         return (True, results, comment_lines)
 

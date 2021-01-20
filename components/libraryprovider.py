@@ -98,7 +98,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
         if 'updatebot' in library and 'enabled' in library['updatebot']:
-            validated_library.updatebot['enabled'] = library['bugzilla']['product']
+            validated_library.updatebot['enabled'] = library['updatebot']['enabled']
 
             # These updatebot keys are required if the updatebot section exists
             # in the moz.yaml file, so we report an error if they're missing

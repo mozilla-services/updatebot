@@ -12,17 +12,21 @@ class Struct:
         self.__dict__.update(entries)
 
 
-def merge_dictionaries(a, b):
+PUSH_HEALTH_IGNORED_DICTS = ["commitHistory", 'jobCounts', 'status']
+PUSH_HEALTH_IGNORED_KEYS = ['next', 'previous', 'revision', 'id', 'result', 'push_timestamp']
+
+
+def merge_dictionaries(a, b, ignored_dicts=[], ignored_keys=[]):
     c = copy.deepcopy(b)
 
     for key, value in a.items():
         if isinstance(value, dict):
-            if key in ['jobCounts', 'status']:
+            if key in ignored_dicts:
                 pass
             else:
                 # get node or create one
                 node = c.setdefault(key, {})
-                c[key] = merge_dictionaries(value, node)
+                c[key] = merge_dictionaries(value, node, ignored_dicts, ignored_keys)
         elif isinstance(value, list):
             if key in c:
                 assert isinstance(c[key], list)
@@ -39,8 +43,8 @@ def merge_dictionaries(a, b):
                 c[key] = value
         else:
             if key == 'count':
-                c[key] = a[key] = b[key]
-            elif key in ['next', 'previous', 'revision', 'id', 'result', 'push_timestamp']:
+                c[key] = a[key] + b[key]
+            elif key in ignored_keys:
                 pass
             elif key in c and a[key] == b[key]:
                 pass

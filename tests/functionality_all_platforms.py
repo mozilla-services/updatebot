@@ -220,13 +220,13 @@ class TestFunctionality(SimpleLoggingTest):
             tc.assertEqual(len(j.try_runs), 1)
             tc.assertEqual(
                 expected_values.try_revision_id, j.try_runs[0].revision)
-            tc.assertEqual('initial run', j.try_runs[0].purpose)
+            tc.assertEqual('all platforms', j.try_runs[0].purpose)
 
     @logEntryExit
     def testAllNewJobs(self):
         (u, expected_values, _check_jobs) = TestFunctionality._setup("try_rev", "")
         u.run()
-        _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+        _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
         TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
@@ -239,11 +239,11 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs succeeded
             u.run(library_filter=library_filter)
             # Should be DONE
@@ -261,11 +261,11 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it a build job failed
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
@@ -283,11 +283,11 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it a build job failed
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
@@ -305,11 +305,11 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it some tests failed, same test, multiple platforms
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
@@ -327,11 +327,11 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it a test failed
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.

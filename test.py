@@ -13,7 +13,8 @@ TESTS = [
     "bugzilla",
     "automation_configuration",
     "run_command",
-    "functionality",
+    "functionality_all_platforms",
+    "functionality_two_platforms",
     "multiple_inheritence",
     "treeherder_api",
     "library"

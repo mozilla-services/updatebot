@@ -9,7 +9,7 @@ import jsone
 import requests
 from urllib.parse import quote_plus
 
-from components.utilities import Struct, merge_dictionaries
+from components.utilities import Struct, merge_dictionaries, PUSH_HEALTH_IGNORED_DICTS, PUSH_HEALTH_IGNORED_KEYS
 from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -266,7 +266,9 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExitNoArgs
     def combine_push_healths(self, push_health_1, push_health_2):
-        combined = merge_dictionaries(push_health_1, push_health_2)
+        combined = merge_dictionaries(push_health_1, push_health_2,
+                                      ignored_dicts=PUSH_HEALTH_IGNORED_DICTS,
+                                      ignored_keys=PUSH_HEALTH_IGNORED_KEYS)
         return combined
 
     # =================================================================

@@ -66,7 +66,7 @@ class TestDatabaeQueries(unittest.TestCase):
         try:
             self.assertEqual(None, self.db.get_job(library, version))
 
-            self.db.create_job(library, version,
+            self.db.create_job(library, version, 'db test',
                                JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugid, phab_revision, try_link)
 
             newJob = self.db.get_job(library, version)
@@ -80,7 +80,7 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(len(newJob.try_runs), 1)
             self.assertEqual(newJob.try_runs[0].revision, try_link)
             self.assertEqual(newJob.try_runs[0].job_id, newJob.id)
-            self.assertEqual(newJob.try_runs[0].purpose, 'initial platform')
+            self.assertEqual(newJob.try_runs[0].purpose, 'db test')
         finally:
             self.db.delete_job(job_id=newJob.id)
 

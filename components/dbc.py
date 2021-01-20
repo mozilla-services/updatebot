@@ -50,14 +50,14 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def delete_job(self, library=None, version=None, job_id=None):
         return self.db.delete_job(library=library, version=version, job_id=job_id)
 
-    def create_job(self, library, new_version, status, outcome, bug_id, phab_revision, try_run=None):
-        return self.db.create_job(library, new_version, status, outcome, bug_id, phab_revision, try_run)
+    def create_job(self, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run=None):
+        return self.db.create_job(library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run)
 
     def update_job_status(self, existing_job):
         return self.db.update_job_status(existing_job)
 
-    def add_try_run(self, existing_job, try_revision):
-        return self.db.add_try_run(existing_job, try_revision)
+    def add_try_run(self, existing_job, try_revision, try_run_type):
+        return self.db.add_try_run(existing_job, try_revision, try_run_type)
 
     def print(self):
         def get_column_widths(objects, columns):

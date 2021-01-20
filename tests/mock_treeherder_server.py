@@ -17,7 +17,7 @@ EXPECTEDPATH_JOBS = "jobs/?push_id="
 EXPECTEDPATH_FAILURECLASSIFICATION = "/failureclassification"
 EXPECTEDPATH_ACTIONSJSON = "api/queue/v1/task"
 EXPECTEDPATH_RETRIGGER = "api/hooks/v1/hooks"
-EXPECTEDPATH_PUSHHEALTH = "api/push/health/?revision="
+EXPECTEDPATH_PUSHHEALTH = "push/health/?revision="
 
 TRY_REVISIONS = {
     'rev_broken': "{\"results\":[{\"missing_id\":0}]}",

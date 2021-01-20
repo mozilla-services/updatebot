@@ -28,6 +28,11 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         if 'url_taskcluster' in config:
             self.url_taskcluster = config['url_taskcluster']
 
+        # The project path is always try. Updatebot runs in mozilla-central (where there
+        #   would be no project path), but it submits try runs to try; and this API is
+        #   only about reading from try.
+        self.url_project_path = "project/try/"
+
         self.HEADERS = {
             'User-Agent': 'Updatebot'
         }
@@ -195,7 +200,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def get_job_details(self, revision):
-        push_list_url = self.url_treeherder + "api/project/try/push/?revision=%s" % revision
+        push_list_url = self.url_treeherder + "api/%spush/?revision=%s" % (self.url_project_path, revision)
         self.logger.log("Requesting revision %s from %s" % (revision, push_list_url), level=LogLevel.Info)
 
         r = requests.get(push_list_url, headers=self.HEADERS)
@@ -248,7 +253,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def get_push_health(self, revision):
-        push_health_url = self.url_treeherder + "api/push/health/?revision=%s" % revision
+        push_health_url = self.url_treeherder + "api/%spush/health/?revision=%s" % (self.url_project_path, revision)
         self.logger.log("Requesting push health for revision %s from %s" % (revision, push_health_url), level=LogLevel.Info)
 
         r = requests.get(push_health_url, headers=self.HEADERS)

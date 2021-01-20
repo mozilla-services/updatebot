@@ -27,7 +27,7 @@ LIBRARIES = [
             "maintainer-bz": "nobody@mozilla.com",
             "maintainer-phab": "nobody"
         },
-        "yaml_path": "{0}/.circleci/gecko-test/libdav1d/moz.yaml".format(os.getcwd())
+        "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml"
     })
 ]
 
@@ -59,7 +59,7 @@ class TestLibraryProvider(unittest.TestCase):
         cls.libraryprovider.update_config(additional_config)
 
     def testLibraryFindAndImport(self):
-        libs = self.libraryprovider.get_libraries("./")
+        libs = self.libraryprovider.get_libraries(os.getcwd())
 
         def check_list(list_a, list_b, list_name):
             for a in list_a:

@@ -42,7 +42,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         for file in mozilla_central_yamls:
             with open(file, "r") as mozyaml:
                 new_library = yaml.safe_load(mozyaml.read())
-                new_library['yaml_path'] = file
+                new_library['yaml_path'] = file.replace(gecko_path + "/", "")
 
                 # Only process libraries that are enabled for processing
                 if 'updatebot' in new_library and 'enabled' in new_library['updatebot'] and new_library['updatebot']['enabled']:

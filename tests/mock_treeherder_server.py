@@ -30,6 +30,8 @@ TRY_REVISIONS = {
     'ab2232a04301f1d2dbeea7050488f8ec2dde5451': "{\"results\":[{\"id\":7}]}",
     'fa34db961043c78c150bef6b03d7426501aabd8b': "{\"results\":[{\"id\":8}]}",
     '3fe6e60f4126d7a9737480f17d1e3e8da384ca75': "{\"results\":[{\"id\":9}]}",
+    '80240fe58a7558fc21d4f2499261a53f3a9f6fad': "{\"results\":[{\"id\":10}]}",
+    '56AAAAAAacfacba40993e47ef8302993c59e264e': "{\"results\":[{\"id\":11}]}",
 }
 
 HEALTH_REVISIONS = {
@@ -40,6 +42,8 @@ HEALTH_REVISIONS = {
     "ab2232a04301f1d2dbeea7050488f8ec2dde5451": "health_unclassified_failures_before_retriggers.txt",
     'fa34db961043c78c150bef6b03d7426501aabd8b': "health_unclassified_failures_linuxonly_before_retriggers.txt",
     '3fe6e60f4126d7a9737480f17d1e3e8da384ca75': "health_unclassified_failures_notlinux_before_retriggers.txt",
+    "80240fe58a7558fc21d4f2499261a53f3a9f6fad": "health_all_success.txt",
+    "56AAAAAAacfacba40993e47ef8302993c59e264e": "health_all_success.txt",
 }
 
 PUSH_IDS = {
@@ -78,6 +82,12 @@ PUSH_IDS = {
     '9_1_1': "jobs_still_running.txt",
     '9_1_2': "jobs_unclassified_failures_notlinux_before_retriggers.txt",
     '9_1_3': "jobs_unclassified_failures_notlinux_before_retriggers.txt",
+    # testExistingJobAllSuccess
+    '10_1_1': "jobs_still_running.txt",
+    '10_1_2': "jobs_success_linuxonly.txt",
+    '10_1_3': "jobs_success_linuxonly.txt",
+    '10_1_4': "jobs_success_linuxonly.txt",
+    '11_1_1': "jobs_success_notlinux.txt",
 }
 
 EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"

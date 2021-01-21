@@ -227,7 +227,7 @@ class TestFunctionality(SimpleLoggingTest):
             if len(j.try_runs) == 2:
                 tc.assertEqual('more platforms', j.try_runs[1].purpose)
                 tc.assertEqual(
-                    expected_values.try_revision_2, j.try_runs[1].revision)
+                    expected_values.try_revision_2, j.try_runs[1].revision, "Did not match the second try run's revision")
 
             elif len(j.try_runs) == 1 and j.status > JOBSTATUS.DONE:
                 # Ony check in the DONE status because this test may set try_revision_2
@@ -291,20 +291,20 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testExistingJobAllSuccess(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "56082fc4acfacba40993e47ef8302993c59e264e")
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e")
 
         try:
-            # Run it
-            u.run(library_filter=library_filter)
             # Check that we created the job successfully
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
-            # Should still be Awaiting Try Results
-            _check_jobs(JOBSTATUS.AWAITING_TRY_RESULTS, JOBOUTCOME.PENDING)
-            # Run it again, this time we'll tell it a build job failed
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are done
             u.run(library_filter=library_filter)
-            # Should be DONE and Failed.
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it everything succeeded
+            u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
         finally:
             TestFunctionality._cleanup(u, expected_values)

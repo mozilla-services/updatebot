@@ -112,7 +112,8 @@ def COMMAND_MAPPINGS(expected_values):
         "hg commit": "",
         "arc diff --verbatim": ARC_OUTPUT,
         "echo '{\"constraints\"": CONDUIT_USERNAME_SEARCH_OUTPUT,
-        "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT
+        "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT,
+        "git log -1 --oneline": "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output"
     }
 
 

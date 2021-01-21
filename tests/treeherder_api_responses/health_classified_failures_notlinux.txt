@@ -1,0 +1,450 @@
+{
+  "revision": "3fe6e60f4126d7a9737480f17d1e3e8da384ca75",
+  "id": 825227,
+  "result": "fail",
+  "jobs": {
+    "test-windows7-32/debug-mochitest-browser-chrome-e10s-5": [
+      {
+        "id": 322505369,
+        "machine_platform_id": 208,
+        "option_collection_hash": "32faaecac742100f7753f0c1d0aa0add01b4046b",
+        "job_type_id": 67485,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T02:59:31",
+        "job_type_name": "test-windows7-32/debug-mochitest-browser-chrome-e10s-5",
+        "job_type_symbol": "bc5",
+        "platform": "windows7-32",
+        "task_id": "EQwy7NUtTgOrQXdmNSOY8g",
+        "run_id": 0
+      }
+    ],
+    "test-windows10-64-qr/debug-mochitest-browser-chrome-e10s-4": [
+      {
+        "id": 322505375,
+        "machine_platform_id": 420,
+        "option_collection_hash": "32faaecac742100f7753f0c1d0aa0add01b4046b",
+        "job_type_id": 180397,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T03:01:48",
+        "job_type_name": "test-windows10-64-qr/debug-mochitest-browser-chrome-e10s-4",
+        "job_type_symbol": "bc4",
+        "platform": "windows10-64-qr",
+        "task_id": "Ab4cq9NNS5ytQOuppQqJpA",
+        "run_id": 0
+      }
+    ],
+    "test-windows10-64-qr/debug-mochitest-browser-chrome-e10s-5": [
+      {
+        "id": 322505386,
+        "machine_platform_id": 420,
+        "option_collection_hash": "32faaecac742100f7753f0c1d0aa0add01b4046b",
+        "job_type_id": 180393,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T03:01:57",
+        "job_type_name": "test-windows10-64-qr/debug-mochitest-browser-chrome-e10s-5",
+        "job_type_symbol": "bc5",
+        "platform": "windows10-64-qr",
+        "task_id": "XHAVmBVYQQ28rQzyukFPWA",
+        "run_id": 0
+      }
+    ],
+    "test-macosx1014-64-qr/opt-mochitest-browser-chrome-e10s-1": [
+      {
+        "id": 322505402,
+        "machine_platform_id": 637,
+        "option_collection_hash": "102210fe594ee9b33d82058545b1ed14f4c8206e",
+        "job_type_id": 251482,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T03:00:10",
+        "job_type_name": "test-macosx1014-64-qr/opt-mochitest-browser-chrome-e10s-1",
+        "job_type_symbol": "bc1",
+        "platform": "macosx1014-64-qr",
+        "task_id": "ODYuL9lwR8O4dfx3s1NWqA",
+        "run_id": 0
+      }
+    ],
+    "test-macosx1014-64-qr/opt-mochitest-browser-chrome-e10s-6": [
+      {
+        "id": 322505404,
+        "machine_platform_id": 637,
+        "option_collection_hash": "102210fe594ee9b33d82058545b1ed14f4c8206e",
+        "job_type_id": 251462,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T03:00:10",
+        "job_type_name": "test-macosx1014-64-qr/opt-mochitest-browser-chrome-e10s-6",
+        "job_type_symbol": "bc6",
+        "platform": "macosx1014-64-qr",
+        "task_id": "ZjwkRIxATPenMzqLwu7Hrw",
+        "run_id": 0
+      }
+    ],
+    "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-5": [
+      {
+        "id": 322505409,
+        "machine_platform_id": 637,
+        "option_collection_hash": "32faaecac742100f7753f0c1d0aa0add01b4046b",
+        "job_type_id": 251395,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T03:00:42",
+        "job_type_name": "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-5",
+        "job_type_symbol": "bc5",
+        "platform": "macosx1014-64-qr",
+        "task_id": "dG4Lje0jQ06UBuo_erGN_Q",
+        "run_id": 0
+      }
+    ],
+    "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-3": [
+      {
+        "id": 322505410,
+        "machine_platform_id": 637,
+        "option_collection_hash": "32faaecac742100f7753f0c1d0aa0add01b4046b",
+        "job_type_id": 251442,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T03:00:42",
+        "job_type_name": "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-3",
+        "job_type_symbol": "bc3",
+        "platform": "macosx1014-64-qr",
+        "task_id": "eamNXQhFQPGmr0avu8nv_Q",
+        "run_id": 0
+      }
+    ],
+    "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-2": [
+      {
+        "id": 322505413,
+        "machine_platform_id": 637,
+        "option_collection_hash": "32faaecac742100f7753f0c1d0aa0add01b4046b",
+        "job_type_id": 251418,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T03:00:42",
+        "job_type_name": "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-2",
+        "job_type_symbol": "bc2",
+        "platform": "macosx1014-64-qr",
+        "task_id": "GaAdA-OuRh-MAac11YIq5w",
+        "run_id": 0
+      }
+    ],
+    "test-windows10-64-asan/opt-mochitest-browser-chrome-e10s-1": [
+      {
+        "id": 322509525,
+        "machine_platform_id": 207,
+        "option_collection_hash": "03abd064e50ec12b8c7309950268531d78c63f60",
+        "job_type_id": 43538,
+        "job_group_id": 448,
+        "result": "testfailed",
+        "state": "completed",
+        "failure_classification_id": 1,
+        "push_id": 825227,
+        "start_time": "2020-11-21T03:45:02",
+        "job_type_name": "test-windows10-64-asan/opt-mochitest-browser-chrome-e10s-1",
+        "job_type_symbol": "bc1",
+        "platform": "windows10-64",
+        "task_id": "Fp1rr4htSAK8M_Q9xJvX1w",
+        "run_id": 0
+      }
+    ]
+  },
+  "metrics": {
+    "commitHistory": {
+      "name": "Commit History",
+      "result": "none",
+      "details": {
+        "parentSha": "fd1683e51ec5eae6a5c5b516492d6a81eb06e7ea",
+        "exactMatch": true,
+        "parentPushRevision": "fd1683e51ec5eae6a5c5b516492d6a81eb06e7ea",
+        "parentRepository": {
+          "id": 1,
+          "repository_group": {
+            "name": "development",
+            "description": "Collection of repositories where code initially lands in the development process"
+          },
+          "name": "mozilla-central",
+          "dvcs_type": "hg",
+          "url": "https://hg.mozilla.org/mozilla-central",
+          "branch": null,
+          "codebase": "gecko",
+          "description": "",
+          "active_status": "active",
+          "performance_alerts_enabled": false,
+          "expire_performance_data": false,
+          "is_try_repo": false,
+          "tc_root_url": "https://firefox-ci-tc.services.mozilla.com"
+        },
+        "id": 824780,
+        "jobCounts": {
+          "completed": 8726,
+          "pending": 0,
+          "running": 0,
+          "success": 8642,
+          "retry": 84
+        },
+        "revisions": [
+          {
+            "result_set_id": 825227,
+            "repository_id": 4,
+            "revision": "3fe6e60f4126d7a9737480f17d1e3e8da384ca75",
+            "author": "Tom Ritter <tom@mozilla.com>",
+            "comments": "Fuzzy query='mochitest 'browser 'chrome !linux\n\nPushed via `mach try fuzzy`"
+          }
+        ],
+        "revisionCount": 1,
+        "currentPush": {
+          "id": 825227,
+          "revision": "3fe6e60f4126d7a9737480f17d1e3e8da384ca75",
+          "author": "tritter@mozilla.com",
+          "revisions": [
+            {
+              "result_set_id": 825227,
+              "repository_id": 4,
+              "revision": "3fe6e60f4126d7a9737480f17d1e3e8da384ca75",
+              "author": "Tom Ritter <tom@mozilla.com>",
+              "comments": "Fuzzy query='mochitest 'browser 'chrome !linux\n\nPushed via `mach try fuzzy`"
+            }
+          ],
+          "revision_count": 1,
+          "push_timestamp": 1605926417,
+          "repository_id": 4
+        }
+      }
+    },
+    "linting": {
+      "name": "Linting",
+      "result": "pass",
+      "details": []
+    },
+    "tests": {
+      "name": "Tests",
+      "result": "fail",
+      "details": {
+        "needInvestigation": [
+        ],
+        "knownIssues": [
+
+          {
+            "testName": "Main app process exited normally",
+            "action": "crash",
+            "jobName": "test-windows10-64-qr/debug-mochitest-browser-chrome-e10s-5",
+            "jobSymbol": "bc5",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "windows10-64-qr",
+            "config": "debug",
+            "key": "tMainappprocessexitednormallydebugwindows1064qrtestwindows1064qrdebugmochitestbrowserchromee10s5Mochitests",
+            "jobKey": "debugwindows10-64-qrtest-windows10-64-qr/debug-mochitest-browser-chrome-e10s-5Mochitests",
+            "suggestedClassification": "New Failure",
+            "confidence": 0,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          },
+          {
+            "testName": "browser/components/places/tests/browser/browser_toolbar_other_bookmarks.js",
+            "action": "test",
+            "jobName": "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-3",
+            "jobSymbol": "bc3",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "macosx1014-64-qr",
+            "config": "debug",
+            "key": "tbrowsercomponentsplacestestsbrowserbrowser_toolbar_other_bookmarksjsdebugmacosx101464qrtestmacosx101464qrdebugmochitestbrowserchromee10s3Mochitests",
+            "jobKey": "debugmacosx1014-64-qrtest-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-3Mochitests",
+            "suggestedClassification": "fixedByCommit",
+            "confidence": 90,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          },
+          {
+            "testName": "browser/components/sessionstore/test/browser_sessionHistory.js",
+            "action": "test",
+            "jobName": "test-windows10-64-asan/opt-mochitest-browser-chrome-e10s-1",
+            "jobSymbol": "bc1",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "windows10-64",
+            "config": "asan",
+            "key": "tbrowsercomponentssessionstoretestbrowser_sessionHistoryjsasanwindows1064testwindows1064asanoptmochitestbrowserchromee10s1Mochitests",
+            "jobKey": "asanwindows10-64test-windows10-64-asan/opt-mochitest-browser-chrome-e10s-1Mochitests",
+            "suggestedClassification": "fixedByCommit",
+            "confidence": 90,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          },
+          {
+            "testName": "gfx/layers/apz/test/mochitest/browser_test_group_fission.js",
+            "action": "test",
+            "jobName": "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-5",
+            "jobSymbol": "bc5",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "macosx1014-64-qr",
+            "config": "debug",
+            "key": "tgfxlayersapztestmochitestbrowser_test_group_fissionjsdebugmacosx101464qrtestmacosx101464qrdebugmochitestbrowserchromee10s5Mochitests",
+            "jobKey": "debugmacosx1014-64-qrtest-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-5Mochitests",
+            "suggestedClassification": "fixedByCommit",
+            "confidence": 90,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          },
+          {
+            "testName": "toolkit/components/aboutprocesses/tests/browser/browser_aboutprocesses_show_threads.js",
+            "action": "test",
+            "jobName": "test-windows10-64-qr/debug-mochitest-browser-chrome-e10s-4",
+            "jobSymbol": "bc4",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "windows10-64-qr",
+            "config": "debug",
+            "key": "ttoolkitcomponentsaboutprocessestestsbrowserbrowser_aboutprocesses_show_threadsjsdebugwindows1064qrtestwindows1064qrdebugmochitestbrowserchromee10s4Mochitests",
+            "jobKey": "debugwindows10-64-qrtest-windows10-64-qr/debug-mochitest-browser-chrome-e10s-4Mochitests",
+            "suggestedClassification": "fixedByCommit",
+            "confidence": 90,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          },
+          {
+            "testName": "browser/components/newtab/test/browser/abouthomecache/browser_overwrite_cache.js",
+            "action": "test",
+            "jobName": "test-macosx1014-64-qr/opt-mochitest-browser-chrome-e10s-6",
+            "jobSymbol": "bc6",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "macosx1014-64-qr",
+            "config": "opt",
+            "key": "tbrowsercomponentsnewtabtestbrowserabouthomecachebrowser_overwrite_cachejsoptmacosx101464qrtestmacosx101464qroptmochitestbrowserchromee10s6Mochitests",
+            "jobKey": "optmacosx1014-64-qrtest-macosx1014-64-qr/opt-mochitest-browser-chrome-e10s-6Mochitests",
+            "suggestedClassification": "intermittent",
+            "confidence": 50,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          },
+          {
+            "testName": "toolkit/components/pictureinpicture/tests/browser_saveLastPiPLoc.js",
+            "action": "test",
+            "jobName": "test-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-2",
+            "jobSymbol": "bc2",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "macosx1014-64-qr",
+            "config": "debug",
+            "key": "ttoolkitcomponentspictureinpicturetestsbrowser_saveLastPiPLocjsdebugmacosx101464qrtestmacosx101464qrdebugmochitestbrowserchromee10s2Mochitests",
+            "jobKey": "debugmacosx1014-64-qrtest-macosx1014-64-qr/debug-mochitest-browser-chrome-e10s-2Mochitests",
+            "suggestedClassification": "fixedByCommit",
+            "confidence": 90,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          },
+          {
+            "testName": "browser/base/content/test/forms/browser_selectpopup.js",
+            "action": "test",
+            "jobName": "test-windows7-32/debug-mochitest-browser-chrome-e10s-5",
+            "jobSymbol": "bc5",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "windows7-32",
+            "config": "debug",
+            "key": "tbrowserbasecontenttestformsbrowser_selectpopupjsdebugwindows732testwindows732debugmochitestbrowserchromee10s5Mochitests",
+            "jobKey": "debugwindows7-32test-windows7-32/debug-mochitest-browser-chrome-e10s-5Mochitests",
+            "suggestedClassification": "intermittent",
+            "confidence": 100,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          },
+          {
+            "testName": "browser/base/content/test/performance/browser_windowopen.js",
+            "action": "test",
+            "jobName": "test-macosx1014-64-qr/opt-mochitest-browser-chrome-e10s-1",
+            "jobSymbol": "bc1",
+            "jobGroup": "Mochitests",
+            "jobGroupSymbol": "M",
+            "platform": "macosx1014-64-qr",
+            "config": "opt",
+            "key": "tbrowserbasecontenttestperformancebrowser_windowopenjsoptmacosx101464qrtestmacosx101464qroptmochitestbrowserchromee10s1Mochitests",
+            "jobKey": "optmacosx1014-64-qrtest-macosx1014-64-qr/opt-mochitest-browser-chrome-e10s-1Mochitests",
+            "suggestedClassification": "intermittent",
+            "confidence": 100,
+            "tier": 1,
+            "failedInParent": false,
+            "passFailRatio": 0,
+            "isClassifiedIntermittent": false,
+            "isInvestigated": false,
+            "investigatedTestId": null
+          }
+        ]
+      }
+    },
+    "builds": {
+      "name": "Builds",
+      "result": "pass",
+      "details": []
+    }
+  },
+  "status": {
+    "completed": 89,
+    "pending": 0,
+    "running": 0,
+    "success": 80,
+    "testfailed": 9
+  }
+}

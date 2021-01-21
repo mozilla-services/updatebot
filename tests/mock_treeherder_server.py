@@ -36,6 +36,7 @@ TRY_REVISIONS = {
     '456dc4f24e790a9edb3f45eca85104607ca52168': "{\"results\":[{\"id\":13}]}",
     'ec74c1b52c533106d7e3d15f3c75cfd57355a885': "{\"results\":[{\"id\":14}]}",
     '2529ff21c5717182ebf32e180dcc6bfd3917a78c': "{\"results\":[{\"id\":15}]}",
+    '45cf941f54e2d5a362ed08dfd61ba3922a47fdc3': "{\"results\":[{\"id\":16}]}",
 }
 
 HEALTH_REVISIONS = {
@@ -108,6 +109,9 @@ PUSH_IDS = {
     '14_1_3': "jobs_unclassified_failures_linuxonly_multiple_per_test.txt",
     '14_1_4': "jobs_unclassified_failures_linuxonly_multiple_per_test.txt",
     '15_1_1': "jobs_unclassified_failures_notlinux_multiple_per_test.txt",
+    # testExistingJobBuildFailed
+    '16_1_1': "jobs_still_running.txt",
+    '16_1_2': "build_failed.txt",
 }
 
 EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"

@@ -271,7 +271,7 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExitHeaderLine
     def testExistingJobBuildFailed(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "55ca6286e3e4f4fba5d0448333fa99fc5a404a73")
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(library_filter, "45cf941f54e2d5a362ed08dfd61ba3922a47fdc3")
 
         try:
             # Run it

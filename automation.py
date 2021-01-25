@@ -150,6 +150,9 @@ class Updatebot:
                 try:
                     self._process_library(lib)
                 except Exception as e:
+                    # Clean up any changes to the repo we may have made
+                    self.cmdProvider.run(["hg", "checkout", "-C", "."])
+                    self.cmdProvider.run(["hg", "purge", "."])
                     self.logger.log("Caught an exception while processing a library.", level=LogLevel.Error)
                     self.logger.log_exception(e)
         except Exception as e:
@@ -173,7 +176,11 @@ class Updatebot:
             self.logger.log("%s is a brand new revision to updatebot." % (new_version), level=LogLevel.Info)
             self._process_new_job(library, new_version, timestamp)
 
-        # TODO #119: We need to remove any commits we made so the repo is clean for the next library.
+        # remove commits generated from processing this library, will return success
+        # regardless of if outgoing commits exist or not.
+        self.logger.log("Removing any outgoing commits before moving on.")
+        self.cmdProvider.run(["hg", "status"])  # hey what the fruck?
+        self.cmdProvider.run(["hg", "strip", "roots(outgoing())", "--no-backup"])
 
     # ====================================================================
 

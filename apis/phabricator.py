@@ -24,7 +24,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def submit_patch(self):
-        ret = self.run(["arc", "diff", "--verbatim"])
+        ret = self.run(["arc", "diff", "--verbatim", "--conduit-uri", self.url])
         output = ret.stdout.decode()
 
         phab_revision = None

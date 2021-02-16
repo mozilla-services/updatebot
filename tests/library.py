@@ -23,7 +23,12 @@ LIBRARIES = [
             "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e"
         },
         "updatebot": {
-            "enabled": True,
+            "jobs": [
+                    {
+                        'type': "vendoring",
+                        'enabled': True,
+                    }
+                ],
             "maintainer-bz": "nobody@mozilla.com",
             "maintainer-phab": "nobody"
         },

@@ -24,9 +24,13 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 #     'name': 'dav1d'
 # },
 # 'updatebot': {
-#     'enabled': True,
 #     'maintainer-bz': 'nobody@mozilla.com',
-#     'maintainer-phab': 'nobody'
+#     'maintainer-phab': 'nobody',
+#     'jobs': [
+#         { 'type': 'vendoring',
+#           ' enabled': True,
+#         }
+#     ]
 # },
 # 'yaml_path': '/Users/nobody/mozilla-central/media/libdav1d/moz.yaml'
 
@@ -44,9 +48,10 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 new_library = yaml.safe_load(mozyaml.read())
                 new_library['yaml_path'] = file.replace(gecko_path + "/", "")
 
-                # Only process libraries that are enabled for processing
-                if 'updatebot' in new_library and 'enabled' in new_library['updatebot'] and new_library['updatebot']['enabled']:
-                    libraries.append(self.validate_library(new_library))
+                # Only return libraries that have enabled jobs
+                new_library_obj = self.validate_library(new_library)
+                if new_library_obj.updatebot['jobs']:
+                    libraries.append(new_library_obj)
         return libraries
 
     def validate_library(self, library):
@@ -60,9 +65,9 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 'revision': ''
             },
             'updatebot': {
-                'enabled': False,
                 'maintainer-bz': '',
-                'maintainer-phab': ''
+                'maintainer-phab': '',
+                'jobs': []
             },
             'yaml_path': ''
         })
@@ -97,9 +102,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
-        if 'updatebot' in library and 'enabled' in library['updatebot']:
-            validated_library.updatebot['enabled'] = library['updatebot']['enabled']
-
+        if 'updatebot' in library:
             # These updatebot keys are required if the updatebot section exists
             # in the moz.yaml file, so we report an error if they're missing
             if 'maintainer-bz' in library['updatebot']:
@@ -110,5 +113,34 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 validated_library.updatebot['maintainer-phab'] = library['updatebot']['maintainer-phab']
             else:
                 raise AttributeError('library {0} is missing updatebot: maintainer-phab field'.format(library['origin']['name']))
+
+            if 'jobs' in library['updatebot']:
+                indx = 0
+                for j in library['updatebot']['jobs']:
+                    validated_job = {}
+                    if 'type' not in j:
+                        raise AttributeError('library {0}, job {1} is missing type field'.format(library['origin']['name'], indx))
+                    validated_job['type'] = j['type']
+
+                    validated_job['enabled'] = j['enabled'] if 'enabled' in j else False
+
+                    if 'branch' in j:
+                        validated_job['branch'] = j['branch']
+                    if 'cc' in j:
+                        validated_job['cc'] = j['cc']
+
+                    if 'filter' in j:
+                        if j['type'] != 'commit-alert':
+                            raise AttributeError('library {0}, job {1} has an invalid value for filter when type != commit-alert'.format(library['origin']['name'], indx))
+                        validated_job['filter'] = j['filter']
+
+                    if 'source-extensions' in j:
+                        if j['type'] != 'commit-alert':
+                            raise AttributeError('library {0}, job {1} has an invalid value for source-extensions when type != commit-alert'.format(library['origin']['name'], indx))
+                        validated_job['source-extensions'] = j['source-extensions']
+
+                    if validated_job['enabled']:
+                        validated_library.updatebot['jobs'].append(validated_job)
+                    indx += 1
 
         return validated_library

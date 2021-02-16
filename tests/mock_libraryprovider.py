@@ -18,15 +18,17 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     def get_libraries(self, gecko_path):
         return [Struct(**{
-            "bugzilla": {"product": "Core", "component": "Audio/Video: Playback"},
-            "origin": {
-                "name": "dav1d",
-            },
-            "updatebot": {
-                "enabled": True,
-                "maintainer-phab": "nobody",
-                "maintainer-bz": "nobody@mozilla.com"
-            },
+            "name": "dav1d",
+            "bugzilla_product": "Core",
+            "bugzilla_component": "Audio/Video: Playback",
+            "maintainer_phab": "nobody",
+            "maintainer_bz": "nobody@mozilla.com",
+            "jobs": [
+                {
+                    "type": "vendoring",
+                    "enabled": True
+                }
+            ],
             "yaml_path": "mozilla-central/source/media/libdav1d/moz.yaml"
         })]
 

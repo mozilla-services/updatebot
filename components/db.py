@@ -350,7 +350,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                    WHERE j.library = %s
                      AND j.status<>%s
                    ORDER BY j.id ASC"""
-        args = (library.origin["name"], JOBSTATUS.DONE)
+        args = (library.name, JOBSTATUS.DONE)
         results = self._query_get_rows(query, args)
         return transform_job_and_try_results_into_objects(results)
 
@@ -363,7 +363,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                    WHERE j.library = %s
                      AND j.version = %s
                    ORDER BY j.id ASC"""
-        args = (library.origin["name"], new_version)
+        args = (library.name, new_version)
         results = self._query_get_rows(query, args)
         jobs = transform_job_and_try_results_into_objects(results)
         return jobs[0] if jobs else None
@@ -371,7 +371,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     @logEntryExit
     def create_job(self, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run):
         query = "INSERT INTO jobs(library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s)"
-        args = (library.origin["name"], new_version, status, outcome, bug_id, phab_revision)
+        args = (library.name, new_version, status, outcome, bug_id, phab_revision)
         job_id = self._query_execute(query, args)
 
         if try_run:
@@ -410,9 +410,9 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                           ON j.id = t.job_id
                        WHERE j.library = %s
                          AND j.version = %s"""
-            args = (library.origin["name"], version)
+            args = (library.name, version)
             self._query_execute(query, args)
 
             query = "DELETE FROM jobs WHERE library = %s AND version = %s"
-            args = (library.origin["name"], version)
+            args = (library.name, version)
             self._query_execute(query, args)

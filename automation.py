@@ -144,8 +144,8 @@ class Updatebot:
 
             libraries = self.libraryProvider.get_libraries(self.config_dictionary['General']['gecko-path'])
             for lib in libraries:
-                if library_filter and library_filter not in lib.origin["name"]:
-                    self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (lib.origin["name"], library_filter), level=LogLevel.Info)
+                if library_filter and library_filter not in lib.name:
+                    self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (lib.name, library_filter), level=LogLevel.Info)
                     continue
                 try:
                     self._process_library(lib)
@@ -161,10 +161,10 @@ class Updatebot:
     def _process_library(self, library):
         new_version, timestamp = self.vendorProvider.check_for_update(library)
         if not new_version:
-            self.logger.log("Processing %s but no new version was found." % library.origin["name"], level=LogLevel.Info)
+            self.logger.log("Processing %s but no new version was found." % library.name, level=LogLevel.Info)
             return
 
-        self.logger.log("Processing %s for an upstream revision %s." % (library.origin["name"], new_version), level=LogLevel.Info)
+        self.logger.log("Processing %s for an upstream revision %s." % (library.name, new_version), level=LogLevel.Info)
         existing_job = self.dbProvider.get_job(library, new_version)
         if existing_job:
             self.logger.log("%s has an existing job with %s try revisions (%s) and status %s" % (new_version, len(existing_job.try_runs), existing_job.get_try_run_ids(), existing_job.status), level=LogLevel.Info)
@@ -184,7 +184,7 @@ class Updatebot:
         # First, we need to see if there was a previously active job for this library.
         # If so, we need to close that job out.
         active_jobs = self.dbProvider.get_all_active_jobs_for_library(library)
-        assert len(active_jobs) <= 1, "Got more than one active job for library %s" % (library.origin["name"])
+        assert len(active_jobs) <= 1, "Got more than one active job for library %s" % (library.name)
         self.logger.log("Found %i active jobs for this library" % len(active_jobs), level=LogLevel.Info)
         if len(active_jobs) == 1:
             active_job = active_jobs[0]
@@ -338,7 +338,7 @@ class Updatebot:
         for j in job_list:
             if j.result not in ["retry", "success"]:
                 if "build" in j.job_type_name:
-                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.updatebot["maintainer-bz"])
+                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer_bz)
                     self.phabricatorProvider.abandon(existing_job.phab_revision)
                     existing_job.status = JOBSTATUS.DONE
                     existing_job.outcome = JOBOUTCOME.BUILD_FAILED
@@ -408,15 +408,15 @@ class Updatebot:
                 self.logger.log(c, level=LogLevel.Debug)
                 comment += c + "\n"
 
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library), needinfo=library.updatebot["maintainer-bz"], assignee=library.updatebot["maintainer-bz"])
-            self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.updatebot["maintainer-phab"])
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
+            self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
 
         # Everything.... succeeded?
         else:
             self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
             existing_job.outcome = JOBOUTCOME.ALL_SUCCESS
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_ALL_SUCCESS(), assignee=library.updatebot["maintainer-bz"])
-            self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.updatebot["maintainer-phab"])
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_ALL_SUCCESS(), assignee=library.maintainer_bz)
+            self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
 
         existing_job.status = JOBSTATUS.DONE
         self.dbProvider.update_job_status(existing_job)
@@ -443,7 +443,7 @@ class Updatebot:
             comment += c + "\n"
             self.logger.log(c, level=LogLevel.Debug)
 
-        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.updatebot["maintainer-bz"])
+        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz)
         self.phabricatorProvider.abandon(existing_job.phab_revision)
         existing_job.outcome = JOBOUTCOME.UNCLASSIFIED_FAILURES
         existing_job.status = JOBSTATUS.DONE

@@ -24,9 +24,13 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 #     'name': 'dav1d'
 # },
 # 'updatebot': {
-#     'enabled': True,
 #     'maintainer-bz': 'nobody@mozilla.com',
-#     'maintainer-phab': 'nobody'
+#     'maintainer-phab': 'nobody',
+#     'tasks': [
+#         { 'type': 'vendoring',
+#           ' enabled': True,
+#         }
+#     ]
 # },
 # 'yaml_path': '/Users/nobody/mozilla-central/media/libdav1d/moz.yaml'
 
@@ -41,15 +45,15 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         for file in mozilla_central_yamls:
             with open(file, "r") as mozyaml:
-                new_library = yaml.safe_load(mozyaml.read())
-                new_library['yaml_path'] = file.replace(gecko_path + "/", "")
-
-                # Only process libraries that are enabled for processing
-                if 'updatebot' in new_library and 'enabled' in new_library['updatebot'] and new_library['updatebot']['enabled']:
-                    libraries.append(self.validate_library(new_library))
+                # Only return libraries that have enabled tasks
+                new_library_obj = self.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
+                if new_library_obj.updatebot['tasks']:
+                    libraries.append(new_library_obj)
         return libraries
 
-    def validate_library(self, library):
+    def validate_library(self, yaml_contents, yaml_path):
+        library = yaml.safe_load(yaml_contents)
+
         validated_library = Struct(**{
             'bugzilla': {
                 'product': '',
@@ -60,24 +64,23 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 'revision': ''
             },
             'updatebot': {
-                'enabled': False,
                 'maintainer-bz': '',
-                'maintainer-phab': ''
+                'maintainer-phab': '',
+                'tasks': []
             },
             'yaml_path': ''
         })
 
         # We assign this ourselves at import, so no need to check it
-        validated_library.yaml_path = library['yaml_path']
+        validated_library.yaml_path = yaml_path
 
-        # This isn't required by the moz.yaml schema, but we need it to do
-        # anything with the library, so we pretend like it is required
-        if 'origin' in library and 'name' in library['origin']:
-            validated_library.origin['name'] = library['origin']['name']
-        else:
-            # Clarify exception by name of file imported since we assign that
-            # ourselves at import
-            raise AttributeError('library imported from {0} is missing origin: name field'.format(library['yaml_path']))
+        def get_sub_key_or_raise(key, subkey, dict, yaml_path):
+            if key in dict and subkey in dict[key]:
+                return dict[key][subkey]
+            else:
+                raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
+
+        validated_library.origin['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
 
         # Attempt to get the revision (not required by moz.yaml) if present
         if 'origin' in library and 'revision' in library['origin']:
@@ -97,9 +100,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
-        if 'updatebot' in library and 'enabled' in library['updatebot']:
-            validated_library.updatebot['enabled'] = library['updatebot']['enabled']
-
+        if 'updatebot' in library:
             # These updatebot keys are required if the updatebot section exists
             # in the moz.yaml file, so we report an error if they're missing
             if 'maintainer-bz' in library['updatebot']:
@@ -110,5 +111,36 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 validated_library.updatebot['maintainer-phab'] = library['updatebot']['maintainer-phab']
             else:
                 raise AttributeError('library {0} is missing updatebot: maintainer-phab field'.format(library['origin']['name']))
+
+            if 'tasks' in library['updatebot']:
+                indx = 0
+                for j in library['updatebot']['tasks']:
+                    validated_task = {}
+                    if 'type' not in j:
+                        raise AttributeError('library {0}, task {1} is missing type field'.format(library['origin']['name'], indx))
+                    if j['type'] not in ['vendoring', 'commit-alert']:
+                        raise AttributeError('library {0}, task {1} has an invalid type field {2}'.format(library['origin']['name'], indx, j['type']))
+                    validated_task['type'] = j['type']
+
+                    validated_task['enabled'] = j['enabled'] if 'enabled' in j else False
+
+                    if 'branch' in j:
+                        validated_task['branch'] = j['branch']
+                    if 'cc' in j:
+                        validated_task['cc'] = j['cc']
+
+                    if 'filter' in j:
+                        if j['type'] != 'commit-alert':
+                            raise AttributeError('library {0}, task {1} has an invalid value for filter when type != commit-alert'.format(library['origin']['name'], indx))
+                        validated_task['filter'] = j['filter']
+
+                    if 'source-extensions' in j:
+                        if j['type'] != 'commit-alert':
+                            raise AttributeError('library {0}, task {1} has an invalid value for source-extensions when type != commit-alert'.format(library['origin']['name'], indx))
+                        validated_task['source-extensions'] = j['source-extensions']
+
+                    if validated_task['enabled']:
+                        validated_library.updatebot['tasks'].append(validated_task)
+                    indx += 1
 
         return validated_library

@@ -23,7 +23,12 @@ LIBRARIES = [
             "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e"
         },
         "updatebot": {
-            "enabled": True,
+            "tasks": [
+                {
+                    'type': "vendoring",
+                    'enabled': True,
+                }
+            ],
             "maintainer-bz": "nobody@mozilla.com",
             "maintainer-phab": "nobody"
         },
@@ -79,6 +84,121 @@ class TestLibraryProvider(unittest.TestCase):
 
         check_list(libs, LIBRARIES, "original")
         check_list(LIBRARIES, libs, "disk's")
+
+    def testLibraryExceptions(self):
+        test_vectors = [
+            ("Blank", ""),
+            ("No name",
+             """
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+"""),
+            ("No product",
+             """
+schema: 1
+bugzilla:
+  component: "Audio/Video: Playback"
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+"""),
+            ("No component",
+             """
+schema: 1
+bugzilla:
+  product: Core
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+"""),
+            ("No maintainer bz",
+             """
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+updatebot:
+  maintainer-phab: bar
+  tasks:
+    - type: vendoring
+    - type: commit-alert
+"""),
+            ("No maintainer phab",
+             """
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+updatebot:
+  maintainer-bz: foo
+  tasks:
+    - type: vendoring
+    - type: commit-alert
+"""),
+            ("Bad vendoring task",
+             """
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+updatebot:
+  maintainer-bz: foo
+  maintainer-phab: bar
+  tasks:
+    - type: vendoring
+      filter: none
+    - type: commit-alert
+"""),
+            ("Invalid task type",
+             """
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+updatebot:
+  maintainer-bz: foo
+  maintainer-phab: bar
+  tasks:
+    - type: vendoring
+    - type: bob
+"""),
+        ]
+        for vector in test_vectors:
+            try:
+                self.libraryprovider.validate_library(vector[1], "fake/path")
+            except Exception:
+                continue
+            self.assertFalse(vector, "The test vector '%s' did not raise an expected exception." % vector[0])
 
 
 if __name__ == "__main__":

@@ -36,9 +36,11 @@ origin:
   license-file: COPYING
 
 updatebot:
-  enabled: True
   maintainer-phab: nobody
   maintainer-bz: nobody@mozilla.com
+  tasks:
+    - type: vendoring
+      enabled: True
 
 vendoring:
   url: https://code.videolan.org/videolan/dav1d.git

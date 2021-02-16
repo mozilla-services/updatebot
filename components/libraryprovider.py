@@ -47,7 +47,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             with open(file, "r") as mozyaml:
                 # Only return libraries that have enabled tasks
                 new_library_obj = self.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
-                if new_library_obj.updatebot['tasks']:
+                if new_library_obj.tasks:
                     libraries.append(new_library_obj)
         return libraries
 
@@ -55,19 +55,13 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         library = yaml.safe_load(yaml_contents)
 
         validated_library = Struct(**{
-            'bugzilla': {
-                'product': '',
-                'component': ''
-            },
-            'origin': {
-                'name': '',
-                'revision': ''
-            },
-            'updatebot': {
-                'maintainer-bz': '',
-                'maintainer-phab': '',
-                'tasks': []
-            },
+            'name': '',
+            'bugzilla_product': '',
+            'bugzilla_component': '',
+            'revision': None,
+            'maintainer_bz': '',
+            'maintainer_phab': '',
+            'tasks': [],
             'yaml_path': ''
         })
 
@@ -80,37 +74,19 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             else:
                 raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
 
-        validated_library.origin['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
+        validated_library.name = get_sub_key_or_raise('origin', 'name', library, yaml_path)
+        validated_library.bugzilla_product = get_sub_key_or_raise('bugzilla', 'product', library, yaml_path)
+        validated_library.bugzilla_component = get_sub_key_or_raise('bugzilla', 'component', library, yaml_path)
 
         # Attempt to get the revision (not required by moz.yaml) if present
         if 'origin' in library and 'revision' in library['origin']:
-            validated_library.origin['revision'] = library['origin']['revision']
-
-        # From here on we can use the library's name in the exception since we
-        # know it exists
-        if 'bugzilla' in library and 'product' in library['bugzilla']:
-            validated_library.bugzilla['product'] = library['bugzilla']['product']
-        else:
-            raise AttributeError('library {0} is missing bugzilla: product field'.format(library['origin']['name']))
-
-        if 'bugzilla' in library and 'component' in library['bugzilla']:
-            validated_library.bugzilla['component'] = library['bugzilla']['component']
-        else:
-            raise AttributeError('library {0} is missing bugzilla: component field'.format(library['origin']['name']))
+            validated_library.revision = library['origin']['revision']
 
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
         if 'updatebot' in library:
-            # These updatebot keys are required if the updatebot section exists
-            # in the moz.yaml file, so we report an error if they're missing
-            if 'maintainer-bz' in library['updatebot']:
-                validated_library.updatebot['maintainer-bz'] = library['updatebot']['maintainer-bz']
-            else:
-                raise AttributeError('library {0} is missing updatebot: maintainer-bz field'.format(library['origin']['name']))
-            if 'maintainer-phab' in library['updatebot']:
-                validated_library.updatebot['maintainer-phab'] = library['updatebot']['maintainer-phab']
-            else:
-                raise AttributeError('library {0} is missing updatebot: maintainer-phab field'.format(library['origin']['name']))
+            validated_library.maintainer_bz = get_sub_key_or_raise('updatebot', 'maintainer-bz', library, yaml_path)
+            validated_library.maintainer_phab = get_sub_key_or_raise('updatebot', 'maintainer-phab', library, yaml_path)
 
             if 'tasks' in library['updatebot']:
                 indx = 0
@@ -140,7 +116,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                         validated_task['source-extensions'] = j['source-extensions']
 
                     if validated_task['enabled']:
-                        validated_library.updatebot['tasks'].append(validated_task)
+                        validated_library.tasks.append(validated_task)
                     indx += 1
 
         return validated_library

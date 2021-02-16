@@ -17,21 +17,18 @@ from components.logging import SimpleLoggerConfig
 
 LIBRARIES = [
     Struct(**{
-        "bugzilla": {"product": "Core", "component": "Audio/Video: Playback"},
-        "origin": {
-            "name": "dav1d",
-            "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e"
-        },
-        "updatebot": {
-            "tasks": [
-                {
-                    'type': "vendoring",
-                    'enabled': True,
-                }
-            ],
-            "maintainer-bz": "nobody@mozilla.com",
-            "maintainer-phab": "nobody"
-        },
+        "name": "dav1d",
+        "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e",
+        "bugzilla_product": "Core",
+        "bugzilla_component": "Audio/Video: Playback",
+        "maintainer_bz": "nobody@mozilla.com",
+        "maintainer_phab": "nobody",
+        "tasks": [
+                    {
+                        'type': "vendoring",
+                        'enabled': True,
+                    }
+        ],
         "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml"
     })
 ]
@@ -69,7 +66,7 @@ class TestLibraryProvider(unittest.TestCase):
         def check_list(list_a, list_b, list_name):
             for a in list_a:
                 try:
-                    b = next(x for x in list_b if x.origin["name"] == a.origin["name"])
+                    b = next(x for x in list_b if x.name == a.name)
                     for prop in dir(a):
                         if not prop.startswith("__") and prop != "id":
                             try:
@@ -80,7 +77,7 @@ class TestLibraryProvider(unittest.TestCase):
                                     False, "The attribute {0} was not found on the {1} list's object".format(prop, list_name))
                 except StopIteration:
                     self.assertTrue(False, "{0} was not found in the {1} list of libraries".format(
-                        a.origin["name"], list_name))
+                        a.name, list_name))
 
         check_list(libs, LIBRARIES, "original")
         check_list(LIBRARIES, libs, "disk's")

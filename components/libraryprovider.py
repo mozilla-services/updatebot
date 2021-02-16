@@ -81,36 +81,18 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
 
         validated_library.origin['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
+        validated_library.bugzilla['product'] = get_sub_key_or_raise('bugzilla', 'product', library, yaml_path)
+        validated_library.bugzilla['component'] = get_sub_key_or_raise('bugzilla', 'component', library, yaml_path)
 
         # Attempt to get the revision (not required by moz.yaml) if present
         if 'origin' in library and 'revision' in library['origin']:
             validated_library.origin['revision'] = library['origin']['revision']
 
-        # From here on we can use the library's name in the exception since we
-        # know it exists
-        if 'bugzilla' in library and 'product' in library['bugzilla']:
-            validated_library.bugzilla['product'] = library['bugzilla']['product']
-        else:
-            raise AttributeError('library {0} is missing bugzilla: product field'.format(library['origin']['name']))
-
-        if 'bugzilla' in library and 'component' in library['bugzilla']:
-            validated_library.bugzilla['component'] = library['bugzilla']['component']
-        else:
-            raise AttributeError('library {0} is missing bugzilla: component field'.format(library['origin']['name']))
-
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
         if 'updatebot' in library:
-            # These updatebot keys are required if the updatebot section exists
-            # in the moz.yaml file, so we report an error if they're missing
-            if 'maintainer-bz' in library['updatebot']:
-                validated_library.updatebot['maintainer-bz'] = library['updatebot']['maintainer-bz']
-            else:
-                raise AttributeError('library {0} is missing updatebot: maintainer-bz field'.format(library['origin']['name']))
-            if 'maintainer-phab' in library['updatebot']:
-                validated_library.updatebot['maintainer-phab'] = library['updatebot']['maintainer-phab']
-            else:
-                raise AttributeError('library {0} is missing updatebot: maintainer-phab field'.format(library['origin']['name']))
+            validated_library.updatebot['maintainer-bz'] = get_sub_key_or_raise('updatebot', 'maintainer-bz', library, yaml_path)
+            validated_library.updatebot['maintainer-phab'] = get_sub_key_or_raise('updatebot', 'maintainer-phab', library, yaml_path)
 
             if 'jobs' in library['updatebot']:
                 indx = 0

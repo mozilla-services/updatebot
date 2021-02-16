@@ -53,9 +53,7 @@ class TestDatabaeQueries(unittest.TestCase):
 
     def testJobs(self):
         library = Struct(**{
-            'origin': {
-                'name': 'test_library'
-            },
+            'name': 'test_library',
             'yaml_path': 'path/to/moz.yaml',
         })
         version = "test_new_version"
@@ -71,7 +69,7 @@ class TestDatabaeQueries(unittest.TestCase):
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
-            self.assertEqual(newJob.library_shortname, library.origin["name"])
+            self.assertEqual(newJob.library_shortname, library.name)
             self.assertEqual(newJob.version, version)
             self.assertEqual(newJob.status, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS)
             self.assertEqual(newJob.outcome, JOBOUTCOME.PENDING)

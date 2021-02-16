@@ -8,8 +8,8 @@ import sys
 sys.path.append(".")
 sys.path.append("..")
 
-from components.utilities import Struct
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
+from components.libraryprovider import LibraryProvider, Library
 
 
 class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
@@ -17,18 +17,18 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         pass
 
     def get_libraries(self, gecko_path):
-        return [Struct(**{
-            "bugzilla": {"product": "Core", "component": "Audio/Video: Playback"},
-            "origin": {
-                "name": "dav1d",
-            },
-            "updatebot": {
-                "enabled": True,
-                "maintainer-phab": "nobody",
-                "maintainer-bz": "nobody@mozilla.com"
-            },
+        return [Library({
+            "name": "dav1d",
+            "bugzilla_product": "Core",
+            "bugzilla_component": "Audio/Video: Playback",
+            "maintainer_phab": "nobody",
+            "maintainer_bz": "nobody@mozilla.com",
+            "revision": "None",
+            "tasks": [
+                LibraryProvider.validate_task({
+                    "type": "vendoring",
+                    "enabled": True
+                }, "n/a")
+            ],
             "yaml_path": "mozilla-central/source/media/libdav1d/moz.yaml"
         })]
-
-    def validate_library(self, library):
-        pass

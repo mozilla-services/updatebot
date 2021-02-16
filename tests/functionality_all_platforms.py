@@ -206,12 +206,12 @@ class TestFunctionality(SimpleLoggingTest):
         tc = unittest.TestCase()
 
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
-            if library_filter not in lib.origin["name"]:
+            if library_filter not in lib.name:
                 continue
             j = u.dbProvider.get_job(lib, expected_values.library_version_id)
 
             tc.assertNotEqual(j, None)
-            tc.assertEqual(lib.origin["name"], j.library_shortname)
+            tc.assertEqual(lib.name, j.library_shortname)
             tc.assertEqual(expected_values.library_version_id, j.version)
             tc.assertEqual(status, j.status, "Expected status %s, got status %s" % (status.name, j.status.name))
             tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))

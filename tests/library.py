@@ -75,7 +75,7 @@ class TestLibraryProvider(unittest.TestCase):
                                     False, "The attribute {0} was not found on the {1} list's object".format(prop, list_name))
                 except StopIteration:
                     self.assertTrue(False, "{0} was not found in the {1} list of libraries".format(
-                        a.origin.name, list_name))
+                        a.origin["name"], list_name))
 
         check_list(libs, LIBRARIES, "original")
         check_list(LIBRARIES, libs, "disk's")

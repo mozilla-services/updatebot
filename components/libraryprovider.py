@@ -45,16 +45,15 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         for file in mozilla_central_yamls:
             with open(file, "r") as mozyaml:
-                new_library = yaml.safe_load(mozyaml.read())
-                new_library['yaml_path'] = file.replace(gecko_path + "/", "")
-
                 # Only return libraries that have enabled jobs
-                new_library_obj = self.validate_library(new_library)
+                new_library_obj = self.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
                 if new_library_obj.updatebot['jobs']:
                     libraries.append(new_library_obj)
         return libraries
 
-    def validate_library(self, library):
+    def validate_library(self, yaml_contents, yaml_path):
+        library = yaml.safe_load(yaml_contents)
+
         validated_library = Struct(**{
             'bugzilla': {
                 'product': '',
@@ -73,16 +72,15 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         })
 
         # We assign this ourselves at import, so no need to check it
-        validated_library.yaml_path = library['yaml_path']
+        validated_library.yaml_path = yaml_path
 
-        # This isn't required by the moz.yaml schema, but we need it to do
-        # anything with the library, so we pretend like it is required
-        if 'origin' in library and 'name' in library['origin']:
-            validated_library.origin['name'] = library['origin']['name']
-        else:
-            # Clarify exception by name of file imported since we assign that
-            # ourselves at import
-            raise AttributeError('library imported from {0} is missing origin: name field'.format(library['yaml_path']))
+        def get_sub_key_or_raise(key, subkey, dict, yaml_path):
+            if key in dict and subkey in dict[key]:
+                return dict[key][subkey]
+            else:
+                raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
+
+        validated_library.origin['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
 
         # Attempt to get the revision (not required by moz.yaml) if present
         if 'origin' in library and 'revision' in library['origin']:
@@ -120,6 +118,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                     validated_job = {}
                     if 'type' not in j:
                         raise AttributeError('library {0}, job {1} is missing type field'.format(library['origin']['name'], indx))
+                    if j['type'] not in ['vendoring', 'commit-alert']:
+                        raise AttributeError('library {0}, job {1} has an invalid type field {2}'.format(library['origin']['name'], indx, j['type']))
                     validated_job['type'] = j['type']
 
                     validated_job['enabled'] = j['enabled'] if 'enabled' in j else False

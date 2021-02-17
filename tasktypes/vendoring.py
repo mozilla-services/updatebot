@@ -17,7 +17,9 @@ class VendorTaskRunner:
 
     # ====================================================================
 
-    def _process_library(self, library):
+    def process_task(self, library, task):
+        assert task.type == 'vendoring'
+
         new_version, timestamp = self.vendorProvider.check_for_update(library)
         if not new_version:
             self.logger.log("Processing %s but no new version was found." % library.name, level=LogLevel.Info)

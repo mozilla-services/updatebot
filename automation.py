@@ -27,6 +27,7 @@ DEFAULT_OBJECTS = {
     'Mercurial': MercurialProvider,
     'Taskcluster': TaskclusterProvider,
     'Phabricator': PhabricatorProvider,
+    'VendorJobRunner': VendorJobRunner
 }
 
 
@@ -78,7 +79,16 @@ class Updatebot:
         Step 6: Call update_config on them as well to populate their INeeds superclasses.
 
         We store all providers in a provider_dictionary so its easy to iterate over them,
-        but we also turn them into member variables for easier access (Step 7)
+        but we also turn them into member variables for easier access (Step 7).
+
+        Besides Providers, we also have JobRunners. JobRunners use Providers to run a
+        job. JobRunners do not talk to other JobRunners; and an instance of a JobRunner
+        is capable of running multiple different jobs (of a single type.)
+
+        Because we want to support the same mocking ability for JobRunners as Providers,
+        we support specifying jobrunners in the object_dictionary (Step 8); however, they
+        do not receive any configuration - there should be no state like that in a
+        JobRunner.
         """
         # Step 1
         self.provider_dictionary = {
@@ -114,8 +124,9 @@ class Updatebot:
             # And check the database
             self.dbProvider.check_database()
 
+            # Step 8
             self.jobRunners = {
-                'vendoring': VendorJobRunner(self.provider_dictionary, self.config_dictionary)
+                'vendoring': _getObjOr('VendorJobRunner')(self.provider_dictionary, self.config_dictionary)
             }
         except Exception as e:
             self.logger.log_exception(e)
@@ -151,6 +162,7 @@ class Updatebot:
                 if library_filter and library_filter not in lib.name:
                     self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (lib.name, library_filter), level=LogLevel.Info)
                     continue
+
                 for job in lib.jobs:
                     try:
                         jobRunner = self.jobRunners[job['type']]

@@ -27,6 +27,7 @@ DEFAULT_OBJECTS = {
     'Mercurial': MercurialProvider,
     'Taskcluster': TaskclusterProvider,
     'Phabricator': PhabricatorProvider,
+    'VendorTaskRunner': VendorTaskRunner
 }
 
 
@@ -78,7 +79,16 @@ class Updatebot:
         Step 6: Call update_config on them as well to populate their INeeds superclasses.
 
         We store all providers in a provider_dictionary so its easy to iterate over them,
-        but we also turn them into member variables for easier access (Step 7)
+        but we also turn them into member variables for easier access (Step 7).
+
+        Besides Providers, we also have TaskRunners. TaskRunners use Providers to run a
+        job. TaskRunners do not talk to other TaskRunners; and an instance of a TaskRunner
+        is capable of running multiple different jobs (of a single type.)
+
+        Because we want to support the same mocking ability for TaskRunners as Providers,
+        we support specifying TaskRunners in the object_dictionary (Step 8); however, they
+        do not receive any configuration - there should be no state like that in a
+        TaskRunner.
         """
         # Step 1
         self.provider_dictionary = {
@@ -114,8 +124,9 @@ class Updatebot:
             # And check the database
             self.dbProvider.check_database()
 
+            # Step 8
             self.taskRunners = {
-                'vendoring': VendorTaskRunner(self.provider_dictionary, self.config_dictionary)
+                'vendoring': _getObjOr('VendorTaskRunner')(self.provider_dictionary, self.config_dictionary)
             }
         except Exception as e:
             self.logger.log_exception(e)
@@ -151,10 +162,11 @@ class Updatebot:
                 if library_filter and library_filter not in lib.name:
                     self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (lib.name, library_filter), level=LogLevel.Info)
                     continue
+
                 for task in lib.tasks:
                     try:
-                        taskRunner = self.taskRunners[task['type']]
-                        taskRunner._process_library(lib)
+                        taskRunner = self.taskRunners[task.type]
+                        taskRunner.process_task(lib, task)
                     except Exception as e:
                         self.logger.log("Caught an exception while processing library %s task type %s" % (lib.name, task.type), level=LogLevel.Error)
                         self.logger.log_exception(e)

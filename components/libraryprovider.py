@@ -6,7 +6,6 @@
 
 import yaml
 
-from components.utilities import Struct
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
@@ -34,6 +33,60 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 # },
 # 'yaml_path': '/Users/nobody/mozilla-central/media/libdav1d/moz.yaml'
 
+class Library:
+    def __init__(self, dict):
+        self.name = dict['name']
+        self.bugzilla_product = dict['bugzilla_product']
+        self.bugzilla_component = dict['bugzilla_component']
+        self.revision = dict['revision']
+        self.maintainer_bz = dict['maintainer_bz']
+        self.maintainer_phab = dict['maintainer_phab']
+        self.yaml_path = dict['yaml_path']
+        self.tasks = []
+
+        for t in dict['tasks']:
+            self.tasks.append(Task(t))
+
+    def __eq__(self, other):
+        if not isinstance(other, Library):
+            return False
+
+        for prop in dir(self):
+            if not prop.startswith("__") and prop != "id":
+                try:
+                    if getattr(other, prop) != getattr(self, prop):
+                        return False
+                except AttributeError:
+                    return False
+
+        return True
+
+
+class Task:
+    def __init__(self, dict):
+        self.type = dict['type']
+        self.enabled = dict['enabled']
+        self.branch = dict['branch']
+        self.cc = dict['cc']
+
+        if self.type == 'commit-alert':
+            self.filter = dict['filter']
+            self.source_extensions = dict['source-extensions']
+
+    def __eq__(self, other):
+        if not isinstance(other, Task):
+            return False
+
+        for prop in dir(self):
+            if not prop.startswith("__") and prop != "id":
+                try:
+                    if getattr(other, prop) != getattr(self, prop):
+                        return False
+                except AttributeError:
+                    return False
+
+        return True
+
 
 class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
@@ -54,7 +107,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
     def validate_library(self, yaml_contents, yaml_path):
         library = yaml.safe_load(yaml_contents)
 
-        validated_library = Struct(**{
+        validated_library = {
             'name': '',
             'bugzilla_product': '',
             'bugzilla_component': '',
@@ -63,10 +116,17 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'maintainer_phab': '',
             'tasks': [],
             'yaml_path': ''
-        })
+        }
+
+        validated_task = {
+            'type':'',
+            'enabled':'',
+            'branch':'',
+            'cc':''
+        }
 
         # We assign this ourselves at import, so no need to check it
-        validated_library.yaml_path = yaml_path
+        validated_library['yaml_path'] = yaml_path
 
         def get_sub_key_or_raise(key, subkey, dict, yaml_path):
             if key in dict and subkey in dict[key]:
@@ -74,19 +134,21 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             else:
                 raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
 
-        validated_library.name = get_sub_key_or_raise('origin', 'name', library, yaml_path)
-        validated_library.bugzilla_product = get_sub_key_or_raise('bugzilla', 'product', library, yaml_path)
-        validated_library.bugzilla_component = get_sub_key_or_raise('bugzilla', 'component', library, yaml_path)
+        validated_library['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
+        validated_library['bugzilla_product'] = get_sub_key_or_raise('bugzilla', 'product', library, yaml_path)
+        validated_library['bugzilla_component'] = get_sub_key_or_raise('bugzilla', 'component', library, yaml_path)
 
         # Attempt to get the revision (not required by moz.yaml) if present
         if 'origin' in library and 'revision' in library['origin']:
-            validated_library.revision = library['origin']['revision']
+            validated_library['revision'] = library['origin']['revision']
+        else:
+            validated_library['revision'] = None
 
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
         if 'updatebot' in library:
-            validated_library.maintainer_bz = get_sub_key_or_raise('updatebot', 'maintainer-bz', library, yaml_path)
-            validated_library.maintainer_phab = get_sub_key_or_raise('updatebot', 'maintainer-phab', library, yaml_path)
+            validated_library['maintainer_bz'] = get_sub_key_or_raise('updatebot', 'maintainer-bz', library, yaml_path)
+            validated_library['maintainer_phab'] = get_sub_key_or_raise('updatebot', 'maintainer-phab', library, yaml_path)
 
             if 'tasks' in library['updatebot']:
                 indx = 0
@@ -102,21 +164,33 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
                     if 'branch' in j:
                         validated_task['branch'] = j['branch']
+                    else:
+                        validated_task['branch'] = None
+
                     if 'cc' in j:
                         validated_task['cc'] = j['cc']
+                    else:
+                        validated_task['cc'] = []
 
-                    if 'filter' in j:
-                        if j['type'] != 'commit-alert':
-                            raise AttributeError('library {0}, task {1} has an invalid value for filter when type != commit-alert'.format(library['origin']['name'], indx))
-                        validated_task['filter'] = j['filter']
+                    if j['type'] == 'commit-alert':
+                        if 'filter' in j:
+                            validated_task['filter'] = j['filter']
+                        else:
+                            validated_task['filter'] = 'none'
 
-                    if 'source-extensions' in j:
-                        if j['type'] != 'commit-alert':
-                            raise AttributeError('library {0}, task {1} has an invalid value for source-extensions when type != commit-alert'.format(library['origin']['name'], indx))
-                        validated_task['source-extensions'] = j['source-extensions']
+                        if 'source-extensions' in j:
+                            validated_task['source-extensions'] = j['source-extensions']
+                        else:
+                            validated_task['source-extensions'] = None
+
+                    else:
+                        if 'filter' in j:
+                            raise AttributeError('library {0}, task {1} has a value for filter when type != commit-alert'.format(library['origin']['name'], indx))
+                        if 'source-extensions' in j:
+                            raise AttributeError('library {0}, task {1} has a value for source-extensions when type != commit-alert'.format(library['origin']['name'], indx))
+
 
                     if validated_task['enabled']:
-                        validated_library.tasks.append(validated_task)
-                    indx += 1
+                        validated_library['tasks'].append(validated_task)
 
-        return validated_library
+        return Library(validated_library)

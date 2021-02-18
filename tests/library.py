@@ -10,13 +10,12 @@ import os
 
 sys.path.append(".")
 sys.path.append("..")
-from components.libraryprovider import LibraryProvider
+from components.libraryprovider import LibraryProvider, Library
 from tests.mock_commandprovider import TestCommandProvider
-from components.utilities import Struct
 from components.logging import SimpleLoggerConfig
 
 LIBRARIES = [
-    Struct(**{
+    Library({
         "name": "dav1d",
         "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e",
         "bugzilla_product": "Core",
@@ -27,6 +26,8 @@ LIBRARIES = [
                     {
                         'type': "vendoring",
                         'enabled': True,
+                        'branch': None,
+                        'cc': []
                     }
         ],
         "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml"
@@ -62,25 +63,7 @@ class TestLibraryProvider(unittest.TestCase):
 
     def testLibraryFindAndImport(self):
         libs = self.libraryprovider.get_libraries(os.getcwd())
-
-        def check_list(list_a, list_b, list_name):
-            for a in list_a:
-                try:
-                    b = next(x for x in list_b if x.name == a.name)
-                    for prop in dir(a):
-                        if not prop.startswith("__") and prop != "id":
-                            try:
-                                self.assertEqual(
-                                    getattr(b, prop), getattr(a, prop))
-                            except AttributeError:
-                                self.assertTrue(
-                                    False, "The attribute {0} was not found on the {1} list's object".format(prop, list_name))
-                except StopIteration:
-                    self.assertTrue(False, "{0} was not found in the {1} list of libraries".format(
-                        a.name, list_name))
-
-        check_list(libs, LIBRARIES, "original")
-        check_list(LIBRARIES, libs, "disk's")
+        self.assertEqual(libs, LIBRARIES)
 
     def testLibraryExceptions(self):
         test_vectors = [

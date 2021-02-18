@@ -29,17 +29,17 @@ class VendorTaskRunner:
         existing_job = self.dbProvider.get_job(library, new_version)
         if existing_job:
             self.logger.log("%s has an existing job with %s try revisions (%s) and status %s" % (new_version, len(existing_job.try_runs), existing_job.get_try_run_ids(), existing_job.status), level=LogLevel.Info)
-            self._process_existing_job(library, existing_job)
+            self._process_existing_job(library, task, existing_job)
         else:
             self.logger.log("%s is a brand new revision to updatebot." % (new_version), level=LogLevel.Info)
-            self._process_new_job(library, new_version, timestamp)
+            self._process_new_job(library, task, new_version, timestamp)
 
         # TODO #119: We need to remove any commits we made so the repo is clean for the next library.
 
     # ====================================================================
 
     @logEntryExit
-    def _process_new_job(self, library, new_version, timestamp):
+    def _process_new_job(self, library, task, new_version, timestamp):
         see_also = []
 
         # First, we need to see if there was a previously active job for this library.
@@ -83,7 +83,7 @@ class VendorTaskRunner:
     # ====================================================================
 
     @logEntryExit
-    def _process_existing_job(self, library, existing_job):
+    def _process_existing_job(self, library, task, existing_job):
         """
         AWAITING_INITIAL_PLATFORM_TRY_RESULTS
           If we see still-running jobs, keep state as-is, and finish.
@@ -113,7 +113,7 @@ class VendorTaskRunner:
             if len(existing_job.try_runs) != 1:
                 self.logger.log("State is AWAITING_INITIAL_PLATFORM_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
-            self._process_job_details_for_awaiting_initial_platform_results(library, existing_job)
+            self._process_job_details_for_awaiting_initial_platform_results(library, task, existing_job)
         elif existing_job.status == JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS:
             if not self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
                 self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
@@ -121,7 +121,7 @@ class VendorTaskRunner:
             elif self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
                 self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
-            self._process_job_details_for_awaiting_second_platform_results(library, existing_job)
+            self._process_job_details_for_awaiting_second_platform_results(library, task, existing_job)
         elif existing_job.status == JOBSTATUS.AWAITING_RETRIGGER_RESULTS:
             if not self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
                 self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
@@ -129,7 +129,7 @@ class VendorTaskRunner:
             elif self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
                 self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
-            self._process_job_details_for_awaiting_retrigger_results(library, existing_job)
+            self._process_job_details_for_awaiting_retrigger_results(library, task, existing_job)
         else:
             raise Exception("In _process_job_details for job with try revisions %s got a status %s I don't know how to handle." % (existing_job.get_try_run_ids(), existing_job.status))
 
@@ -211,7 +211,7 @@ class VendorTaskRunner:
     # ==================================
 
     @logEntryExitNoArgs
-    def _process_job_details_for_awaiting_initial_platform_results(self, library, existing_job):
+    def _process_job_details_for_awaiting_initial_platform_results(self, library, task, existing_job):
         try_revision_1 = existing_job.try_runs[0].revision
         self.logger.log("Handling try revision %s in Awaiting Initial Platform Results" % try_revision_1)
 
@@ -233,7 +233,7 @@ class VendorTaskRunner:
     # ==================================
 
     @logEntryExitNoArgs
-    def _process_job_details_for_awaiting_second_platform_results(self, library, existing_job):
+    def _process_job_details_for_awaiting_second_platform_results(self, library, task, existing_job):
         try_run_index = 1 if self.config_dictionary['General']['separate-platforms'] else 0
         try_revision = existing_job.try_runs[try_run_index].revision
         self.logger.log("Handling try revision number %i (%s) in Awaiting Second Platform Results" % (try_run_index + 1, try_revision), level=LogLevel.Info)
@@ -257,7 +257,7 @@ class VendorTaskRunner:
         # We don't need to retrigger jobs, but we do have unclassified failures:
         if results['to_investigate'] and comment_lines:
             # This updates the job status to DONE, so return immediately after
-            self._process_unclassified_failures(library, existing_job, comment_lines)
+            self._process_unclassified_failures(library, task, existing_job, comment_lines)
             return
 
         # We don't need to retrigger and we don't have unclassified failures but we do have failures
@@ -285,18 +285,18 @@ class VendorTaskRunner:
     # ==================================
 
     @logEntryExitNoArgs
-    def _process_job_details_for_awaiting_retrigger_results(self, library, existing_job):
+    def _process_job_details_for_awaiting_retrigger_results(self, library, task, existing_job):
         self.logger.log("Handling try runs in Awaiting Retrigger Results")
 
         # Get the push health and a comment string we will use in the bug
         success, results, comment_lines = self._get_comments_on_push(library, existing_job)
         if success:
-            self._process_unclassified_failures(library, existing_job, comment_lines)
+            self._process_unclassified_failures(library, task, existing_job, comment_lines)
 
     # ==================================
 
     @logEntryExitNoArgs
-    def _process_unclassified_failures(self, library, existing_job, comment_bullets):
+    def _process_unclassified_failures(self, library, task, existing_job, comment_bullets):
         comment = "The try push is done, we found jobs with unclassified failures.\n"
         self.logger.log(comment.strip(), level=LogLevel.Info)
 

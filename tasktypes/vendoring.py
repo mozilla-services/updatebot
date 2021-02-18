@@ -57,7 +57,7 @@ class VendorTaskRunner:
             see_also.append(active_job.bugzilla_id)
 
         # Now we can process the new job
-        bugzilla_id = self.bugzillaProvider.file_bug(library, new_version, timestamp, see_also)
+        bugzilla_id = self.bugzillaProvider.file_bug(library, new_version, timestamp, task.cc, see_also)
 
         try_run_type = 'initial platform' if self.config_dictionary['General']['separate-platforms'] else 'all platforms'
 

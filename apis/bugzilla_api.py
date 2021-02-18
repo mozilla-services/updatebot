@@ -16,7 +16,7 @@ def kw(s):
     return sq('3pl-' + s)
 
 
-def fileBug(url, apikey, product, component, summary, description, severity, see_also):
+def fileBug(url, apikey, product, component, summary, description, severity, cc_list, see_also):
     data = {
         'version': "unspecified",
         'op_sys': "unspecified",
@@ -28,7 +28,7 @@ def fileBug(url, apikey, product, component, summary, description, severity, see
         'summary': summary,
         'description': description,
         'whiteboard': kw('filed'),
-        'cc': ['tom@mozilla.com']
+        'cc': ['tom@mozilla.com'] + cc_list
     }
     if see_also:
         data['see_also'] = see_also

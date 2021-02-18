@@ -88,6 +88,17 @@ class Task:
         return True
 
 
+def get_sub_key_or_raise(key, subkey, dict, yaml_path):
+    if key in dict and subkey in dict[key]:
+        return dict[key][subkey]
+    else:
+        raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
+
+
+def get_key_or_default(key, dict, default):
+    return dict[key] if key in dict else default
+
+
 class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
@@ -120,20 +131,14 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         }
 
         validated_task = {
-            'type':'',
-            'enabled':'',
-            'branch':'',
-            'cc':''
+            'type': '',
+            'enabled': '',
+            'branch': '',
+            'cc': ''
         }
 
         # We assign this ourselves at import, so no need to check it
         validated_library['yaml_path'] = yaml_path
-
-        def get_sub_key_or_raise(key, subkey, dict, yaml_path):
-            if key in dict and subkey in dict[key]:
-                return dict[key][subkey]
-            else:
-                raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
 
         validated_library['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
         validated_library['bugzilla_product'] = get_sub_key_or_raise('bugzilla', 'product', library, yaml_path)
@@ -163,6 +168,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
     @staticmethod
     def validate_task(task_dict, library_name):
         validated_task = {}
+
         if 'type' not in task_dict:
             raise AttributeError('library {0} task is missing type field'.format(library_name))
         if task_dict['type'] not in ['vendoring', 'commit-alert']:
@@ -170,29 +176,13 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         validated_task['type'] = task_dict['type']
 
-        validated_task['enabled'] = task_dict['enabled'] if 'enabled' in task_dict else False
-
-        if 'branch' in task_dict:
-            validated_task['branch'] = task_dict['branch']
-        else:
-            validated_task['branch'] = None
-
-        if 'cc' in task_dict:
-            validated_task['cc'] = task_dict['cc']
-        else:
-            validated_task['cc'] = []
+        validated_task['enabled'] = get_key_or_default('enabled', task_dict, False)
+        validated_task['branch'] = get_key_or_default('branch', task_dict, None)
+        validated_task['cc'] = get_key_or_default('cc', task_dict, [])
 
         if task_dict['type'] == 'commit-alert':
-            if 'filter' in task_dict:
-                validated_task['filter'] = task_dict['filter']
-            else:
-                validated_task['filter'] = 'none'
-
-            if 'source-extensions' in task_dict:
-                validated_task['source-extensions'] = task_dict['source-extensions']
-            else:
-                validated_task['source-extensions'] = None
-
+            validated_task['filter'] = get_key_or_default('filter', task_dict, 'none')
+            validated_task['source-extensions'] = get_key_or_default('source-extensions', task_dict, None)
         else:
             if 'filter' in task_dict:
                 raise AttributeError('library {0} task has a value for filter when type != commit-alert'.format(library_name))

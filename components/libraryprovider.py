@@ -99,12 +99,13 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         for file in mozilla_central_yamls:
             with open(file, "r") as mozyaml:
                 # Only return libraries that have enabled tasks
-                new_library_obj = self.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
+                new_library_obj = LibraryProvider.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
                 if new_library_obj.tasks:
                     libraries.append(new_library_obj)
         return libraries
 
-    def validate_library(self, yaml_contents, yaml_path):
+    @staticmethod
+    def validate_library(yaml_contents, yaml_path):
         library = yaml.safe_load(yaml_contents)
 
         validated_library = {
@@ -151,46 +152,51 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             validated_library['maintainer_phab'] = get_sub_key_or_raise('updatebot', 'maintainer-phab', library, yaml_path)
 
             if 'tasks' in library['updatebot']:
-                indx = 0
-                for j in library['updatebot']['tasks']:
-                    validated_task = {}
-                    if 'type' not in j:
-                        raise AttributeError('library {0}, task {1} is missing type field'.format(library['origin']['name'], indx))
-                    if j['type'] not in ['vendoring', 'commit-alert']:
-                        raise AttributeError('library {0}, task {1} has an invalid type field {2}'.format(library['origin']['name'], indx, j['type']))
-                    validated_task['type'] = j['type']
-
-                    validated_task['enabled'] = j['enabled'] if 'enabled' in j else False
-
-                    if 'branch' in j:
-                        validated_task['branch'] = j['branch']
-                    else:
-                        validated_task['branch'] = None
-
-                    if 'cc' in j:
-                        validated_task['cc'] = j['cc']
-                    else:
-                        validated_task['cc'] = []
-
-                    if j['type'] == 'commit-alert':
-                        if 'filter' in j:
-                            validated_task['filter'] = j['filter']
-                        else:
-                            validated_task['filter'] = 'none'
-
-                        if 'source-extensions' in j:
-                            validated_task['source-extensions'] = j['source-extensions']
-                        else:
-                            validated_task['source-extensions'] = None
-
-                    else:
-                        if 'filter' in j:
-                            raise AttributeError('library {0}, task {1} has a value for filter when type != commit-alert'.format(library['origin']['name'], indx))
-                        if 'source-extensions' in j:
-                            raise AttributeError('library {0}, task {1} has a value for source-extensions when type != commit-alert'.format(library['origin']['name'], indx))
-
+                for t in library['updatebot']['tasks']:
+                    validated_task = LibraryProvider.validate_task(t, library['origin']['name'])
 
                     if validated_task['enabled']:
                         validated_library['tasks'].append(validated_task)
 
         return Library(validated_library)
+
+    @staticmethod
+    def validate_task(task_dict, library_name):
+        validated_task = {}
+        if 'type' not in task_dict:
+            raise AttributeError('library {0} task is missing type field'.format(library_name))
+        if task_dict['type'] not in ['vendoring', 'commit-alert']:
+            raise AttributeError('library {0} task has an invalid type field {1}'.format(library_name, task_dict['type']))
+
+        validated_task['type'] = task_dict['type']
+
+        validated_task['enabled'] = task_dict['enabled'] if 'enabled' in task_dict else False
+
+        if 'branch' in task_dict:
+            validated_task['branch'] = task_dict['branch']
+        else:
+            validated_task['branch'] = None
+
+        if 'cc' in task_dict:
+            validated_task['cc'] = task_dict['cc']
+        else:
+            validated_task['cc'] = []
+
+        if task_dict['type'] == 'commit-alert':
+            if 'filter' in task_dict:
+                validated_task['filter'] = task_dict['filter']
+            else:
+                validated_task['filter'] = 'none'
+
+            if 'source-extensions' in task_dict:
+                validated_task['source-extensions'] = task_dict['source-extensions']
+            else:
+                validated_task['source-extensions'] = None
+
+        else:
+            if 'filter' in task_dict:
+                raise AttributeError('library {0} task has a value for filter when type != commit-alert'.format(library_name))
+            if 'source-extensions' in task_dict:
+                raise AttributeError('library {0} task has a value for source-extensions when type != commit-alert'.format(library_name))
+
+        return validated_task

@@ -92,7 +92,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
                 assert ('url' in self.config) or (self.config['General']['env'] in ["dev", "prod"]), "No bugzilla url provided, and unknown operating environment"
 
     @logEntryExit
-    def file_bug(self, library, new_release_version, release_timestamp, cc_list, see_also=None):
+    def file_bug(self, library, new_release_version, release_timestamp, description, cc_list, see_also=None):
         try:
             release_timestamp = parse(release_timestamp).strftime('%Y-%m-%d %H:%M:%S')
         except ValueError:
@@ -100,7 +100,6 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
         summary = "Update %s to new version %s from %s" % (
             library.name, new_release_version, release_timestamp)
-        description = ""
         severity = "normal" if self.config['General']['env'] == "dev" else "S3"
 
         bugID = fileBug(self.config['url'], self.config['apikey'],

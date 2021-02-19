@@ -50,7 +50,7 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def delete_job(self, library=None, version=None, job_id=None):
         return self.db.delete_job(library=library, version=version, job_id=job_id)
 
-    def create_job(self, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run=None):
+    def create_job(self, library, new_version, try_run_type, status, outcome, bug_id, phab_revision=None, try_run=None):
         return self.db.create_job(library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run)
 
     def update_job_status(self, existing_job):

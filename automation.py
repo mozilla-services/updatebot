@@ -17,6 +17,7 @@ from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 from tasktypes.vendoring import VendorTaskRunner
+from tasktypes.commitalert import CommitAlertTaskRunner
 
 DEFAULT_OBJECTS = {
     'Command': CommandProvider,
@@ -29,7 +30,8 @@ DEFAULT_OBJECTS = {
     'Taskcluster': TaskclusterProvider,
     'Phabricator': PhabricatorProvider,
     'SCM': SCMProvider,
-    'VendorTaskRunner': VendorTaskRunner
+    'VendorTaskRunner': VendorTaskRunner,
+    'CommitAlertTaskRunner': CommitAlertTaskRunner
 }
 
 
@@ -129,7 +131,8 @@ class Updatebot:
 
             # Step 8
             self.taskRunners = {
-                'vendoring': _getObjOr('VendorTaskRunner')(self.provider_dictionary, self.config_dictionary)
+                'vendoring': _getObjOr('VendorTaskRunner')(self.provider_dictionary, self.config_dictionary),
+                'commit-alert': _getObjOr('CommitAlertTaskRunner')(self.provider_dictionary, self.config_dictionary)
             }
         except Exception as e:
             self.logger.log_exception(e)

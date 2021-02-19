@@ -8,7 +8,7 @@ from components.utilities import Struct
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
-from components.dbmodels import TryRun, transform_job_and_try_results_into_objects, JOBSTATUS, JOBOUTCOME
+from components.dbmodels import TryRun, transform_job_and_try_results_into_objects, JOBSTATUS, JOBOUTCOME, JOBTYPE
 
 import pymysql
 
@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 6
+CURRENT_DATABASE_CONFIG_VERSION = 7
 
 CREATION_QUERIES = {
     "config": """
@@ -40,9 +40,17 @@ CREATION_QUERIES = {
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,
+    "job_types": """
+      CREATE TABLE `job_types` (
+        `id` TINYINT NOT NULL,
+        `name` VARCHAR(255) NOT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE = InnoDB;
+      """,
     "jobs": """
       CREATE TABLE `jobs` (
         `id` INT NOT NULL AUTO_INCREMENT,
+        `job_type` TINYINT NOT NULL,
         `library` VARCHAR(255) NOT NULL,
         `version` VARCHAR(64) NOT NULL ,
         `status` TINYINT NOT NULL,
@@ -70,6 +78,8 @@ ALTER_QUERIES = {
         "ALTER TABLE jobs ADD CONSTRAINT fk_job_outcome FOREIGN KEY (outcome) REFERENCES outcome_types(id)",
     'jobs|fk_job_status':
         "ALTER TABLE jobs ADD CONSTRAINT fk_job_status FOREIGN KEY (status) REFERENCES status_types(id)",
+    'jobs|fk_job_type':
+        "ALTER TABLE jobs ADD CONSTRAINT fk_job_type FOREIGN KEY (job_type) REFERENCES job_types(id)",
     'try_runs|fk_tryrun_job':
         "ALTER TABLE try_runs ADD CONSTRAINT fk_tryrun_job FOREIGN KEY (job_id) REFERENCES jobs(id)",
 }
@@ -99,6 +109,14 @@ for p in dir(JOBOUTCOME):
             Struct(**{
                 'query': "INSERT INTO `outcome_types` (`id`, `name`) VALUES (%s, %s)",
                 'args': (getattr(JOBOUTCOME, p), p)
+            }))
+
+for p in dir(JOBTYPE):
+    if p[0] != '_':
+        INSERTION_QUERIES.append(
+            Struct(**{
+                'query': "INSERT INTO `job_types` (`id`, `name`) VALUES (%s, %s)",
+                'args': (getattr(JOBTYPE, p), p)
             }))
 # ==================================================================================
 
@@ -242,6 +260,24 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                         self._query_execute("ALTER TABLE jobs DROP try_revision")
 
+                    elif config_version == 6 and CURRENT_DATABASE_CONFIG_VERSION == 7:
+                        for table_name in CREATION_QUERIES:
+                            if table_name == 'job_types':
+                                self._query_execute(CREATION_QUERIES[table_name])
+
+                        for q in INSERTION_QUERIES:
+                            if 'job_types' in q.query:
+                                self._query_execute(q.query, q.args)
+
+                        # Add the column with no default (making the default zero)
+                        self._query_execute("ALTER TABLE `jobs` ADD COLUMN `job_type` TINYINT NOT NULL AFTER `id`")
+                        # Then alter the table to set the existing value for all jobs to 1
+                        self._query_execute("UPDATE `jobs` set job_type = 1")
+
+                        for query_name in ALTER_QUERIES:
+                            if "fk_job_type" in query_name:
+                                self._query_execute(ALTER_QUERIES[query_name])
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -353,9 +389,9 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return jobs[0] if jobs else None
 
     @logEntryExit
-    def create_job(self, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run):
-        query = "INSERT INTO jobs(library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s)"
-        args = (library.name, new_version, status, outcome, bug_id, phab_revision)
+    def create_job(self, jobtype, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run):
+        query = "INSERT INTO jobs(job_type, library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s, %s)"
+        args = (jobtype, library.name, new_version, status, outcome, bug_id, phab_revision)
         job_id = self._query_execute(query, args)
 
         if try_run:

@@ -16,22 +16,6 @@ import pymysql
 # ==================================================================================
 
 
-class HardcodedDatabase:
-    def __init__(self, database_config):
-        pass
-
-    def check_database(self):
-        return 1
-
-    def have_job(self, library, new_version):
-        return False
-
-    def create_job(self, library, new_version, bug_id, try_run):
-        pass
-
-# ==================================================================================
-
-
 CURRENT_DATABASE_CONFIG_VERSION = 6
 
 CREATION_QUERIES = {

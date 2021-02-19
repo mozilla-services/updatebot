@@ -13,6 +13,7 @@ from components.libraryprovider import LibraryProvider
 from components.mach_vendor import VendorProvider
 from components.bugzilla import BugzillaProvider
 from components.hg import MercurialProvider
+from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 from tasktypes.vendoring import VendorTaskRunner
@@ -27,6 +28,7 @@ DEFAULT_OBJECTS = {
     'Mercurial': MercurialProvider,
     'Taskcluster': TaskclusterProvider,
     'Phabricator': PhabricatorProvider,
+    'SCM': SCMProvider,
     'VendorTaskRunner': VendorTaskRunner
 }
 
@@ -116,6 +118,7 @@ class Updatebot:
                 'mercurialProvider': getOr('Mercurial'),
                 'taskclusterProvider': getOr('Taskcluster'),
                 'phabricatorProvider': getOr('Phabricator'),
+                'scmProvider': getOr('SCM'),
             })
             # Step 6
             self.runOnProviders(lambda x: x.update_config(additional_config))

@@ -38,6 +38,16 @@ class JOBOUTCOME(IntEnum):
         return str(self.value)
 
 
+@unique
+class JOBTYPE(IntEnum):
+    VENDORING = 1
+    COMMITALERT = 2
+
+    # See above
+    def translate(self, _escape_table):
+        return str(self.value)
+
+
 def transform_job_and_try_results_into_objects(rows):
     """
     In this function we are given an array of rows where the try runs
@@ -64,6 +74,7 @@ class Job:
     def __init__(self, row=None):
         if row:
             self.id = row['id']
+            self.type = JOBTYPE(row['job_type'])
             self.library_shortname = row['library']
             self.version = row['version']
             self.status = JOBSTATUS(row['status'])

@@ -8,3 +8,6 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
+
+    def check_for_update(self, library):
+        return None

@@ -107,7 +107,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
-        self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00', ['additional@example.com'])
+        self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00', "", ['additional@example.com'])
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(

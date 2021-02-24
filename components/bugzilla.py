@@ -92,7 +92,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
                 assert ('url' in self.config) or (self.config['General']['env'] in ["dev", "prod"]), "No bugzilla url provided, and unknown operating environment"
 
     @logEntryExit
-    def file_bug(self, library, new_release_version, release_timestamp, description, cc_list, see_also=None):
+    def file_bug(self, library, new_release_version, release_timestamp, description, cc_list, see_also=None, depends_on=None):
         try:
             release_timestamp = parse(release_timestamp).strftime('%Y-%m-%d %H:%M:%S')
         except ValueError:
@@ -104,7 +104,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
         bugID = fileBug(self.config['url'], self.config['apikey'],
                         library.bugzilla_product, library.bugzilla_component,
-                        summary, description, severity, cc_list, see_also)
+                        summary, description, severity, cc_list, see_also, depends_on)
         self.logger.log("Filed Bug with ID", bugID, level=LogLevel.Info)
         return bugID
 

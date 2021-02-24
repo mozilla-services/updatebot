@@ -16,7 +16,7 @@ def kw(s):
     return sq('3pl-' + s)
 
 
-def fileBug(url, apikey, product, component, summary, description, severity, cc_list, see_also):
+def fileBug(url, apikey, product, component, summary, description, severity, cc_list, see_also, depends_on):
     data = {
         'version': "unspecified",
         'op_sys': "unspecified",
@@ -32,6 +32,8 @@ def fileBug(url, apikey, product, component, summary, description, severity, cc_
     }
     if see_also:
         data['see_also'] = see_also
+    if depends_on:
+        data['depends_on'] = depends_on
 
     r = requests.post(url + "bug?api_key=" + apikey, json=data)
 

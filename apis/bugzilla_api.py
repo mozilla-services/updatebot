@@ -16,7 +16,7 @@ def kw(s):
     return sq('3pl-' + s)
 
 
-def fileBug(url, apikey, product, component, summary, description, severity, cc_list, see_also, depends_on):
+def fileBug(url, apikey, product, component, summary, description, severity, cc_list, see_also, depends_on, moco_confidential):
     data = {
         'version': "unspecified",
         'op_sys': "unspecified",
@@ -34,6 +34,8 @@ def fileBug(url, apikey, product, component, summary, description, severity, cc_
         data['see_also'] = see_also
     if depends_on:
         data['depends_on'] = depends_on
+    if moco_confidential:
+        data['groups'] = ['mozilla-employee-confidential']
 
     r = requests.post(url + "bug?api_key=" + apikey, json=data)
 

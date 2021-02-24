@@ -44,7 +44,8 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'whiteboard': '[3pl-filed]',
                 'cc': ['tom@mozilla.com', 'additional@example.com'],
                 'depends_on': 110,
-                'see_also': 210
+                'see_also': 210,
+                'groups': ['mozilla-employee-confidential']
             }
             for k in expectedContent:
                 assert k in content
@@ -109,7 +110,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
-        self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00', "", ['additional@example.com'], 210, 110)
+        self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00', "", ['additional@example.com'], 210, 110, moco_confidential=True)
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(

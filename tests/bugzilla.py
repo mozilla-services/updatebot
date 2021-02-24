@@ -42,7 +42,9 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'summary': 'Update dav1d to new version V1 from 2020-08-21 15:13:49',
                 'description': '',
                 'whiteboard': '[3pl-filed]',
-                'cc': ['tom@mozilla.com', 'additional@example.com']
+                'cc': ['tom@mozilla.com', 'additional@example.com'],
+                'depends_on': 110,
+                'see_also': 210
             }
             for k in expectedContent:
                 assert k in content
@@ -107,7 +109,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
-        self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00', "", ['additional@example.com'])
+        self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00', "", ['additional@example.com'], 210, 110)
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(

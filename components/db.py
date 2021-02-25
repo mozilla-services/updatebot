@@ -349,7 +349,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     def get_all_jobs(self):
         query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
-                   INNER JOIN try_runs as t
+                   LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    ORDER BY j.id ASC"""
         results = self._query_get_rows(query)
@@ -362,15 +362,14 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return [TryRun(r) for r in results]
 
     @logEntryExit
-    def get_all_active_jobs_for_library(self, library):
+    def get_all_jobs_for_library(self, library):
         query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
-                   INNER JOIN try_runs as t
+                   LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
-                     AND j.status<>%s
                    ORDER BY j.id ASC"""
-        args = (library.name, JOBSTATUS.DONE)
+        args = (library.name)
         results = self._query_get_rows(query, args)
         return transform_job_and_try_results_into_objects(results)
 
@@ -378,7 +377,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     def get_job(self, library, new_version):
         query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
-                   INNER JOIN try_runs as t
+                   LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
                      AND j.version = %s

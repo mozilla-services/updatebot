@@ -5,12 +5,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.db import MySQLDatabase
+from components.dbmodels import JOBSTATUS
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
 
 
 class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, database_config):
+        self.config = database_config
         self.db = MySQLDatabase(database_config)
 
     def _update_config(self, config):
@@ -41,21 +43,22 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         return self.db.get_all_try_runs()
 
     def get_all_jobs_for_library(self, library):
-        return self.db.get_all_jobs_for_library(library)
+        all_jobs = self.db.get_all_jobs_for_library(library)
+        return [j for j in all_jobs if j.ff_version == self.config['General']['ff-version']]
 
     def get_all_active_jobs_for_library(self, library):
         all_jobs = self.db.get_all_jobs_for_library(library)
         return [j for j in all_jobs if j.status != JOBSTATUS.DONE]
 
     def get_job(self, library, new_version):
-        return self.db.get_job(library, new_version)
+        return self.db.get_job(library, new_version, self.config['General']['ff-version'])
 
     # Only used for testing purposes, in the real database, we don't delete records.
     def delete_job(self, library=None, version=None, job_id=None):
-        return self.db.delete_job(library=library, version=version, job_id=job_id)
+        return self.db.delete_job(library=library, version=version, job_id=job_id, ff_version=self.config['General']['ff-version'])
 
-    def create_job(self, jobtype, ff_version, library, new_version, try_run_type, status, outcome, bug_id, phab_revision=None, try_run=None):
-        return self.db.create_job(jobtype, ff_version, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run)
+    def create_job(self, jobtype, library, new_version, try_run_type, status, outcome, bug_id, phab_revision=None, try_run=None):
+        return self.db.create_job(jobtype, self.config['General']['ff-version'], library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run)
 
     def update_job_status(self, existing_job):
         return self.db.update_job_status(existing_job)
@@ -112,7 +115,7 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         print_objects("STATUSES", self.get_all_statuses(), status_columns)
         print_objects("OUTCOMES", self.get_all_outcomes(), status_columns)
 
-        job_columns = ['id', 'library_shortname', 'version',
+        job_columns = ['id', 'type', 'ff_version', 'created', 'library_shortname', 'version',
                        'status', 'outcome', 'bugzilla_id', 'phab_revision']
         print_objects("JOBS", self.get_all_jobs(), job_columns)
 

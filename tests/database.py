@@ -46,6 +46,9 @@ class TestDatabaeQueries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
+        # Replicate the ['General'] assignment that occurs in automation.py
+        db_config['General'] = localconfig['General']
+        db_config['General']['ff-version'] = 88
 
         cls.db = DatabaseProvider(db_config)
         cls.db.update_config(SimpleLoggerConfig)
@@ -64,13 +67,13 @@ class TestDatabaeQueries(unittest.TestCase):
         try:
             self.assertEqual(None, self.db.get_job(library, version))
 
-            self.db.create_job(JOBTYPE.VENDORING, 78, library, version, 'db test',
+            self.db.create_job(JOBTYPE.VENDORING, library, version, 'db test',
                                JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugid, phab_revision, try_link)
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
             self.assertEqual(newJob.type, JOBTYPE.VENDORING)
-            self.assertEqual(newJob.ff_version, 78)
+            self.assertEqual(newJob.ff_version, 88)
             self.assertEqual(newJob.library_shortname, library.name)
             self.assertEqual(newJob.version, version)
             self.assertEqual(newJob.status, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS)

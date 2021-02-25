@@ -65,7 +65,7 @@ class VendorTaskRunner:
             self.vendorProvider.vendor(library)
         except Exception:
             # Handle `./mach vendor` failing
-            self.dbProvider.create_job(JOBTYPE.VENDORING, self.config_dictionary['General']['ff-version'], library, new_version, try_run_type, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
+            self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, try_run_type, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
             self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(""))  # TODO, put error message
             return
 
@@ -77,7 +77,7 @@ class VendorTaskRunner:
 
         self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
         phab_revision = self.phabricatorProvider.submit_patch()
-        self.dbProvider.create_job(JOBTYPE.VENDORING, self.config_dictionary['General']['ff-version'], library, new_version, try_run_type, next_status, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision)
+        self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, try_run_type, next_status, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision)
 
     # ====================================================================
     # ====================================================================

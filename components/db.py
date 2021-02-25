@@ -382,15 +382,16 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return transform_job_and_try_results_into_objects(results)
 
     @logEntryExit
-    def get_job(self, library, new_version):
+    def get_job(self, library, new_version, ff_version):
         query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
                      AND j.version = %s
+                     AND j.ff_version = %s
                    ORDER BY j.id ASC"""
-        args = (library.name, new_version)
+        args = (library.name, new_version, ff_version)
         results = self._query_get_rows(query, args)
         jobs = transform_job_and_try_results_into_objects(results)
         return jobs[0] if jobs else None
@@ -420,16 +421,18 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
-    def delete_job(self, library=None, version=None, job_id=None):
+    def delete_job(self, library=None, version=None, job_id=None, ff_version=None):
         assert job_id or (library and version), "You must provide a way to delete a job"
+        assert ff_version, "You must provide a ff_version to delete a job"
 
         if job_id:
+            # Technically ff_version is redundant here, but we'll use it anyway
             query = "DELETE FROM try_runs WHERE job_id = %s"
             args = (job_id)
             self._query_execute(query, args)
 
-            query = "DELETE FROM jobs WHERE id = %s"
-            args = (job_id)
+            query = "DELETE FROM jobs WHERE id = %s AND ff_version = %s"
+            args = (job_id, ff_version)
             self._query_execute(query, args)
         else:
             query = """DELETE t.*
@@ -437,10 +440,11 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        INNER JOIN jobs as j
                           ON j.id = t.job_id
                        WHERE j.library = %s
-                         AND j.version = %s"""
-            args = (library.name, version)
+                         AND j.version = %s
+                         AND j.ff_version = %s"""
+            args = (library.name, version, ff_version)
             self._query_execute(query, args)
 
-            query = "DELETE FROM jobs WHERE library = %s AND version = %s"
-            args = (library.name, version)
+            query = "DELETE FROM jobs WHERE library = %s AND version = %s and ff_version = %s"
+            args = (library.name, version, ff_version)
             self._query_execute(query, args)

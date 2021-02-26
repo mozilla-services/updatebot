@@ -18,12 +18,13 @@ from automation import Updatebot
 
 from components.utilities import Struct, NeverUseMeClass
 from components.providerbase import BaseProvider
-from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExit
+from components.logging import SimpleLogger, SimpleLoggingTest, LoggingProvider, log, logEntryExit
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBTYPE, JOBSTATUS, JOBOUTCOME
 from components.scmprovider import SCMProvider
+from components.commandprovider import CommandProvider
 
-from tests.mock_commandprovider import TestCommandProvider
+from tests.mock_commandprovider import TestCommandProvider, DO_EXECUTE
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServer
 from tests.database import transform_db_config_to_tmp_db
@@ -45,6 +46,7 @@ def DEFAULT_EXPECTED_VALUES(commithash):
 
 def COMMAND_MAPPINGS(expected_values):
     return {
+        "git": DO_EXECUTE
     }
 
 
@@ -74,6 +76,11 @@ class TestFunctionality(SimpleLoggingTest):
 
     @staticmethod
     def _setup(try_revision, library_filter):
+        real_command_runner = CommandProvider({})
+        real_command_runner.update_config({
+            'LoggingProvider': SimpleLogger(localconfig['Logging'])
+        })
+
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         configs = {
             'General': {
@@ -81,7 +88,10 @@ class TestFunctionality(SimpleLoggingTest):
                 'gecko-path': '.',
                 'ff-version': None
             },
-            'Command': {'test_mappings': None},
+            'Command': {
+                'test_mappings': None,
+                'real_runner': real_command_runner
+            },
             'Logging': localconfig['Logging'],
             'Database': db_config,
             'Vendor': {},

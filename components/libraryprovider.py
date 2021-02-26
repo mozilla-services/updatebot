@@ -39,6 +39,7 @@ class Library:
         self.bugzilla_product = dict['bugzilla_product']
         self.bugzilla_component = dict['bugzilla_component']
         self.revision = dict['revision']
+        self.repo_url = dict['repo_url']
         self.maintainer_bz = dict['maintainer_bz']
         self.maintainer_phab = dict['maintainer_phab']
         self.yaml_path = dict['yaml_path']
@@ -124,6 +125,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'bugzilla_product': '',
             'bugzilla_component': '',
             'revision': None,
+            'repo_url': '',
             'maintainer_bz': '',
             'maintainer_phab': '',
             'tasks': [],
@@ -150,6 +152,12 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         else:
             validated_library['revision'] = None
 
+        # Attempt to get the repository url (not required by moz.yaml) if present
+        if 'vendoring' in library and 'url' in library['vendoring']:
+            validated_library['repo_url'] = library['vendoring']['url']
+        else:
+            validated_library['repo_url'] = None
+
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
         if 'updatebot' in library:
@@ -163,6 +171,11 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                     if validated_task['enabled']:
                         validated_library['tasks'].append(validated_task)
 
+        if validated_library['tasks']:
+            if not validated_library['repo_url']:
+                raise Exception("If a library has Updatebot Tasks, then it must specify an upstream repository url")
+            if not validated_library['revision']:
+                raise Exception("If a library has Updatebot Tasks, then it must specify a current revision")
         return Library(validated_library)
 
     @staticmethod

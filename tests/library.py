@@ -18,6 +18,8 @@ LIBRARIES = [
     Library({
         "name": "dav1d",
         "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e",
+        "repo_url": "https://code.videolan.org/videolan/dav1d.git",
+
         "bugzilla_product": "Core",
         "bugzilla_component": "Audio/Video: Playback",
         "maintainer_bz": "nobody@mozilla.com",
@@ -90,6 +92,38 @@ origin:
   url: https://code.videolan.org/videolan/dav1d
   revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
 """),
+            ("No revision",
+             """
+schema: 1
+bugzilla:
+  component: "Audio/Video: Playback"
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+vendoring:
+  url: https://code.videolan.org/videolan/dav1d.git
+updatebot:
+  maintainer-phab: bar
+  maintainer-bz: bar
+  tasks:
+    - type: commit-alert
+"""),
+            ("No repo url",
+             """
+schema: 1
+bugzilla:
+  component: "Audio/Video: Playback"
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+updatebot:
+  maintainer-phab: bar
+  maintainer-bz: bar
+  tasks:
+    - type: commit-alert
+"""),
             ("No component",
              """
 schema: 1
@@ -112,6 +146,8 @@ origin:
   description: dav1d, a fast AV1 decoder
   url: https://code.videolan.org/videolan/dav1d
   revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+vendoring:
+  url: https://code.videolan.org/videolan/dav1d.git
 updatebot:
   maintainer-phab: bar
   tasks:
@@ -129,6 +165,8 @@ origin:
   description: dav1d, a fast AV1 decoder
   url: https://code.videolan.org/videolan/dav1d
   revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+vendoring:
+  url: https://code.videolan.org/videolan/dav1d.git
 updatebot:
   maintainer-bz: foo
   tasks:
@@ -146,6 +184,8 @@ origin:
   description: dav1d, a fast AV1 decoder
   url: https://code.videolan.org/videolan/dav1d
   revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+vendoring:
+  url: https://code.videolan.org/videolan/dav1d.git
 updatebot:
   maintainer-bz: foo
   maintainer-phab: bar
@@ -165,6 +205,8 @@ origin:
   description: dav1d, a fast AV1 decoder
   url: https://code.videolan.org/videolan/dav1d
   revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+vendoring:
+  url: https://code.videolan.org/videolan/dav1d.git
 updatebot:
   maintainer-bz: foo
   maintainer-phab: bar

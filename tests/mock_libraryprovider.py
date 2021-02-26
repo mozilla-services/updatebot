@@ -23,7 +23,8 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             "bugzilla_component": "Audio/Video: Playback",
             "maintainer_phab": "nobody",
             "maintainer_bz": "nobody@mozilla.com",
-            "revision": "None",
+            "revision": None,
+            "repo_url": None,
             "tasks": [
                 LibraryProvider.validate_task({
                     "type": "vendoring",

@@ -16,7 +16,7 @@ sys.path.append(".")
 sys.path.append("..")
 from automation import Updatebot
 
-from components.utilities import Struct
+from components.utilities import Struct, NeverUseMeClass
 from components.providerbase import BaseProvider
 from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExitHeaderLine
 from components.dbc import DatabaseProvider
@@ -183,6 +183,7 @@ class TestFunctionality(SimpleLoggingTest):
             'Taskcluster': TaskclusterProvider,
             # Not Mocked At All
             'Phabricator': PhabricatorProvider,
+            'SCM': NeverUseMeClass
         }
 
         expected_values = DEFAULT_EXPECTED_VALUES(try_revision_1, try_revision_2)
@@ -195,15 +196,21 @@ class TestFunctionality(SimpleLoggingTest):
         # Ensure we don't have a dirty database with existing jobs
         tc = unittest.TestCase()
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
-            j = u.dbProvider.get_job(lib, expected_values.library_version_id)
-            tc.assertEqual(j, None, "When running %s, we found an existing job, indicating the database is dirty and should be cleaned." % inspect.stack()[1].function)
+            for task in lib.tasks:
+                if task.type != 'vendoring':
+                    continue
+                j = u.dbProvider.get_job(lib, expected_values.library_version_id)
+                tc.assertEqual(j, None, "When running %s, we found an existing job, indicating the database is dirty and should be cleaned." % inspect.stack()[1].function)
 
         return (u, expected_values, _check_jobs)
 
     @staticmethod
     def _cleanup(u, expected_values):
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
-            u.dbProvider.delete_job(library=lib, version=expected_values.library_version_id)
+            for task in lib.tasks:
+                if task.type != 'vendoring':
+                    continue
+                u.dbProvider.delete_job(library=lib, version=expected_values.library_version_id)
 
     @staticmethod
     def _check_jobs(u, library_filter, expected_values, status, outcome):
@@ -212,37 +219,43 @@ class TestFunctionality(SimpleLoggingTest):
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
             if library_filter not in lib.name:
                 continue
-            j = u.dbProvider.get_job(lib, expected_values.library_version_id)
-            log("In _check_jobs looking for status %s and outcome %s" % (status, outcome))
 
-            tc.assertNotEqual(j, None)
-            tc.assertEqual(lib.name, j.library_shortname)
-            tc.assertEqual(expected_values.library_version_id, j.version)
-            tc.assertEqual(status, j.status, "Expected status %s, got status %s" % (status.name, j.status.name))
-            tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))
-            tc.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
-            tc.assertEqual(expected_values.phab_revision, j.phab_revision)
-            tc.assertTrue(len(j.try_runs) <= 2)
-            tc.assertEqual('initial platform', j.try_runs[0].purpose)
-            tc.assertEqual(
-                expected_values.try_revision_1, j.try_runs[0].revision)
+            for task in lib.tasks:
+                if task.type != 'vendoring':
+                    continue
 
-            if len(j.try_runs) == 2:
-                tc.assertEqual('more platforms', j.try_runs[1].purpose)
+                j = u.dbProvider.get_job(lib, expected_values.library_version_id)
+                log("In _check_jobs looking for status %s and outcome %s" % (status, outcome))
+
+                tc.assertNotEqual(j, None)
+                tc.assertEqual(lib.name, j.library_shortname)
+                tc.assertEqual(expected_values.library_version_id, j.version)
+                tc.assertEqual(status, j.status, "Expected status %s, got status %s" % (status.name, j.status.name))
+                tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))
+                tc.assertEqual(expected_values.filed_bug_id, j.bugzilla_id)
+                tc.assertEqual(expected_values.phab_revision, j.phab_revision)
+                tc.assertTrue(len(j.try_runs) <= 2)
+                tc.assertEqual('initial platform', j.try_runs[0].purpose)
                 tc.assertEqual(
-                    expected_values.try_revision_2, j.try_runs[1].revision, "Did not match the second try run's revision")
+                    expected_values.try_revision_1, j.try_runs[0].revision)
 
-            elif len(j.try_runs) == 1 and j.status > JOBSTATUS.DONE:
-                # Ony check in the DONE status because this test may set try_revision_2
-                # (so the expected value is non-null), but we're performing this check
-                # before we've submitted a second try run.
-                tc.assertEqual(
-                    expected_values.try_revision_2, None)
+                if len(j.try_runs) == 2:
+                    tc.assertEqual('more platforms', j.try_runs[1].purpose)
+                    tc.assertEqual(
+                        expected_values.try_revision_2, j.try_runs[1].revision, "Did not match the second try run's revision")
+
+                elif len(j.try_runs) == 1 and j.status > JOBSTATUS.DONE:
+                    # Ony check in the DONE status because this test may set try_revision_2
+                    # (so the expected value is non-null), but we're performing this check
+                    # before we've submitted a second try run.
+                    tc.assertEqual(
+                        expected_values.try_revision_2, None)
 
     @logEntryExitHeaderLine
     def testAllNewJobs(self):
-        (u, expected_values, _check_jobs) = TestFunctionality._setup("try_rev", "")
-        u.run()
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup("try_rev", library_filter)
+        u.run(library_filter=library_filter)
         _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
         TestFunctionality._cleanup(u, expected_values)
 

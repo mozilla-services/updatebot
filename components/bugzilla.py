@@ -3,14 +3,22 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from dateutil.parser import parse
-
 from apis.bugzilla_api import fileBug, commentOnBug, closeBug
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel, logEntryExit
 
 
 class CommentTemplates:
+    @staticmethod
+    def UPDATE_SUMMARY(library, new_release_version, release_timestamp):
+        return "Update %s to new version %s from %s" % (
+            library.name, new_release_version, release_timestamp)
+
+    @staticmethod
+    def EXAMINE_COMMITS_SUMMARY(library, new_commits):
+        return "Examine %s for %s new commits, culminating in %s (%s)" % (
+            library.name, len(new_commits), new_commits[-1].revision, new_commits[-1].commit_date)
+
     @staticmethod
     def DONE_BUILD_FAILURE(library):
         return """
@@ -92,14 +100,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
                 assert ('url' in self.config) or (self.config['General']['env'] in ["dev", "prod"]), "No bugzilla url provided, and unknown operating environment"
 
     @logEntryExit
-    def file_bug(self, library, new_release_version, release_timestamp, description, cc_list, see_also=None, depends_on=None, moco_confidential=False):
-        try:
-            release_timestamp = parse(release_timestamp).strftime('%Y-%m-%d %H:%M:%S')
-        except ValueError:
-            pass
-
-        summary = "Update %s to new version %s from %s" % (
-            library.name, new_release_version, release_timestamp)
+    def file_bug(self, library, summary, description, cc_list, see_also=None, depends_on=None, moco_confidential=False):
         severity = "normal" if self.config['General']['env'] == "dev" else "S3"
 
         bugID = fileBug(self.config['url'], self.config['apikey'],

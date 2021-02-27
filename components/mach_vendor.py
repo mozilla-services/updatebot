@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from components.utilities import string_date_to_uniform_string_date
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -12,7 +13,8 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
 
     @logEntryExit
     def check_for_update(self, library):
-        return self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip().split()
+        parts = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip().split()
+        return (parts[0], string_date_to_uniform_string_date(parts[1]))
 
     @logEntryExit
     def vendor(self, library):

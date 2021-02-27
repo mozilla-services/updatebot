@@ -144,7 +144,8 @@ class TestFunctionality(SimpleLoggingTest):
         configs = {
             'General': {
                 'env': 'dev',
-                'gecko-path': '.'
+                'gecko-path': '.',
+                'ff-version': '87'
             },
             'Command': {'test_mappings': None},
             'Logging': localconfig['Logging'],

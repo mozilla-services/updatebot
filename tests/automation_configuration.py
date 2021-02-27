@@ -115,7 +115,11 @@ class TestConfigSCMProvider(BaseTestConfigProvider):
 class TestCommandRunner(unittest.TestCase):
     def testConfigurationPassing(self):
         configs = {
-            'General': {'env': 'dev', 'gecko-path': 'nowhere'},
+            'General': {
+                'env': 'dev',
+                'gecko-path': 'nowhere',
+                'ff-version': 87
+            },
             'Database': {'specialkey': 'database!'},
             'Vendor': {'specialkey': 'vendor!'},
             'Bugzilla': {'specialkey': 'bugzilla!'},

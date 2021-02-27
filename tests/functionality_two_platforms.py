@@ -147,6 +147,7 @@ class TestFunctionality(SimpleLoggingTest):
             'General': {
                 'env': 'dev',
                 'gecko-path': '.',
+                'ff-version': '87',
                 'separate-platforms': True
             },
             'Command': {'test_mappings': None},

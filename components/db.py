@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 7
+CURRENT_DATABASE_CONFIG_VERSION = 8
 
 CREATION_QUERIES = {
     "config": """
@@ -51,6 +51,8 @@ CREATION_QUERIES = {
       CREATE TABLE `jobs` (
         `id` INT NOT NULL AUTO_INCREMENT,
         `job_type` TINYINT NOT NULL,
+        `ff_version` TINYINT NOT NULL,
+        `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `library` VARCHAR(255) NOT NULL,
         `version` VARCHAR(64) NOT NULL ,
         `status` TINYINT NOT NULL,
@@ -278,6 +280,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                             if "fk_job_type" in query_name:
                                 self._query_execute(ALTER_QUERIES[query_name])
 
+                    elif config_version == 7 and CURRENT_DATABASE_CONFIG_VERSION == 8:
+                        # Add the column with no default (making the default zero)
+                        self._query_execute("ALTER TABLE `jobs` ADD COLUMN `ff_version` TINYINT NOT NULL AFTER `job_type`")
+                        # Add the column with no default (making the default zero)
+                        self._query_execute("ALTER TABLE `jobs` ADD COLUMN `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `ff_version`")
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -388,9 +396,10 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return jobs[0] if jobs else None
 
     @logEntryExit
-    def create_job(self, jobtype, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run):
-        query = "INSERT INTO jobs(job_type, library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s, %s)"
-        args = (jobtype, library.name, new_version, status, outcome, bug_id, phab_revision)
+    def create_job(self, jobtype, ff_version, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run):
+        # Omitting the created column initializes it to current timestamp
+        query = "INSERT INTO jobs(job_type, ff_version, library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)"
+        args = (jobtype, ff_version, library.name, new_version, status, outcome, bug_id, phab_revision)
         job_id = self._query_execute(query, args)
 
         if try_run:

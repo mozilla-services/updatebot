@@ -102,19 +102,23 @@ def get_key_or_default(key, dict, default):
 
 class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
-        pass
+        self._libraries = None
 
     def get_libraries(self, gecko_path):
-        libraries = []
-        mozilla_central_yamls = self.run(["find", gecko_path, "-type", "f", "-name", "moz.yaml"]).stdout.decode().strip().split("\n")
+        if self._libraries is None:
+            libraries = []
+            mozilla_central_yamls = self.run(["find", gecko_path, "-type", "f", "-name", "moz.yaml"]).stdout.decode().strip().split("\n")
 
-        for file in mozilla_central_yamls:
-            with open(file, "r") as mozyaml:
-                # Only return libraries that have enabled tasks
-                new_library_obj = LibraryProvider.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
-                if new_library_obj.tasks:
-                    libraries.append(new_library_obj)
-        return libraries
+            for file in mozilla_central_yamls:
+                with open(file, "r") as mozyaml:
+                    # Only return libraries that have enabled tasks
+                    new_library_obj = LibraryProvider.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
+                    if new_library_obj.tasks:
+                        libraries.append(new_library_obj)
+
+            self._libraries = libraries
+
+        return self._libraries
 
     @staticmethod
     def validate_library(yaml_contents, yaml_path):

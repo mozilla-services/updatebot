@@ -13,7 +13,7 @@ import json
 
 sys.path.append(".")
 sys.path.append("..")
-from components.utilities import Struct
+from components.utilities import Struct, string_date_to_uniform_string_date
 from components.bugzilla import BugzillaProvider, CommentTemplates
 from components.logging import SimpleLoggerConfig
 
@@ -48,10 +48,10 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'groups': ['mozilla-employee-confidential']
             }
             for k in expectedContent:
-                assert k in content
-                assert expectedContent[k] == content[k]
+                assert k in content, k + " not in content"
+                assert expectedContent[k] == content[k], k + " is " + content[k] + " not " + expectedContent[k]
             for k in content:
-                assert k in expectedContent
+                assert k in expectedContent, "Unexpected " + k + " in content"
 
             self.wfile.write("{\"id\":456}".encode())
         else:
@@ -110,7 +110,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
-        self.bugzillaProvider.file_bug(library, 'V1', '2020-08-21T15:13:49.000+02:00', "", ['additional@example.com'], 210, 110, moco_confidential=True)
+        self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, 'V1', string_date_to_uniform_string_date('2020-08-21T15:13:49.000+02:00')), "", ['additional@example.com'], 210, 110, moco_confidential=True)
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(

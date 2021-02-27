@@ -17,19 +17,36 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         pass
 
     def get_libraries(self, gecko_path):
-        return [Library({
-            "name": "dav1d",
-            "bugzilla_product": "Core",
-            "bugzilla_component": "Audio/Video: Playback",
-            "maintainer_phab": "nobody",
-            "maintainer_bz": "nobody@mozilla.com",
-            "revision": None,
-            "repo_url": None,
-            "tasks": [
-                LibraryProvider.validate_task({
-                    "type": "vendoring",
-                    "enabled": True
-                }, "n/a")
-            ],
-            "yaml_path": "mozilla-central/source/media/libdav1d/moz.yaml"
-        })]
+        return [
+            Library({
+                "name": "dav1d",
+                "bugzilla_product": "Core",
+                "bugzilla_component": "Audio/Video: Playback",
+                "maintainer_phab": "nobody",
+                "maintainer_bz": "nobody@mozilla.com",
+                "revision": None,
+                "repo_url": None,
+                "tasks": [
+                    LibraryProvider.validate_task({
+                        "type": "vendoring",
+                        "enabled": True
+                    }, "n/a")
+                ],
+                "yaml_path": "mozilla-central/source/media/libdav1d/moz.yaml"
+            }),
+            Library({
+                "name": "aom",
+                "bugzilla_product": "Core",
+                "bugzilla_component": "Audio/Video: Playback",
+                "maintainer_phab": "nobody",
+                "maintainer_bz": "nobody@mozilla.com",
+                "revision": None,
+                "repo_url": None,
+                "tasks": [
+                    LibraryProvider.validate_task({
+                        "type": "commit-alert",
+                        "enabled": True
+                    }, "n/a")
+                ],
+                "yaml_path": "mozilla-central/source/media/libaom/moz.yaml"
+            })]

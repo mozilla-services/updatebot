@@ -13,6 +13,17 @@ class Struct:
         self.__dict__.update(entries)
 
 
+class NeverUseMeClass:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def update_config(self, config):
+        pass
+
+    def __getattr__(self, *args, **kwargs):
+        raise Exception("No methods on this class should be called")
+
+
 PUSH_HEALTH_IGNORED_DICTS = ["commitHistory", 'jobCounts', 'status']
 PUSH_HEALTH_IGNORED_KEYS = ['next', 'previous', 'revision', 'id', 'result', 'push_timestamp']
 

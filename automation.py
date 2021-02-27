@@ -55,7 +55,7 @@ class Updatebot:
         # Pre-initialize this with a print-based logger for validation error output.
         self.logger = SimpleLogger()
         self.config_dictionary = config_dictionary
-        self._validate(config_dictionary)
+        config_dictionary = self._validate(config_dictionary)
 
         """
         Provider initialization is complicated.
@@ -143,14 +143,42 @@ class Updatebot:
             func(v)
 
     def _validate(self, config_dictionary):
+        # In this function we have not set up our robust logging facilities yet. We are using SimpleLogger()
+        # which is just a Localogger. So even if we are running in automation, we won't be outputting anything
+        # here to Sentry. Therefore, if we do need to abort here; we should exit(1) so Taskcluster will report
+        # the job as failed (and we'll get an email.)
         if 'General' not in config_dictionary:
             self.logger.log("'General' is a required config dictionary to supply.", level=LogLevel.Fatal)
             sys.exit(1)
+
         if 'gecko-path' not in config_dictionary['General']:
             self.logger.log("['General']['gecko-path'] probably should be defined in the config dictionary.", level=LogLevel.Warning)
+            if 'ff_version' not in config_dictionary['General']:
+                self.logger.log("If ['General']['gecko-path'] is not defined, then ff_version must be - but it is not.", level=LogLevel.Fatal)
+                sys.exit(1)
+
         if 'env' not in config_dictionary['General']:
             self.logger.log("['General']['env'] must be defined in the config dictionary with a value of prod or dev.", level=LogLevel.Fatal)
             sys.exit(1)
+
+        if 'ff-version' not in config_dictionary['General']:
+            ff_version = 0
+            try:
+                with open(os.path.join(config_dictionary['General']['gecko-path'], "browser", "config", "version.txt")) as version_file:
+                    version = version_file.read()
+                    ff_version = int(version.split(".")[0])
+            except Exception as e:
+                self.logger.log("Encountered an error trying to read the version from version.txt", level=LogLevel.Fatal)
+                raise e
+
+            if ff_version < 87:
+                # 87 is the version of Firefox currently on Beta when this code was written. If we get a number lower than that
+                # (e.g. 0), then something is wrong and bears investigating.
+                self.logger.log("The FF version we pulled from the repo is < 87: %s" % ff_version, level=LogLevel.Fatal)
+                sys.exit(1)
+            config_dictionary['General']['ff-version'] = ff_version
+
+        return config_dictionary
 
     def run(self, library_filter=""):
         try:

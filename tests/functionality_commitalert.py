@@ -200,7 +200,25 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 0, "I shouldn't have created a commit-alert job, but it seems like I have.")
+
+        TestFunctionality._cleanup(u, library_filter)
         # end testNoAlert ----------------------------------------
+
+    @logEntryExit
+    def testSimpleAlert(self):
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            "0886ba657dedc54fad06018618cc07689198abea",
+            "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            library_filter)
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testSimpleAlert ----------------------------------------
 
 
 if __name__ == '__main__':

@@ -57,8 +57,8 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def delete_job(self, library=None, version=None, job_id=None):
         return self.db.delete_job(library=library, version=version, job_id=job_id, ff_version=self.config['General']['ff-version'])
 
-    def create_job(self, jobtype, library, new_version, try_run_type, status, outcome, bug_id, phab_revision=None, try_run=None):
-        return self.db.create_job(jobtype, self.config['General']['ff-version'], library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run)
+    def create_job(self, jobtype, library, new_version, status, outcome, bug_id, phab_revision=None, try_run=None, try_run_type=None):
+        return self.db.create_job(jobtype, self.config['General']['ff-version'], library, new_version, status, outcome, bug_id, phab_revision, try_run, try_run_type)
 
     def update_job_status(self, existing_job):
         return self.db.update_job_status(existing_job)

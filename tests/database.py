@@ -67,8 +67,8 @@ class TestDatabaeQueries(unittest.TestCase):
         try:
             self.assertEqual(None, self.db.get_job(library, version))
 
-            self.db.create_job(JOBTYPE.VENDORING, library, version, 'db test',
-                               JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugid, phab_revision, try_link)
+            self.db.create_job(JOBTYPE.VENDORING, library, version,
+                               JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugid, phab_revision, try_link, 'db test')
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)

@@ -397,7 +397,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return jobs[0] if jobs else None
 
     @logEntryExit
-    def create_job(self, jobtype, ff_version, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run):
+    def create_job(self, jobtype, ff_version, library, new_version, status, outcome, bug_id, phab_revision, try_run, try_run_type):
         # Omitting the created column initializes it to current timestamp
         query = "INSERT INTO jobs(job_type, ff_version, library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)"
         args = (jobtype, ff_version, library.name, new_version, status, outcome, bug_id, phab_revision)

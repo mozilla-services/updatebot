@@ -131,7 +131,12 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             # We can only do this if we have a most recent job, if we don't we're processing this library for the first time
             if most_recent_job:
                 most_recent_job_newer_than_library_rev = most_recent_job.version in [c.revision for c in all_new_upstream_commits]
+                if most_recent_job_newer_than_library_rev:
+                    self.logger.log("The most recent job we have run is for a revision still upstream and not in the mozilla repo.", level=LogLevel.Debug)
+                else:
+                    self.logger.log("The most recent job we have run is older than the current revision in the mozilla repo.", level=LogLevel.Debug)
             else:
+                self.logger.log("We've never run a job for this library before.", level=LogLevel.Debug)
                 most_recent_job_newer_than_library_rev = False
 
             unseen_new_upstream_commits = []
@@ -148,6 +153,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 # more conservative and will help us identify unexpected situations that may invalidate
                 # our assumptions about how things should happen.
                 offsetIndex = len(all_new_upstream_commits) - len(unseen_new_upstream_commits)
+                self.logger.log("The first unseen upstream commit is offset %s entries into the %s upstream commits." % (offsetIndex, len(all_new_upstream_commits)), level=LogLevel.Debug)
                 assert offsetIndex != len(all_new_upstream_commits), "Somehow the offset index is the length of the array even though we checked the length already"
 
                 error_func = functools.partial(self._print_differing_commit_lists, all_new_upstream_commits, "all_new_upstream_commits", unseen_new_upstream_commits, "unseen_new_upstream_commits")

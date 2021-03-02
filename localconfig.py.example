@@ -6,6 +6,7 @@ localconfig = {
         'gecko-path': '/path/to/mozilla-central'
     },
     'Logging': {
+        'level': 5,
         'local': True,
         'sentry': False,
         'sentry_config': {

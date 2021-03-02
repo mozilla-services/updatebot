@@ -326,6 +326,48 @@ class TestFunctionality(SimpleLoggingTest):
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlerts ----------------------------------------
 
+    @logEntryExit
+    def testTwoSimpleAlertsSkip2(self):
+        call_counter = 0
+
+        def get_current_lib_revision():
+            if call_counter == 0:
+                return "b321ea35eb25874e1531c87ed53e03bb81f7693b"
+            return "0886ba657dedc54fad06018618cc07689198abea"
+
+        def get_next_lib_revision():
+            if call_counter == 0:
+                return "0886ba657dedc54fad06018618cc07689198abea"
+            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+
+        def get_lib_repo():
+            if call_counter == 0:
+                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
+            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            get_current_lib_revision,
+            get_next_lib_revision,
+            library_filter,
+            repo_func=get_lib_repo)
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        call_counter += 1
+
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
+        self._check_job(all_jobs[1], expected_values)
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testTwoSimpleAlertsSkip2 ----------------------------------------
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

@@ -66,6 +66,27 @@ b321ea35eb25874e1531c87ed53e03bb81f7693b  Utility function for printing strings
 9dd7270d76d9e63a4ada40d358dd0e4505d16ab3  Add README file
 """
 
+# We use this to determine how many commits we expect to find, which lets us validate
+# we saw the correct number (in the bugzillaprovider)
+REPO_COMMITS = [
+    "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+    "b6972c67b63be20a4b28ed246fd06f6173265bb5",
+    "11c85fb14571c822e5f7f8b92a7e87749430b696",
+    "0886ba657dedc54fad06018618cc07689198abea",
+    "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830",
+    "f80c792e9a279cab9abedf7f3a8f4e41deaef649",
+    "b321ea35eb25874e1531c87ed53e03bb81f7693b",
+    "7c9e119ef8d30f4c938f6337ad1715732ac1b023",
+    "3b0c38accbfc542f3f75ab21227c18ad554570c4",
+    "9dd7270d76d9e63a4ada40d358dd0e4505d16ab3",
+]
+
+# They are ordered newest to oldest, so we need to invert the number
+
+
+def GENERIC_EXPECTED_COMMITS_SEEN(get_next_lib_revision, get_current_lib_revision):
+    return - (REPO_COMMITS.index(get_next_lib_revision()) - REPO_COMMITS.index(get_current_lib_revision())) if get_next_lib_revision() else 0
+
 
 def DEFAULT_EXPECTED_VALUES(new_library_version_func):
     return Struct(**{
@@ -110,29 +131,11 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(current_library_version_func, new_library_version_func, library_filter, branch="master", repo_func=None):
+    def _setup(current_library_version_func, new_library_version_func, expected_commits_seen, library_filter, branch="master", repo_func=None):
         real_command_runner = CommandProvider({})
         real_command_runner.update_config({
             'LoggingProvider': SimpleLogger(localconfig['Logging'])
         })
-
-        # We use this to determine how many commits we expect to find, which lets us validate
-        # we saw the correct number (in the bugzillaprovider)
-        repo_commits = [
-            "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
-            "b6972c67b63be20a4b28ed246fd06f6173265bb5",
-            "11c85fb14571c822e5f7f8b92a7e87749430b696",
-            "0886ba657dedc54fad06018618cc07689198abea",
-            "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830",
-            "f80c792e9a279cab9abedf7f3a8f4e41deaef649",
-            "b321ea35eb25874e1531c87ed53e03bb81f7693b",
-            "7c9e119ef8d30f4c938f6337ad1715732ac1b023",
-            "3b0c38accbfc542f3f75ab21227c18ad554570c4",
-            "9dd7270d76d9e63a4ada40d358dd0e4505d16ab3",
-        ]
-        # They are ordered newest to oldest, so we need to invert the number
-        expected_commits_seen = lambda: \
-            - (repo_commits.index(new_library_version_func()) - repo_commits.index(current_library_version_func())) if new_library_version_func() else 0
 
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         configs = {
@@ -220,8 +223,9 @@ class TestFunctionality(SimpleLoggingTest):
     def testNoAlert(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda:"11c85fb14571c822e5f7f8b92a7e87749430b696",
-            lambda:"",
+            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            lambda: "",
+            lambda: 0,
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -235,8 +239,9 @@ class TestFunctionality(SimpleLoggingTest):
     def testSimpleAlert(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda:"0886ba657dedc54fad06018618cc07689198abea",
-            lambda:"11c85fb14571c822e5f7f8b92a7e87749430b696",
+            lambda: "0886ba657dedc54fad06018618cc07689198abea",
+            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            lambda: 1,
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -251,8 +256,9 @@ class TestFunctionality(SimpleLoggingTest):
     def testSimpleAlertOnBranch(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda:"b6972c67b63be20a4b28ed246fd06f6173265bb5",
-            lambda:"edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            lambda: "b6972c67b63be20a4b28ed246fd06f6173265bb5",
+            lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            lambda: 1,
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -271,8 +277,9 @@ class TestFunctionality(SimpleLoggingTest):
         """
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda:"11c85fb14571c822e5f7f8b92a7e87749430b696",
-            lambda:"edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            lambda: 2,
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -303,10 +310,13 @@ class TestFunctionality(SimpleLoggingTest):
                 return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
             return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
 
+        expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
             get_next_lib_revision,
+            expected_commits_seen,
             library_filter,
             repo_func=get_lib_repo)
 
@@ -348,10 +358,13 @@ class TestFunctionality(SimpleLoggingTest):
                 return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
             return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
 
+        expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
             get_next_lib_revision,
+            expected_commits_seen,
             library_filter,
             repo_func=get_lib_repo)
 
@@ -393,10 +406,13 @@ class TestFunctionality(SimpleLoggingTest):
                 return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
             return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
 
+        expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
             get_next_lib_revision,
+            expected_commits_seen,
             library_filter,
             repo_func=get_lib_repo)
 

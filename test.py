@@ -32,7 +32,7 @@ suite = unittest.TestSuite()
 for m in modules:
     suite.addTests(loader.loadTestsFromModule(m))
 
-if unittest.TextTestRunner(verbosity=3).run(suite).wasSuccessful():
+if unittest.TextTestRunner(verbosity=3, buffer=True).run(suite).wasSuccessful():
     exit(0)
 else:
     exit(1)

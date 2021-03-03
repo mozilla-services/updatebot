@@ -35,6 +35,37 @@ except ImportError:
     log("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
 
+"""
+For this file, we have test-repo.bundle which contains the below commits.
+
+We also have bundles that culminate in each of the revisions, for use when
+the library 'updates upstream'.
+
+Note: if you are create a test repo bundle, if all you do is
+   git bundle create repo-file.bundle master
+When you clone it, it will fail with the error
+   remote HEAD refers to nonexistent ref, unable to checkout
+To resolve this, you need to create it this way:
+    git bundle create repo-file.bundle HEAD master
+
+HOWEVER that is only when you are creating a bundle with one branch. If you
+are creating a bundle with multiple branches; then you should do
+    git bundle create test-repo.bundle HEAD --all
+If you specify both -all and master you will get the error
+    fatal: multiple updates for ref 'refs/remotes/origin/master' not allowed
+
+edc676dbd57fd75c6e37dfb8ce616a792fffa8a9  (HEAD -> somebranch) Add functionality
+b6972c67b63be20a4b28ed246fd06f6173265bb5  Skeleton for some functionality
+11c85fb14571c822e5f7f8b92a7e87749430b696  (origin/master, origin/HEAD, master) Maybe just remove this function completely
+0886ba657dedc54fad06018618cc07689198abea  Update readme for CVE-2021-1
+fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830  Rename file
+f80c792e9a279cab9abedf7f3a8f4e41deaef649  Fix a potential bufer overflow
+b321ea35eb25874e1531c87ed53e03bb81f7693b  Utility function for printing strings
+7c9e119ef8d30f4c938f6337ad1715732ac1b023  main() should ahve arguments
+3b0c38accbfc542f3f75ab21227c18ad554570c4  Add main.c
+9dd7270d76d9e63a4ada40d358dd0e4505d16ab3  Add README file
+"""
+
 
 def DEFAULT_EXPECTED_VALUES(commithash):
     return Struct(**{

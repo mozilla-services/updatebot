@@ -43,6 +43,7 @@ class Commit:
                 self.files_other.append(parts[0] + " " + parts[1])
 
         self.summary = run(["git", "log", "--pretty=%s", "-1", self.revision]).stdout.decode()
+        self.author = run(["git", "log", "--pretty=%an", "-1", self.revision]).stdout.decode()
         self.description = run(["git", "log", "--pretty=%b", "-1", self.revision]).stdout.decode()
         self.revision_link = "https://chromium.googlesource.com/angle/angle" + "/+/" + self.revision
 
@@ -197,4 +198,40 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         raise Exception(problem)
 
     def build_bug_description(self, list_of_commits):
-        return str(list_of_commits)
+        s = "----------------------------------------\n"
+        for c in list_of_commits:
+            s += "%s by %s\n" % (c.revision, c.author)
+            s += c.revision_link + "\n"
+            s += "Authored: %s\n" % (c.author_date)
+            s += "Committed: %s\n" % (c.commit_date)
+            s += "\n"
+            s += c.summary + "\n"
+            s += "\n"
+            s += c.description + "\n"
+
+            if c.files_added:
+                s += "\n"
+                s += "Files Added:\n"
+                for f in c.files_added:
+                    s += "  - %s\n" % f
+
+            if c.files_deleted:
+                s += "\n"
+                s += "Files Deleted:\n"
+                for f in c.files_deleted:
+                    s += "  - %s\n" % f
+
+            if c.files_modified:
+                s += "\n"
+                s += "Files Added:\n"
+                for f in c.files_modified:
+                    s += "  - %s\n" % f
+
+            if c.files_other:
+                s += "\n"
+                s += "Files Changed:\n"
+                for f in c.files_other:
+                    s += "  - %s\n" % f
+            s += "----------------------------------------\n"
+
+        return s

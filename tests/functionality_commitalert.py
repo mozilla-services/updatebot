@@ -67,9 +67,9 @@ b321ea35eb25874e1531c87ed53e03bb81f7693b  Utility function for printing strings
 """
 
 
-def DEFAULT_EXPECTED_VALUES(new_library_version):
+def DEFAULT_EXPECTED_VALUES(new_library_version_func):
     return Struct(**{
-        'new_version_id': new_library_version,
+        'new_version_id': new_library_version_func,
         'filed_bug_id': 50,
         'ff_version': 87
     })
@@ -88,8 +88,8 @@ class MockedBugzillaProvider(BaseProvider):
         pass
 
     def file_bug(self, library, summary, description, cc, see_also=None):
-        assert str(self._expected_commits_seen) + " new commits" in summary, \
-            "We did not see the expected number of commits in the bug we filed. Expected %s, summary is '%s'" % (self._expected_commits_seen, summary)
+        assert str(self._expected_commits_seen()) + " new commits" in summary, \
+            "We did not see the expected number of commits in the bug we filed. Expected %s, summary is '%s'" % (self._expected_commits_seen(), summary)
 
         return self._filed_bug_id
 
@@ -110,7 +110,7 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(current_library_version, new_library_version, library_filter, branch="master"):
+    def _setup(current_library_version_func, new_library_version_func, library_filter, branch="master", repo_func=None):
         real_command_runner = CommandProvider({})
         real_command_runner.update_config({
             'LoggingProvider': SimpleLogger(localconfig['Logging'])
@@ -131,8 +131,8 @@ class TestFunctionality(SimpleLoggingTest):
             "9dd7270d76d9e63a4ada40d358dd0e4505d16ab3",
         ]
         # They are ordered newest to oldest, so we need to invert the number
-        expected_commits_seen = \
-            - (repo_commits.index(new_library_version) - repo_commits.index(current_library_version)) if new_library_version else 0
+        expected_commits_seen = lambda: \
+            - (repo_commits.index(new_library_version_func()) - repo_commits.index(current_library_version_func())) if new_library_version_func() else 0
 
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         configs = {
@@ -156,7 +156,8 @@ class TestFunctionality(SimpleLoggingTest):
             'Taskcluster': {},
             'Phabricator': {},
             'Library': {
-                'commitalert_revision_override': current_library_version,
+                'commitalert_revision_override': current_library_version_func,
+                'commitalert_repo_override': repo_func,
                 'commitalert_branch_override': branch
             }
         }
@@ -181,7 +182,7 @@ class TestFunctionality(SimpleLoggingTest):
             'Phabricator': NeverUseMeClass,
         }
 
-        expected_values = DEFAULT_EXPECTED_VALUES(new_library_version)
+        expected_values = DEFAULT_EXPECTED_VALUES(new_library_version_func)
         configs['General']['ff-version'] = expected_values.ff_version
         configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
@@ -191,7 +192,7 @@ class TestFunctionality(SimpleLoggingTest):
         # Ensure we don't have a dirty database with existing jobs
         tc = unittest.TestCase()
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
-            j = u.dbProvider.get_job(lib, expected_values.new_version_id)
+            j = u.dbProvider.get_job(lib, expected_values.new_version_id())
             tc.assertEqual(j, None, "When running %s, we found an existing job, indicating the database is dirty and should be cleaned." % inspect.stack()[1].function)
 
         return (u, expected_values)
@@ -210,7 +211,7 @@ class TestFunctionality(SimpleLoggingTest):
     def _check_job(self, job, expected_values):
         self.assertEqual(job.type, JOBTYPE.COMMITALERT)
         self.assertEqual(job.ff_version, expected_values.ff_version)
-        self.assertEqual(job.version, expected_values.new_version_id)
+        self.assertEqual(job.version, expected_values.new_version_id())
         self.assertEqual(job.status, JOBSTATUS.DONE)
         self.assertEqual(job.outcome, JOBOUTCOME.ALL_SUCCESS)
         self.assertEqual(job.bugzilla_id, expected_values.filed_bug_id)
@@ -219,8 +220,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testNoAlert(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            "11c85fb14571c822e5f7f8b92a7e87749430b696",
-            "",
+            lambda:"11c85fb14571c822e5f7f8b92a7e87749430b696",
+            lambda:"",
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -234,8 +235,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testSimpleAlert(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            "0886ba657dedc54fad06018618cc07689198abea",
-            "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            lambda:"0886ba657dedc54fad06018618cc07689198abea",
+            lambda:"11c85fb14571c822e5f7f8b92a7e87749430b696",
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -250,8 +251,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testSimpleAlertOnBranch(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            "b6972c67b63be20a4b28ed246fd06f6173265bb5",
-            "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            lambda:"b6972c67b63be20a4b28ed246fd06f6173265bb5",
+            lambda:"edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -270,8 +271,8 @@ class TestFunctionality(SimpleLoggingTest):
         """
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            "11c85fb14571c822e5f7f8b92a7e87749430b696",
-            "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            lambda:"11c85fb14571c822e5f7f8b92a7e87749430b696",
+            lambda:"edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -282,6 +283,48 @@ class TestFunctionality(SimpleLoggingTest):
 
         TestFunctionality._cleanup(u, library_filter)
         # end testSimpleAlertAcrossBranch ----------------------------------------
+
+    @logEntryExit
+    def testTwoSimpleAlerts(self):
+        call_counter = 0
+
+        def get_current_lib_revision():
+            if call_counter == 0:
+                return "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830"
+            return "0886ba657dedc54fad06018618cc07689198abea"
+
+        def get_next_lib_revision():
+            if call_counter == 0:
+                return "0886ba657dedc54fad06018618cc07689198abea"
+            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+
+        def get_lib_repo():
+            if call_counter == 0:
+                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
+            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            get_current_lib_revision,
+            get_next_lib_revision,
+            library_filter,
+            repo_func=get_lib_repo)
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        call_counter += 1
+
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
+        self._check_job(all_jobs[1], expected_values)
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testTwoSimpleAlerts ----------------------------------------
 
 
 if __name__ == '__main__':

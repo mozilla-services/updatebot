@@ -67,9 +67,9 @@ b321ea35eb25874e1531c87ed53e03bb81f7693b  Utility function for printing strings
 """
 
 
-def DEFAULT_EXPECTED_VALUES(commithash):
+def DEFAULT_EXPECTED_VALUES(new_library_version):
     return Struct(**{
-        'library_version_id': "newcommit_" + commithash,
+        'new_version_id': new_library_version,
         'filed_bug_id': 50,
         'ff_version': 87
     })
@@ -106,7 +106,7 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(try_revision, library_filter):
+    def _setup(current_library_version, new_library_version, library_filter):
         real_command_runner = CommandProvider({})
         real_command_runner.update_config({
             'LoggingProvider': SimpleLogger(localconfig['Logging'])
@@ -130,6 +130,9 @@ class TestFunctionality(SimpleLoggingTest):
             'Mercurial': {},
             'Taskcluster': {},
             'Phabricator': {},
+            'Library': {
+                'commitalert_revision_override': current_library_version
+            }
         }
 
         providers = {
@@ -152,7 +155,8 @@ class TestFunctionality(SimpleLoggingTest):
             'Phabricator': NeverUseMeClass,
         }
 
-        expected_values = DEFAULT_EXPECTED_VALUES(try_revision)
+        expected_values = DEFAULT_EXPECTED_VALUES(new_library_version)
+        configs['General']['ff-version'] = expected_values.ff_version
         configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 
@@ -188,11 +192,15 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testNoAlert(self):
         library_filter = "aom"
-        (u, expected_values) = TestFunctionality._setup("ABVDEF", library_filter)
+        (u, expected_values) = TestFunctionality._setup(
+            "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            "",
+            library_filter)
         u.run(library_filter=library_filter)
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 0, "I shouldn't have created a commit-alert job, but it seems like I have.")
+        # end testNoAlert ----------------------------------------
 
 
 if __name__ == '__main__':

@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 sys.path.append(".")
 sys.path.append("..")
@@ -14,7 +15,7 @@ from components.libraryprovider import LibraryProvider, Library
 
 class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
-        pass
+        self.config = config
 
     def get_libraries(self, gecko_path):
         return [
@@ -40,8 +41,8 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "bugzilla_component": "Audio/Video: Playback",
                 "maintainer_phab": "nobody",
                 "maintainer_bz": "nobody@mozilla.com",
-                "revision": None,
-                "repo_url": None,
+                "revision": self.config.get('commitalert_revision_override', None),
+                "repo_url": os.path.join(os.getcwd(), "tests/" if not os.getcwd().endswith("tests") else "", "test-repo.bundle"),
                 "tasks": [
                     LibraryProvider.validate_task({
                         "type": "commit-alert",

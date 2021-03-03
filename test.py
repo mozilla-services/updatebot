@@ -13,6 +13,7 @@ TESTS = [
     "bugzilla",
     "automation_configuration",
     "run_command",
+    "functionality_commitalert",
     "functionality_all_platforms",
     "functionality_two_platforms",
     "multiple_inheritence",

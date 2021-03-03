@@ -57,23 +57,28 @@ jobs:
             echo Failed waiting for MySQL && exit 1
           name: Waiting for MySQL to be ready
       - run:
-          # The if/else clause simulates a try/catch block in bash due to
-          # CircleCI halting as soon as any command returns a non-zero value.
-          # COMMAND_OUTPUT ends up being stdout and stderr for the command run
-          # and the if statement checks poetry's return value.
+          # CircleCI halts as soon as any command returns a non-zero value.
+          # So anything that might needs to be in an if statement.
           #
           # This ensures that the pr_comment script is run regardless of if our
           # command fails.
+          #
+          # We run the test and capture the output (stdout and stderr) in a text
+          # file, because the output may be too large to pass on the command line.
           command: |
             sudo apt-get install jq git
             cp localconfig.py.example localconfig.py
-            if COMMAND_OUTPUT=$(poetry run coverage run test.py 2>&1); then
-              echo $COMMAND_OUTPUT
+            if $(poetry run coverage run test.py > test_output.txt 2>&1); then
+              cat test_output.txt
             else
-              echo $COMMAND_OUTPUT
-              COMMAND_OUTPUT=$(jq -nc --arg str "<pre>$COMMAND_OUTPUT</pre>" '$str')
+              cat test_output.txt
+
+              sed -i '1s;^;<pre>;' test_output.txt
+              echo "</pre>" >> test_output.txt
+
+              jq -Rs '{"body": .}' test_output.txt > json_output.txt
               . .circleci/pr_comment.sh
-              exit 1
+              false
             fi
           name: test
       - run:

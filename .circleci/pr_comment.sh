@@ -6,5 +6,5 @@ then
   curl --request POST "https://api.github.com/repos/mozilla-services/updatebot/issues/${CIRCLE_PULL_REQUEST##*/}/comments" \
   -u $GH_USER:$GH_TOKEN \
   --header 'Accept: application/vnd.github.v3+json' \
-  --data-raw "{\"body\": ${COMMAND_OUTPUT}}"
+  --data-binary @json_output.txt
 fi

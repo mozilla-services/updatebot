@@ -84,9 +84,13 @@ def COMMAND_MAPPINGS(expected_values):
 class MockedBugzillaProvider(BaseProvider):
     def __init__(self, config):
         self._filed_bug_id = config['filed_bug_id']
+        self._expected_commits_seen = config['expected_commits_seen']
         pass
 
     def file_bug(self, library, summary, description, cc, see_also=None):
+        assert str(self._expected_commits_seen) + " new commits" in summary, \
+            "We did not see the expected number of commits in the bug we filed. Expected %s, summary is '%s'" % (self._expected_commits_seen, summary)
+
         return self._filed_bug_id
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
@@ -106,11 +110,29 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(current_library_version, new_library_version, library_filter):
+    def _setup(current_library_version, new_library_version, library_filter, branch="master"):
         real_command_runner = CommandProvider({})
         real_command_runner.update_config({
             'LoggingProvider': SimpleLogger(localconfig['Logging'])
         })
+
+        # We use this to determine how many commits we expect to find, which lets us validate
+        # we saw the correct number (in the bugzillaprovider)
+        repo_commits = [
+            "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            "b6972c67b63be20a4b28ed246fd06f6173265bb5",
+            "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            "0886ba657dedc54fad06018618cc07689198abea",
+            "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830",
+            "f80c792e9a279cab9abedf7f3a8f4e41deaef649",
+            "b321ea35eb25874e1531c87ed53e03bb81f7693b",
+            "7c9e119ef8d30f4c938f6337ad1715732ac1b023",
+            "3b0c38accbfc542f3f75ab21227c18ad554570c4",
+            "9dd7270d76d9e63a4ada40d358dd0e4505d16ab3",
+        ]
+        # They are ordered newest to oldest, so we need to invert the number
+        expected_commits_seen = \
+            - (repo_commits.index(new_library_version) - repo_commits.index(current_library_version)) if new_library_version else 0
 
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         configs = {
@@ -126,12 +148,16 @@ class TestFunctionality(SimpleLoggingTest):
             'Logging': localconfig['Logging'],
             'Database': db_config,
             'Vendor': {},
-            'Bugzilla': {'filed_bug_id': None},
+            'Bugzilla': {
+                'filed_bug_id': None,
+                'expected_commits_seen': expected_commits_seen
+            },
             'Mercurial': {},
             'Taskcluster': {},
             'Phabricator': {},
             'Library': {
-                'commitalert_revision_override': current_library_version
+                'commitalert_revision_override': current_library_version,
+                'commitalert_branch_override': branch
             }
         }
 
@@ -219,6 +245,43 @@ class TestFunctionality(SimpleLoggingTest):
 
         TestFunctionality._cleanup(u, library_filter)
         # end testSimpleAlert ----------------------------------------
+
+    @logEntryExit
+    def testSimpleAlertOnBranch(self):
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            "b6972c67b63be20a4b28ed246fd06f6173265bb5",
+            "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            library_filter,
+            branch="somebranch")
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testSimpleAlertOnBranch ----------------------------------------
+
+    @logEntryExit
+    def testSimpleAlertAcrossBranch(self):
+        """
+        This test starts us on a commit off the branch and we move onto the branch.
+        """
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
+            library_filter,
+            branch="somebranch")
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testSimpleAlertAcrossBranch ----------------------------------------
 
 
 if __name__ == '__main__':

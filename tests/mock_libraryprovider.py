@@ -18,6 +18,8 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self.config = config
 
     def get_libraries(self, gecko_path):
+        path_wrapper = lambda p:os.path.join(os.getcwd(), "tests/" if not os.getcwd().endswith("tests") else "", p)
+
         return [
             Library({
                 "name": "dav1d",
@@ -42,11 +44,12 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "maintainer_phab": "nobody",
                 "maintainer_bz": "nobody@mozilla.com",
                 "revision": self.config.get('commitalert_revision_override', None),
-                "repo_url": os.path.join(os.getcwd(), "tests/" if not os.getcwd().endswith("tests") else "", "test-repo.bundle"),
+                "repo_url": path_wrapper("test-repo.bundle"),
                 "tasks": [
                     LibraryProvider.validate_task({
                         "type": "commit-alert",
-                        "enabled": True
+                        "enabled": True,
+                        "branch": self.config.get('commitalert_branch_override', None)
                     }, "n/a")
                 ],
                 "yaml_path": "mozilla-central/source/media/libaom/moz.yaml"

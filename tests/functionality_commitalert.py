@@ -443,6 +443,64 @@ class TestFunctionality(SimpleLoggingTest):
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlertsTimeLagged ----------------------------------------
 
+    @logEntryExit
+    def testTwoAlertsNewCommitsNoUpdate(self):
+        call_counter = 0
+
+        def get_current_lib_revision():
+            return "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830"
+
+        def get_next_lib_revision():
+            if call_counter < 2:
+                return "0886ba657dedc54fad06018618cc07689198abea"
+            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+
+        def get_lib_repo():
+            if call_counter < 2:
+                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
+            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+
+        # They are ordered newest to oldest, so we need to invert the number
+        def expected_commits_seen():
+            if call_counter < 2:
+                return 1
+            return 1
+
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            get_current_lib_revision,
+            get_next_lib_revision,
+            expected_commits_seen,
+            library_filter,
+            repo_func=get_lib_repo)
+
+        # Run it once. We should create a job.
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        call_counter += 1
+
+        # Run it again, we shouldn't do anything new.
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should not have created a new job.")
+
+        call_counter += 1
+
+        # Run it a third time, and now we should create another job.
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
+        self._check_job(all_jobs[1], expected_values)
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testTwoAlertsNewCommitsNoUpdate ----------------------------------------
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

@@ -20,6 +20,24 @@ class CommentTemplates:
             library.name, len(new_commits), new_commits[-1].revision, new_commits[-1].commit_date)
 
     @staticmethod
+    def EXAMINE_COMMITS_BODY(library, task, commit_details):
+        return """
+We detected new commits to %s %s which is currently at revision %s.
+
+Please review these and determine if an update to the library is necessary.
+If no update is necessary, this bug may have its security-group cleared and
+set to INVALID. If the issue is security-sensitive it should change to a
+security group.
+
+%s
+        """ % (
+            library.name,
+            "on branch '" + task.branch + "'" if task.branch else "",
+            library.revision,
+            commit_details
+        )
+
+    @staticmethod
     def DONE_BUILD_FAILURE(library):
         return """
 It looks like we experienced one or more build failures when trying to apply this

@@ -18,7 +18,11 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self.config = config
 
     def get_libraries(self, gecko_path):
-        path_wrapper = lambda p:os.path.join(os.getcwd(), "tests/" if not os.getcwd().endswith("tests") else "", p)
+        def path_wrapper(p):
+            return os.path.join(os.getcwd(), "tests/" if not os.getcwd().endswith("tests") else "", p)
+
+        def default_repo():
+            return "test-repo.bundle"
 
         return [
             Library({
@@ -43,8 +47,8 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "bugzilla_component": "Audio/Video: Playback",
                 "maintainer_phab": "nobody",
                 "maintainer_bz": "nobody@mozilla.com",
-                "revision": self.config.get('commitalert_revision_override', None),
-                "repo_url": path_wrapper("test-repo.bundle"),
+                "revision": self.config.get('commitalert_revision_override', lambda: None)(),
+                "repo_url": path_wrapper((self.config.get('commitalert_repo_override', None) or default_repo)()),
                 "tasks": [
                     LibraryProvider.validate_task({
                         "type": "commit-alert",

@@ -18,7 +18,8 @@ TESTS = [
     "functionality_two_platforms",
     "multiple_inheritence",
     "treeherder_api",
-    "library"
+    "library",
+    "lambda_capture"
 ]
 
 modules = []

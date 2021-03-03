@@ -222,6 +222,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--library-filter',
+                        help="Pass a filter when running Updatebot fully",
+                        default="")
+
+    parser.add_argument('--find-libraries',
+                        help="Print libraries available in gecko-path", action="store_true")
+
     parser.add_argument('--check-database',
                         help="Check the config level of the database",
                         action="store_true")
@@ -229,8 +237,6 @@ if __name__ == "__main__":
                         help="Print the database", action="store_true")
     parser.add_argument('--delete-database',
                         help="Delete the database", action="store_true")
-    parser.add_argument('--find-libraries',
-                        help="Print libraries available in gecko-path", action="store_true")
     args = parser.parse_args()
 
     if args.print_database:
@@ -263,4 +269,4 @@ if __name__ == "__main__":
         print(libs)
     else:
         u = Updatebot(localconfig)
-        u.run()
+        u.run(library_filter=args.library_filter)

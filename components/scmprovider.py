@@ -26,7 +26,7 @@ class Commit:
     def populate_details(self, run):
         rev_range = [self.revision + "^", self.revision]
 
-        files_changed = run(["git", "diff", "--name-status"] + rev_range).stdout.decode().split()
+        files_changed = run(["git", "diff", "--name-status"] + rev_range).stdout.decode().split("\n")
         for f in files_changed:
             f = f.strip()
             if not f:
@@ -98,7 +98,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             self.logger.log("Our current branch is %s." % (current_branch), level=LogLevel.Debug)
 
             ret = self.run(["git", "branch", "--contains", library.revision])
-            containing_branches = [line.replace("*", "").strip() for line in ret.stdout.decode().split()]
+            containing_branches = [line.replace("*", "").strip() for line in ret.stdout.decode().split("\n")]
             self.logger.log("Containing branches are %s." % (containing_branches), level=LogLevel.Debug)
 
             if current_branch not in containing_branches:
@@ -180,7 +180,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
     def _commits_since(self, revision):
         ret = self.run(["git", "log", "--pretty=%H|%ai|%ci", revision + "..HEAD"])
-        commits = [line.strip() for line in ret.stdout.decode().split()]
+        commits = [line.strip() for line in ret.stdout.decode().split("\n")]
         # Put them in order of oldest to newest
         commits.reverse()
         # Populate them into a class but don't get details just yet.

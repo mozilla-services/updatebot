@@ -65,7 +65,7 @@ jobs:
           # This ensures that the pr_comment script is run regardless of if our
           # command fails.
           command: |
-            sudo apt-get install jq
+            sudo apt-get install jq git
             cp localconfig.py.example localconfig.py
             if COMMAND_OUTPUT=$(poetry run coverage run test.py 2>&1); then
               echo $COMMAND_OUTPUT

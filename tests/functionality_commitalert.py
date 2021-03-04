@@ -106,13 +106,14 @@ class MockedBugzillaProvider(BaseProvider):
     def __init__(self, config):
         self._filed_bug_id = config['filed_bug_id']
         self._expected_commits_seen = config['expected_commits_seen']
+        self._expected_bugs_filed = config['expected_bugs_filed_func']
         pass
 
-    def file_bug(self, library, summary, description, cc, see_also=None):
+    def file_bug(self, library, summary, description, cc_list, see_also=None, depends_on=None, moco_confidential=False):
         assert str(self._expected_commits_seen()) + " new commits" in summary, \
             "We did not see the expected number of commits in the bug we filed. Expected %s, summary is '%s'" % (self._expected_commits_seen(), summary)
 
-        return self._filed_bug_id
+        return self._filed_bug_id + self._expected_bugs_filed()
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
         pass
@@ -131,7 +132,7 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(current_library_version_func, new_library_version_func, expected_commits_seen, library_filter, branch="master", repo_func=None):
+    def _setup(current_library_version_func, new_library_version_func, expected_commits_seen, expected_bugs_filed_func, library_filter, branch="master", repo_func=None):
         real_command_runner = CommandProvider({})
         real_command_runner.update_config({
             'LoggingProvider': SimpleLogger(localconfig['Logging'])
@@ -153,7 +154,8 @@ class TestFunctionality(SimpleLoggingTest):
             'Vendor': {},
             'Bugzilla': {
                 'filed_bug_id': None,
-                'expected_commits_seen': expected_commits_seen
+                'expected_commits_seen': expected_commits_seen,
+                'expected_bugs_filed_func': expected_bugs_filed_func
             },
             'Mercurial': {},
             'Taskcluster': {},
@@ -211,13 +213,13 @@ class TestFunctionality(SimpleLoggingTest):
                     continue
                 u.dbProvider.delete_job(job_id=job.id)
 
-    def _check_job(self, job, expected_values):
+    def _check_job(self, job, expected_values, call_counter=0):
         self.assertEqual(job.type, JOBTYPE.COMMITALERT)
         self.assertEqual(job.ff_version, expected_values.ff_version)
         self.assertEqual(job.version, expected_values.new_version_id())
         self.assertEqual(job.status, JOBSTATUS.DONE)
         self.assertEqual(job.outcome, JOBOUTCOME.ALL_SUCCESS)
-        self.assertEqual(job.bugzilla_id, expected_values.filed_bug_id)
+        self.assertEqual(job.bugzilla_id, expected_values.filed_bug_id + call_counter)
 
     @logEntryExit
     def testNoAlert(self):
@@ -225,6 +227,7 @@ class TestFunctionality(SimpleLoggingTest):
         (u, expected_values) = TestFunctionality._setup(
             lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
             lambda: "",
+            lambda: 0,
             lambda: 0,
             library_filter)
         u.run(library_filter=library_filter)
@@ -242,6 +245,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: "0886ba657dedc54fad06018618cc07689198abea",
             lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
             lambda: 1,
+            lambda: 0,
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -259,6 +263,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: "b6972c67b63be20a4b28ed246fd06f6173265bb5",
             lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
             lambda: 1,
+            lambda: 0,
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -280,6 +285,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
             lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
             lambda: 2,
+            lambda: 0,
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -317,6 +323,7 @@ class TestFunctionality(SimpleLoggingTest):
             get_current_lib_revision,
             get_next_lib_revision,
             expected_commits_seen,
+            lambda: call_counter,
             library_filter,
             repo_func=get_lib_repo)
 
@@ -325,7 +332,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
-        self._check_job(all_jobs[0], expected_values)
+        self._check_job(all_jobs[0], expected_values, call_counter)
 
         call_counter += 1
 
@@ -334,7 +341,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[1], expected_values)
+        self._check_job(all_jobs[1], expected_values, call_counter)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlerts ----------------------------------------
@@ -365,6 +372,7 @@ class TestFunctionality(SimpleLoggingTest):
             get_current_lib_revision,
             get_next_lib_revision,
             expected_commits_seen,
+            lambda: call_counter,
             library_filter,
             repo_func=get_lib_repo)
 
@@ -373,7 +381,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
-        self._check_job(all_jobs[0], expected_values)
+        self._check_job(all_jobs[0], expected_values, call_counter)
 
         call_counter += 1
 
@@ -382,7 +390,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[1], expected_values)
+        self._check_job(all_jobs[1], expected_values, call_counter)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlertsSkip2 ----------------------------------------
@@ -406,6 +414,11 @@ class TestFunctionality(SimpleLoggingTest):
                 return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
             return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
 
+        def expected_bugs_that_have_been_filed():
+            if call_counter < 2:
+                return 0
+            return 1
+
         expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
 
         library_filter = "aom"
@@ -413,6 +426,7 @@ class TestFunctionality(SimpleLoggingTest):
             get_current_lib_revision,
             get_next_lib_revision,
             expected_commits_seen,
+            expected_bugs_that_have_been_filed,
             library_filter,
             repo_func=get_lib_repo)
 
@@ -421,7 +435,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
-        self._check_job(all_jobs[0], expected_values)
+        self._check_job(all_jobs[0], expected_values, expected_bugs_that_have_been_filed())
 
         call_counter += 1
 
@@ -438,7 +452,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[1], expected_values)
+        self._check_job(all_jobs[1], expected_values, expected_bugs_that_have_been_filed())
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlertsTimeLagged ----------------------------------------
@@ -466,11 +480,17 @@ class TestFunctionality(SimpleLoggingTest):
                 return 1
             return 1
 
+        def expected_bugs_that_have_been_filed():
+            if call_counter < 2:
+                return 0
+            return 1
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
             get_next_lib_revision,
             expected_commits_seen,
+            expected_bugs_that_have_been_filed,
             library_filter,
             repo_func=get_lib_repo)
 
@@ -479,7 +499,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
-        self._check_job(all_jobs[0], expected_values)
+        self._check_job(all_jobs[0], expected_values, expected_bugs_that_have_been_filed())
 
         call_counter += 1
 
@@ -496,7 +516,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[1], expected_values)
+        self._check_job(all_jobs[1], expected_values, expected_bugs_that_have_been_filed())
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoAlertsNewCommitsNoUpdate ----------------------------------------

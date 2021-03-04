@@ -26,6 +26,8 @@ jobs:
               echo -n .
               sleep 1
             done
+            echo '{"body": "Failed waiting for MySQL container"}' > json_output.txt
+            . .circleci/pr_comment.sh
             echo Failed waiting for MySQL && exit 1
           name: Waiting for MySQL to be ready
       - save_cache:
@@ -54,6 +56,8 @@ jobs:
               echo -n .
               sleep 1
             done
+            echo '{"body": "Failed waiting for MySQL container"}' > json_output.txt
+            . .circleci/pr_comment.sh
             echo Failed waiting for MySQL && exit 1
           name: Waiting for MySQL to be ready
       - run:

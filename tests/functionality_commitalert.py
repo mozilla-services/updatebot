@@ -113,6 +113,9 @@ class MockedBugzillaProvider(BaseProvider):
         assert str(self._expected_commits_seen()) + " new commits" in summary, \
             "We did not see the expected number of commits in the bug we filed. Expected %s, summary is '%s'" % (self._expected_commits_seen(), summary)
 
+        assert depends_on is None or depends_on == self._filed_bug_id + self._expected_bugs_filed() - 1, \
+            "We did not set the depends_on correctly when we filed the bug. Expected %s got %s" % (self._filed_bug_id + self._expected_bugs_filed() - 1, depends_on)
+
         return self._filed_bug_id + self._expected_bugs_filed()
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):

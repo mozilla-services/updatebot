@@ -31,12 +31,12 @@ class CommitAlertTaskRunner:
 
         newest_commit = unseen_upstream_commits[-1]
         self.logger.log("Processing %s for %s upstream revisions culminating in %s." % (library.name, len(unseen_upstream_commits), newest_commit.revision), level=LogLevel.Info)
-        self._process_new_commits(library, task, unseen_upstream_commits)
+        self._process_new_commits(library, task, unseen_upstream_commits, all_library_jobs)
 
     # ====================================================================
 
     @logEntryExit
-    def _process_new_commits(self, library, task, new_commits):
+    def _process_new_commits(self, library, task, new_commits, all_library_jobs):
         assert new_commits
 
         newest_commit = new_commits[-1]
@@ -53,6 +53,8 @@ class CommitAlertTaskRunner:
         else:
             raise Exception("In a commit-altert task for library %s I got a filter '%s' I don't know how to handle." % (library.name, task.filter))
 
+        depends_on = all_library_jobs[0].bugzilla_id if all_library_jobs else None
         description = CommentTemplates.EXAMINE_COMMITS_BODY(library, task, self.scmProvider.build_bug_description(filtered_commits))
-        bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.EXAMINE_COMMITS_SUMMARY(library, new_commits), description, task.cc)
+
+        bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.EXAMINE_COMMITS_SUMMARY(library, new_commits), description, task.cc, depends_on=depends_on, moco_confidential=True)
         self.dbProvider.create_job(JOBTYPE.COMMITALERT, library, newest_commit.revision, JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS, bugzilla_id, phab_revision=None, try_run=None, try_run_type=None)

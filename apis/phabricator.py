@@ -73,4 +73,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
-            raise Exception("Got an error from phabricator when trying to abandon %s: %s" % (phab_revision, result))
+            if "You can not abandon this revision because it has already been closed." in result['errorMessage']:
+                self.logger.log("Strangely, the phabricator revision %s was already closed when we tried to abandon it. Oh well." % phab_revision, level=LogLevel.Warning)
+            else:
+                raise Exception("Got an error from phabricator when trying to abandon %s: %s" % (phab_revision, result))

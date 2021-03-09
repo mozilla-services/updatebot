@@ -6,7 +6,6 @@
 
 import yaml
 
-from components.utilities import Struct
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
@@ -24,91 +23,187 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 #     'name': 'dav1d'
 # },
 # 'updatebot': {
-#     'enabled': True,
 #     'maintainer-bz': 'nobody@mozilla.com',
-#     'maintainer-phab': 'nobody'
+#     'maintainer-phab': 'nobody',
+#     'tasks': [
+#         { 'type': 'vendoring',
+#           ' enabled': True,
+#         }
+#     ]
 # },
 # 'yaml_path': '/Users/nobody/mozilla-central/media/libdav1d/moz.yaml'
+
+class Library:
+    def __init__(self, dict):
+        self.name = dict['name']
+        self.bugzilla_product = dict['bugzilla_product']
+        self.bugzilla_component = dict['bugzilla_component']
+        self.revision = dict['revision']
+        self.repo_url = dict['repo_url']
+        self.maintainer_bz = dict['maintainer_bz']
+        self.maintainer_phab = dict['maintainer_phab']
+        self.yaml_path = dict['yaml_path']
+        self.tasks = []
+
+        for t in dict['tasks']:
+            self.tasks.append(Task(t))
+
+    def __eq__(self, other):
+        if not isinstance(other, Library):
+            return False
+
+        for prop in dir(self):
+            if not prop.startswith("__") and prop != "id":
+                try:
+                    if getattr(other, prop) != getattr(self, prop):
+                        return False
+                except AttributeError:
+                    return False
+
+        return True
+
+
+class Task:
+    def __init__(self, dict):
+        self.type = dict['type']
+        self.enabled = dict['enabled']
+        self.branch = dict['branch']
+        self.cc = dict['cc']
+
+        if self.type == 'commit-alert':
+            self.filter = dict['filter']
+            self.source_extensions = dict['source-extensions']
+
+    def __eq__(self, other):
+        if not isinstance(other, Task):
+            return False
+
+        for prop in dir(self):
+            if not prop.startswith("__") and prop != "id":
+                try:
+                    if getattr(other, prop) != getattr(self, prop):
+                        return False
+                except AttributeError:
+                    return False
+
+        return True
+
+
+def get_sub_key_or_raise(key, subkey, dict, yaml_path):
+    if key in dict and subkey in dict[key]:
+        return dict[key][subkey]
+    else:
+        raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
+
+
+def get_key_or_default(key, dict, default):
+    return dict[key] if key in dict else default
 
 
 class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
-        pass
+        self._libraries = None
 
     def get_libraries(self, gecko_path):
-        libraries = []
-        mozilla_central_yamls = self.run(["find", gecko_path, "-type", "f", "-name", "moz.yaml"]).stdout.decode().strip().split("\n")
+        if self._libraries is None:
+            libraries = []
+            mozilla_central_yamls = self.run(["find", gecko_path, "-type", "f", "-name", "moz.yaml"]).stdout.decode().strip().split("\n")
 
-        for file in mozilla_central_yamls:
-            with open(file, "r") as mozyaml:
-                new_library = yaml.safe_load(mozyaml.read())
-                new_library['yaml_path'] = file.replace(gecko_path + "/", "")
+            for file in mozilla_central_yamls:
+                with open(file, "r") as mozyaml:
+                    # Only return libraries that have enabled tasks
+                    new_library_obj = LibraryProvider.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
+                    if new_library_obj.tasks:
+                        libraries.append(new_library_obj)
 
-                # Only process libraries that are enabled for processing
-                if 'updatebot' in new_library and 'enabled' in new_library['updatebot'] and new_library['updatebot']['enabled']:
-                    libraries.append(self.validate_library(new_library))
-        return libraries
+            self._libraries = libraries
 
-    def validate_library(self, library):
-        validated_library = Struct(**{
-            'bugzilla': {
-                'product': '',
-                'component': ''
-            },
-            'origin': {
-                'name': '',
-                'revision': ''
-            },
-            'updatebot': {
-                'enabled': False,
-                'maintainer-bz': '',
-                'maintainer-phab': ''
-            },
+        return self._libraries
+
+    @staticmethod
+    def validate_library(yaml_contents, yaml_path):
+        library = yaml.safe_load(yaml_contents)
+
+        validated_library = {
+            'name': '',
+            'bugzilla_product': '',
+            'bugzilla_component': '',
+            'revision': None,
+            'repo_url': '',
+            'maintainer_bz': '',
+            'maintainer_phab': '',
+            'tasks': [],
             'yaml_path': ''
-        })
+        }
+
+        validated_task = {
+            'type': '',
+            'enabled': '',
+            'branch': '',
+            'cc': ''
+        }
 
         # We assign this ourselves at import, so no need to check it
-        validated_library.yaml_path = library['yaml_path']
+        validated_library['yaml_path'] = yaml_path
 
-        # This isn't required by the moz.yaml schema, but we need it to do
-        # anything with the library, so we pretend like it is required
-        if 'origin' in library and 'name' in library['origin']:
-            validated_library.origin['name'] = library['origin']['name']
-        else:
-            # Clarify exception by name of file imported since we assign that
-            # ourselves at import
-            raise AttributeError('library imported from {0} is missing origin: name field'.format(library['yaml_path']))
+        validated_library['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
+        validated_library['bugzilla_product'] = get_sub_key_or_raise('bugzilla', 'product', library, yaml_path)
+        validated_library['bugzilla_component'] = get_sub_key_or_raise('bugzilla', 'component', library, yaml_path)
 
         # Attempt to get the revision (not required by moz.yaml) if present
         if 'origin' in library and 'revision' in library['origin']:
-            validated_library.origin['revision'] = library['origin']['revision']
-
-        # From here on we can use the library's name in the exception since we
-        # know it exists
-        if 'bugzilla' in library and 'product' in library['bugzilla']:
-            validated_library.bugzilla['product'] = library['bugzilla']['product']
+            validated_library['revision'] = library['origin']['revision']
         else:
-            raise AttributeError('library {0} is missing bugzilla: product field'.format(library['origin']['name']))
+            validated_library['revision'] = None
 
-        if 'bugzilla' in library and 'component' in library['bugzilla']:
-            validated_library.bugzilla['component'] = library['bugzilla']['component']
+        # Attempt to get the repository url (not required by moz.yaml) if present
+        if 'vendoring' in library and 'url' in library['vendoring']:
+            validated_library['repo_url'] = library['vendoring']['url']
         else:
-            raise AttributeError('library {0} is missing bugzilla: component field'.format(library['origin']['name']))
+            validated_library['repo_url'] = None
 
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
-        if 'updatebot' in library and 'enabled' in library['updatebot']:
-            validated_library.updatebot['enabled'] = library['updatebot']['enabled']
+        if 'updatebot' in library:
+            validated_library['maintainer_bz'] = get_sub_key_or_raise('updatebot', 'maintainer-bz', library, yaml_path)
+            validated_library['maintainer_phab'] = get_sub_key_or_raise('updatebot', 'maintainer-phab', library, yaml_path)
 
-            # These updatebot keys are required if the updatebot section exists
-            # in the moz.yaml file, so we report an error if they're missing
-            if 'maintainer-bz' in library['updatebot']:
-                validated_library.updatebot['maintainer-bz'] = library['updatebot']['maintainer-bz']
-            else:
-                raise AttributeError('library {0} is missing updatebot: maintainer-bz field'.format(library['origin']['name']))
-            if 'maintainer-phab' in library['updatebot']:
-                validated_library.updatebot['maintainer-phab'] = library['updatebot']['maintainer-phab']
-            else:
-                raise AttributeError('library {0} is missing updatebot: maintainer-phab field'.format(library['origin']['name']))
+            if 'tasks' in library['updatebot']:
+                for t in library['updatebot']['tasks']:
+                    validated_task = LibraryProvider.validate_task(t, library['origin']['name'])
 
-        return validated_library
+                    if validated_task['enabled']:
+                        validated_library['tasks'].append(validated_task)
+
+        if validated_library['tasks']:
+            if not validated_library['repo_url']:
+                raise Exception("If a library has Updatebot Tasks, then it must specify an upstream repository url")
+            if not validated_library['revision']:
+                raise Exception("If a library has Updatebot Tasks, then it must specify a current revision")
+        return Library(validated_library)
+
+    @staticmethod
+    def validate_task(task_dict, library_name):
+        validated_task = {}
+
+        if 'type' not in task_dict:
+            raise AttributeError('library {0} task is missing type field'.format(library_name))
+        if task_dict['type'] not in ['vendoring', 'commit-alert']:
+            raise AttributeError('library {0} task has an invalid type field {1}'.format(library_name, task_dict['type']))
+
+        validated_task['type'] = task_dict['type']
+
+        validated_task['enabled'] = get_key_or_default('enabled', task_dict, False)
+        validated_task['branch'] = get_key_or_default('branch', task_dict, None)
+        validated_task['cc'] = get_key_or_default('cc', task_dict, [])
+
+        if task_dict['type'] == 'commit-alert':
+            validated_task['filter'] = get_key_or_default('filter', task_dict, 'none')
+            validated_task['source-extensions'] = get_key_or_default('source-extensions', task_dict, None)
+        else:
+            if 'filter' in task_dict:
+                raise AttributeError('library {0} task has a value for filter when type != commit-alert'.format(library_name))
+            if 'source-extensions' in task_dict:
+                raise AttributeError('library {0} task has a value for source-extensions when type != commit-alert'.format(library_name))
+
+        return validated_task

@@ -6,16 +6,18 @@
 
 import os
 import sys
-from components.logging import LoggingProvider, SimpleLogger, LogLevel, SimpleLoggerConfig, logEntryExit, logEntryExitNoArgs
+from components.logging import LoggingProvider, SimpleLogger, LogLevel, SimpleLoggerConfig
 from components.commandprovider import CommandProvider
 from components.dbc import DatabaseProvider
-from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.libraryprovider import LibraryProvider
 from components.mach_vendor import VendorProvider
-from components.bugzilla import BugzillaProvider, CommentTemplates
+from components.bugzilla import BugzillaProvider
 from components.hg import MercurialProvider
+from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
+from tasktypes.vendoring import VendorTaskRunner
+from tasktypes.commitalert import CommitAlertTaskRunner
 
 DEFAULT_OBJECTS = {
     'Command': CommandProvider,
@@ -27,6 +29,9 @@ DEFAULT_OBJECTS = {
     'Mercurial': MercurialProvider,
     'Taskcluster': TaskclusterProvider,
     'Phabricator': PhabricatorProvider,
+    'SCM': SCMProvider,
+    'VendorTaskRunner': VendorTaskRunner,
+    'CommitAlertTaskRunner': CommitAlertTaskRunner
 }
 
 
@@ -50,7 +55,7 @@ class Updatebot:
         # Pre-initialize this with a print-based logger for validation error output.
         self.logger = SimpleLogger()
         self.config_dictionary = config_dictionary
-        self._validate(config_dictionary)
+        config_dictionary = self._validate(config_dictionary)
 
         """
         Provider initialization is complicated.
@@ -78,7 +83,16 @@ class Updatebot:
         Step 6: Call update_config on them as well to populate their INeeds superclasses.
 
         We store all providers in a provider_dictionary so its easy to iterate over them,
-        but we also turn them into member variables for easier access (Step 7)
+        but we also turn them into member variables for easier access (Step 7).
+
+        Besides Providers, we also have TaskRunners. TaskRunners use Providers to run a
+        job. TaskRunners do not talk to other TaskRunners; and an instance of a TaskRunner
+        is capable of running multiple different jobs (of a single type.)
+
+        Because we want to support the same mocking ability for TaskRunners as Providers,
+        we support specifying TaskRunners in the object_dictionary (Step 8); however, they
+        do not receive any configuration - there should be no state like that in a
+        TaskRunner.
         """
         # Step 1
         self.provider_dictionary = {
@@ -106,6 +120,7 @@ class Updatebot:
                 'mercurialProvider': getOr('Mercurial'),
                 'taskclusterProvider': getOr('Taskcluster'),
                 'phabricatorProvider': getOr('Phabricator'),
+                'scmProvider': getOr('SCM'),
             })
             # Step 6
             self.runOnProviders(lambda x: x.update_config(additional_config))
@@ -113,6 +128,12 @@ class Updatebot:
             self.__dict__.update(self.provider_dictionary)
             # And check the database
             self.dbProvider.check_database()
+
+            # Step 8
+            self.taskRunners = {
+                'vendoring': _getObjOr('VendorTaskRunner')(self.provider_dictionary, self.config_dictionary),
+                'commit-alert': _getObjOr('CommitAlertTaskRunner')(self.provider_dictionary, self.config_dictionary)
+            }
         except Exception as e:
             self.logger.log_exception(e)
             raise(e)
@@ -122,14 +143,42 @@ class Updatebot:
             func(v)
 
     def _validate(self, config_dictionary):
+        # In this function we have not set up our robust logging facilities yet. We are using SimpleLogger()
+        # which is just a Localogger. So even if we are running in automation, we won't be outputting anything
+        # here to Sentry. Therefore, if we do need to abort here; we should exit(1) so Taskcluster will report
+        # the job as failed (and we'll get an email.)
         if 'General' not in config_dictionary:
             self.logger.log("'General' is a required config dictionary to supply.", level=LogLevel.Fatal)
             sys.exit(1)
+
         if 'gecko-path' not in config_dictionary['General']:
             self.logger.log("['General']['gecko-path'] probably should be defined in the config dictionary.", level=LogLevel.Warning)
+            if 'ff_version' not in config_dictionary['General']:
+                self.logger.log("If ['General']['gecko-path'] is not defined, then ff_version must be - but it is not.", level=LogLevel.Fatal)
+                sys.exit(1)
+
         if 'env' not in config_dictionary['General']:
             self.logger.log("['General']['env'] must be defined in the config dictionary with a value of prod or dev.", level=LogLevel.Fatal)
             sys.exit(1)
+
+        if 'ff-version' not in config_dictionary['General']:
+            ff_version = 0
+            try:
+                with open(os.path.join(config_dictionary['General']['gecko-path'], "browser", "config", "version.txt")) as version_file:
+                    version = version_file.read()
+                    ff_version = int(version.split(".")[0])
+            except Exception as e:
+                self.logger.log("Encountered an error trying to read the version from version.txt", level=LogLevel.Fatal)
+                raise e
+
+            if ff_version < 87:
+                # 87 is the version of Firefox currently on Beta when this code was written. If we get a number lower than that
+                # (e.g. 0), then something is wrong and bears investigating.
+                self.logger.log("The FF version we pulled from the repo is < 87: %s" % ff_version, level=LogLevel.Fatal)
+                sys.exit(1)
+            config_dictionary['General']['ff-version'] = ff_version
+
+        return config_dictionary
 
     def run(self, library_filter=""):
         try:
@@ -147,17 +196,24 @@ class Updatebot:
 
             libraries = self.libraryProvider.get_libraries(self.config_dictionary['General']['gecko-path'])
             for lib in libraries:
-                if library_filter and library_filter not in lib.origin["name"]:
-                    self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (lib.origin["name"], library_filter), level=LogLevel.Info)
+                if library_filter and library_filter not in lib.name:
+                    self.logger.log("Skipping %s because it doesn't meet the filter '%s'" % (lib.name, library_filter), level=LogLevel.Info)
                     continue
                 try:
                     self._process_library(lib)
-                except Exception as e:
-                    # Clean up any changes to the repo we may have made
-                    self.cmdProvider.run(["hg", "checkout", "-C", "."])
-                    self.cmdProvider.run(["hg", "purge", "."])
                     self.logger.log("Caught an exception while processing a library.", level=LogLevel.Error)
                     self.logger.log_exception(e)
+
+                for task in lib.tasks:
+                    try:
+                        taskRunner = self.taskRunners[task.type]
+                        taskRunner.process_task(lib, task)
+                    except Exception as e:
+                        # Clean up any changes to the repo we may have made
+                        self.cmdProvider.run(["hg", "checkout", "-C", "."])
+                        self.cmdProvider.run(["hg", "purge", "."])
+                        self.logger.log("Caught an exception while processing library %s task type %s" % (lib.name, task.type), level=LogLevel.Error)
+                        self.logger.log_exception(e)
         except Exception as e:
             self.logger.log_exception(e)
             raise(e)
@@ -459,6 +515,8 @@ class Updatebot:
         existing_job.status = JOBSTATUS.DONE
         self.dbProvider.update_job_status(existing_job)
 
+=======
+>>>>>>> 2021-03-04-commitalert-polish
 
 # ====================================================================
 # ====================================================================
@@ -473,6 +531,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--library-filter',
+                        help="Pass a filter when running Updatebot fully",
+                        default="")
+
+    parser.add_argument('--find-libraries',
+                        help="Print libraries available in gecko-path", action="store_true")
+
     parser.add_argument('--check-database',
                         help="Check the config level of the database",
                         action="store_true")
@@ -480,8 +546,6 @@ if __name__ == "__main__":
                         help="Print the database", action="store_true")
     parser.add_argument('--delete-database',
                         help="Delete the database", action="store_true")
-    parser.add_argument('--find-libraries',
-                        help="Print libraries available in gecko-path", action="store_true")
     args = parser.parse_args()
 
     if args.print_database:
@@ -514,4 +578,4 @@ if __name__ == "__main__":
         print(libs)
     else:
         u = Updatebot(localconfig)
-        u.run()
+        u.run(library_filter=args.library_filter)

@@ -38,18 +38,29 @@ class JOBOUTCOME(IntEnum):
         return str(self.value)
 
 
+@unique
+class JOBTYPE(IntEnum):
+    VENDORING = 1
+    COMMITALERT = 2
+
+    # See above
+    def translate(self, _escape_table):
+        return str(self.value)
+
+
 def transform_job_and_try_results_into_objects(rows):
     """
     In this function we are given an array of rows where the try runs
-    have been inner-joined into the jobs table, so we have duplicate job
-    data.
+    have been left-outer-joined into the jobs table, so we have duplicate
+    job data.
     We're going to transform this data into objects
     """
     jobs = {}
     for r in rows:
         jobs[r['job_id']] = Job(r)
     for r in rows:
-        jobs[r['job_id']].try_runs.append(TryRun(r, id_column='try_run_id'))
+        if r['try_run_id']:
+            jobs[r['job_id']].try_runs.append(TryRun(r, id_column='try_run_id'))
 
     # Make sure the try runs are in ascending order. Uses a database-internal
     # key which is a bad practice, because what if the key turns into a guid
@@ -64,6 +75,9 @@ class Job:
     def __init__(self, row=None):
         if row:
             self.id = row['id']
+            self.type = JOBTYPE(row['job_type'])
+            self.ff_version = row['ff_version']
+            self.created = row['created']
             self.library_shortname = row['library']
             self.version = row['version']
             self.status = JOBSTATUS(row['status'])

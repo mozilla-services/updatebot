@@ -8,7 +8,7 @@ from components.utilities import Struct
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
-from components.dbmodels import TryRun, transform_job_and_try_results_into_objects, JOBSTATUS, JOBOUTCOME
+from components.dbmodels import TryRun, transform_job_and_try_results_into_objects, JOBSTATUS, JOBOUTCOME, JOBTYPE
 
 import pymysql
 
@@ -16,23 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-class HardcodedDatabase:
-    def __init__(self, database_config):
-        pass
-
-    def check_database(self):
-        return 1
-
-    def have_job(self, library, new_version):
-        return False
-
-    def create_job(self, library, new_version, bug_id, try_run):
-        pass
-
-# ==================================================================================
-
-
-CURRENT_DATABASE_CONFIG_VERSION = 6
+CURRENT_DATABASE_CONFIG_VERSION = 8
 
 CREATION_QUERIES = {
     "config": """
@@ -56,9 +40,19 @@ CREATION_QUERIES = {
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,
+    "job_types": """
+      CREATE TABLE `job_types` (
+        `id` TINYINT NOT NULL,
+        `name` VARCHAR(255) NOT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE = InnoDB;
+      """,
     "jobs": """
       CREATE TABLE `jobs` (
         `id` INT NOT NULL AUTO_INCREMENT,
+        `job_type` TINYINT NOT NULL,
+        `ff_version` TINYINT NOT NULL,
+        `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `library` VARCHAR(255) NOT NULL,
         `version` VARCHAR(64) NOT NULL ,
         `status` TINYINT NOT NULL,
@@ -86,6 +80,8 @@ ALTER_QUERIES = {
         "ALTER TABLE jobs ADD CONSTRAINT fk_job_outcome FOREIGN KEY (outcome) REFERENCES outcome_types(id)",
     'jobs|fk_job_status':
         "ALTER TABLE jobs ADD CONSTRAINT fk_job_status FOREIGN KEY (status) REFERENCES status_types(id)",
+    'jobs|fk_job_type':
+        "ALTER TABLE jobs ADD CONSTRAINT fk_job_type FOREIGN KEY (job_type) REFERENCES job_types(id)",
     'try_runs|fk_tryrun_job':
         "ALTER TABLE try_runs ADD CONSTRAINT fk_tryrun_job FOREIGN KEY (job_id) REFERENCES jobs(id)",
 }
@@ -115,6 +111,14 @@ for p in dir(JOBOUTCOME):
             Struct(**{
                 'query': "INSERT INTO `outcome_types` (`id`, `name`) VALUES (%s, %s)",
                 'args': (getattr(JOBOUTCOME, p), p)
+            }))
+
+for p in dir(JOBTYPE):
+    if p[0] != '_':
+        INSERTION_QUERIES.append(
+            Struct(**{
+                'query': "INSERT INTO `job_types` (`id`, `name`) VALUES (%s, %s)",
+                'args': (getattr(JOBTYPE, p), p)
             }))
 # ==================================================================================
 
@@ -258,6 +262,30 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                         self._query_execute("ALTER TABLE jobs DROP try_revision")
 
+                    elif config_version == 6 and CURRENT_DATABASE_CONFIG_VERSION == 7:
+                        for table_name in CREATION_QUERIES:
+                            if table_name == 'job_types':
+                                self._query_execute(CREATION_QUERIES[table_name])
+
+                        for q in INSERTION_QUERIES:
+                            if 'job_types' in q.query:
+                                self._query_execute(q.query, q.args)
+
+                        # Add the column with no default (making the default zero)
+                        self._query_execute("ALTER TABLE `jobs` ADD COLUMN `job_type` TINYINT NOT NULL AFTER `id`")
+                        # Then alter the table to set the existing value for all jobs to 1
+                        self._query_execute("UPDATE `jobs` set job_type = 1")
+
+                        for query_name in ALTER_QUERIES:
+                            if "fk_job_type" in query_name:
+                                self._query_execute(ALTER_QUERIES[query_name])
+
+                    elif config_version == 7 and CURRENT_DATABASE_CONFIG_VERSION == 8:
+                        # Add the column with no default (making the default zero)
+                        self._query_execute("ALTER TABLE `jobs` ADD COLUMN `ff_version` TINYINT NOT NULL AFTER `job_type`")
+                        # Add the column with no default (making the default zero)
+                        self._query_execute("ALTER TABLE `jobs` ADD COLUMN `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `ff_version`")
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -329,7 +357,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     def get_all_jobs(self):
         query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
-                   INNER JOIN try_runs as t
+                   LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    ORDER BY j.id ASC"""
         results = self._query_get_rows(query)
@@ -342,36 +370,37 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return [TryRun(r) for r in results]
 
     @logEntryExit
-    def get_all_active_jobs_for_library(self, library):
+    def get_all_jobs_for_library(self, library):
         query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
-                   INNER JOIN try_runs as t
+                   LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
-                     AND j.status<>%s
                    ORDER BY j.id ASC"""
-        args = (library.origin["name"], JOBSTATUS.DONE)
+        args = (library.name)
         results = self._query_get_rows(query, args)
         return transform_job_and_try_results_into_objects(results)
 
     @logEntryExit
-    def get_job(self, library, new_version):
+    def get_job(self, library, new_version, ff_version):
         query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
-                   INNER JOIN try_runs as t
+                   LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
                      AND j.version = %s
+                     AND j.ff_version = %s
                    ORDER BY j.id ASC"""
-        args = (library.origin["name"], new_version)
+        args = (library.name, new_version, ff_version)
         results = self._query_get_rows(query, args)
         jobs = transform_job_and_try_results_into_objects(results)
         return jobs[0] if jobs else None
 
     @logEntryExit
-    def create_job(self, library, new_version, try_run_type, status, outcome, bug_id, phab_revision, try_run):
-        query = "INSERT INTO jobs(library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s)"
-        args = (library.origin["name"], new_version, status, outcome, bug_id, phab_revision)
+    def create_job(self, jobtype, ff_version, library, new_version, status, outcome, bug_id, phab_revision, try_run, try_run_type):
+        # Omitting the created column initializes it to current timestamp
+        query = "INSERT INTO jobs(job_type, ff_version, library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)"
+        args = (jobtype, ff_version, library.name, new_version, status, outcome, bug_id, phab_revision)
         job_id = self._query_execute(query, args)
 
         if try_run:
@@ -392,16 +421,18 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
-    def delete_job(self, library=None, version=None, job_id=None):
+    def delete_job(self, library=None, version=None, job_id=None, ff_version=None):
         assert job_id or (library and version), "You must provide a way to delete a job"
+        assert ff_version, "You must provide a ff_version to delete a job"
 
         if job_id:
+            # Technically ff_version is redundant here, but we'll use it anyway
             query = "DELETE FROM try_runs WHERE job_id = %s"
             args = (job_id)
             self._query_execute(query, args)
 
-            query = "DELETE FROM jobs WHERE id = %s"
-            args = (job_id)
+            query = "DELETE FROM jobs WHERE id = %s AND ff_version = %s"
+            args = (job_id, ff_version)
             self._query_execute(query, args)
         else:
             query = """DELETE t.*
@@ -409,10 +440,11 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        INNER JOIN jobs as j
                           ON j.id = t.job_id
                        WHERE j.library = %s
-                         AND j.version = %s"""
-            args = (library.origin["name"], version)
+                         AND j.version = %s
+                         AND j.ff_version = %s"""
+            args = (library.name, version, ff_version)
             self._query_execute(query, args)
 
-            query = "DELETE FROM jobs WHERE library = %s AND version = %s"
-            args = (library.origin["name"], version)
+            query = "DELETE FROM jobs WHERE library = %s AND version = %s and ff_version = %s"
+            args = (library.name, version, ff_version)
             self._query_execute(query, args)

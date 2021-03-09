@@ -3,14 +3,40 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from dateutil.parser import parse
-
 from apis.bugzilla_api import fileBug, commentOnBug, closeBug
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel, logEntryExit
 
 
 class CommentTemplates:
+    @staticmethod
+    def UPDATE_SUMMARY(library, new_release_version, release_timestamp):
+        return "Update %s to new version %s from %s" % (
+            library.name, new_release_version, release_timestamp)
+
+    @staticmethod
+    def EXAMINE_COMMITS_SUMMARY(library, new_commits):
+        return "Examine %s for %s new commits, culminating in %s (%s)" % (
+            library.name, len(new_commits), new_commits[-1].revision, new_commits[-1].commit_date)
+
+    @staticmethod
+    def EXAMINE_COMMITS_BODY(library, task, commit_details):
+        return """
+We detected new commits to %s %s which is currently at revision %s.
+
+Please review these and determine if an update to the library is necessary.
+If no update is necessary, this bug may have its security-group cleared and
+set to INVALID. If the issue is security-sensitive it should change to a
+security group.
+
+%s
+        """ % (
+            library.name,
+            "on branch '" + task.branch + "'" if task.branch else "",
+            library.revision,
+            commit_details
+        )
+
     @staticmethod
     def DONE_BUILD_FAILURE(library):
         return """
@@ -41,7 +67,7 @@ In either event, I have done all I can, so you will need to take it from here.
     @staticmethod
     def DONE_UNCLASSIFIED_FAILURE(prefix, library):
         return prefix + "\n" + """
-These failures probably mean that the library update changed something and caused
+These failures could mean that the library update changed something and caused
 tests to fail. You'll need to review them yourself and decide where to go from here.
 
 In either event, I have done all I can, so I'm abandoning this revision and you will
@@ -92,20 +118,12 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
                 assert ('url' in self.config) or (self.config['General']['env'] in ["dev", "prod"]), "No bugzilla url provided, and unknown operating environment"
 
     @logEntryExit
-    def file_bug(self, library, new_release_version, release_timestamp, see_also=None):
-        try:
-            release_timestamp = parse(release_timestamp).strftime('%Y-%m-%d %H:%M:%S')
-        except ValueError:
-            pass
-
-        summary = "Update %s to new version %s from %s" % (
-            library.origin["name"], new_release_version, release_timestamp)
-        description = ""
+    def file_bug(self, library, summary, description, cc_list, see_also=None, depends_on=None, moco_confidential=False):
         severity = "normal" if self.config['General']['env'] == "dev" else "S3"
 
         bugID = fileBug(self.config['url'], self.config['apikey'],
-                        library.bugzilla['product'], library.bugzilla['component'],
-                        summary, description, severity, see_also)
+                        library.bugzilla_product, library.bugzilla_component,
+                        summary, description, severity, cc_list, see_also, depends_on, moco_confidential)
         self.logger.log("Filed Bug with ID", bugID, level=LogLevel.Info)
         return bugID
 

@@ -13,11 +13,13 @@ TESTS = [
     "bugzilla",
     "automation_configuration",
     "run_command",
+    "functionality_commitalert",
     "functionality_all_platforms",
     "functionality_two_platforms",
     "multiple_inheritence",
     "treeherder_api",
-    "library"
+    "library",
+    "lambda_capture"
 ]
 
 modules = []
@@ -30,7 +32,7 @@ suite = unittest.TestSuite()
 for m in modules:
     suite.addTests(loader.loadTestsFromModule(m))
 
-if unittest.TextTestRunner(verbosity=3).run(suite).wasSuccessful():
+if unittest.TextTestRunner(verbosity=3, buffer=True).run(suite).wasSuccessful():
     exit(0)
 else:
     exit(1)

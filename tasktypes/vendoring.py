@@ -151,6 +151,15 @@ class VendorTaskRunner:
 
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
 
+        def get_failed_summary_string(jobs):
+            fails = 0
+            for j in jobs:
+                if j.result not in ["retry", "success"]:
+                    fails += 1
+            if len(set([j.job_type_name for j in jobs])) != 1:
+                return "%s of %s failed on different tasks" % (fails, len(jobs))
+            return "%s of %s failed on the same (retriggered) task" % (fails, len(jobs))
+
         # Before we retrieve the push health, process the failed jobs for build or lint failures.
         comment_lines = []
         printed_lint_header = False
@@ -167,6 +176,7 @@ class VendorTaskRunner:
             comment_lines.append("**Known Issues (From Push Health)**:")
             for t in results['known_issues']:
                 comment_lines.append("\t" + t)
+                comment_lines.append("\t\t- " + get_failed_summary_string(results['known_issues'][t]))
                 for j in results['known_issues'][t]:
                     comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
@@ -179,6 +189,7 @@ class VendorTaskRunner:
             comment_lines.append("**Needs Investigation**:")
             for t in results['to_investigate']:
                 comment_lines.append("\t" + t)
+                comment_lines.append("\t\t- " + get_failed_summary_string(results['to_investigate'][t]))
                 for j in results['to_investigate'][t]:
                     comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
@@ -262,7 +273,7 @@ class VendorTaskRunner:
 
         # We don't need to retrigger and we don't have unclassified failures but we do have failures
         if comment_lines:
-            comment = "All jobs completed, we found the following issues.\n"
+            comment = "All jobs completed, we found the following issues.\n\n"
             self.logger.log(comment, level=LogLevel.Info)
             existing_job.outcome = JOBOUTCOME.CLASSIFIED_FAILURES
             for c in comment_lines:
@@ -297,7 +308,7 @@ class VendorTaskRunner:
 
     @logEntryExitNoArgs
     def _process_unclassified_failures(self, library, task, existing_job, comment_bullets):
-        comment = "The try push is done, we found jobs with unclassified failures.\n"
+        comment = "The try push is done, we found jobs with unclassified failures.\n\n"
         self.logger.log(comment.strip(), level=LogLevel.Info)
 
         for c in comment_bullets:

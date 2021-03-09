@@ -67,7 +67,7 @@ In either event, I have done all I can, so you will need to take it from here.
     @staticmethod
     def DONE_UNCLASSIFIED_FAILURE(prefix, library):
         return prefix + "\n" + """
-These failures probably mean that the library update changed something and caused
+These failures could mean that the library update changed something and caused
 tests to fail. You'll need to review them yourself and decide where to go from here.
 
 In either event, I have done all I can, so I'm abandoning this revision and you will

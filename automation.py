@@ -205,6 +205,9 @@ class Updatebot:
                         taskRunner = self.taskRunners[task.type]
                         taskRunner.process_task(lib, task)
                     except Exception as e:
+                        # Clean up any changes to the repo we may have made
+                        self.cmdProvider.run(["hg", "checkout", "-C", "."])
+                        self.cmdProvider.run(["hg", "purge", "."])
                         self.logger.log("Caught an exception while processing library %s task type %s" % (lib.name, task.type), level=LogLevel.Error)
                         self.logger.log_exception(e)
         except Exception as e:

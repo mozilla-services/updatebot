@@ -34,7 +34,12 @@ class VendorTaskRunner:
             self.logger.log("%s is a brand new revision to updatebot." % (new_version), level=LogLevel.Info)
             self._process_new_job(library, task, new_version, timestamp)
 
-        # TODO #119: We need to remove any commits we made so the repo is clean for the next library.
+        # remove commits generated from processing this library, will return success
+        # regardless of if outgoing commits exist or not.
+        self.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)
+
+        self.cmdProvider.run(["hg", "status"])  # hey what the fruck?
+        self.cmdProvider.run(["hg", "strip", "roots(outgoing())", "--no-backup"])
 
     # ====================================================================
 

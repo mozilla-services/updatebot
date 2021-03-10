@@ -48,9 +48,33 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         else:
             platform_filter = ["--tasks-regex", platform_filter]
 
-        ret = self.run(
-            ["./mach", "try", "auto"] + platform_filter)
-        output = ret.stdout.decode()
+        #ret = self.run(
+        #    ["./mach", "try", "auto"] + platform_filter)
+        #output = ret.stdout.decode()
+
+        output = """
+warning: 'mach try auto' is experimental, results may vary!
+Test configuration changed. Regenerating backend.
+Creating temporary commit for remote...
+A try_task_config.json
+pushing to ssh://hg.mozilla.org/try
+searching for changes
+remote: adding changesets
+remote: adding manifests
+remote: adding file changes
+remote: recorded push in pushlog
+remote: added 2 changesets with 1 changes to 6 files (+1 heads)
+remote:
+remote: View your changes here:
+remote:   https://hg.mozilla.org/try/rev/a8adec7d117968b8f0006a9e54393dba7c444717
+remote:   https://hg.mozilla.org/try/rev/%s
+remote:
+remote: Follow the progress of your build on Treeherder:
+remote:   https://treeherder.mozilla.org/#/jobs?repo=try&revision=%s
+remote: recorded changegroup in replication log in 0.011s
+push complete
+temporary commit removed, repository restored
+""" % ("56082fc4acfacba40993e47ef8302993c59e264e", "56082fc4acfacba40993e47ef8302993c59e264e")
 
         isNext = False
         try_link = None

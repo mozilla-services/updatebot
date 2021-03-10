@@ -38,6 +38,7 @@ class VendorTaskRunner:
         # regardless of if outgoing commits exist or not.
         self.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)
         self.cmdProvider.run(["hg", "status"])  # hey what the fruck?
+        self.cmdProvider.run(["hg", "help", "extensions"])  # hey what the fruck?
         self.cmdProvider.run(["hg", "strip", "roots(outgoing())", "--no-backup"])
 
 

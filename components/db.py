@@ -204,7 +204,8 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
             if config_version != CURRENT_DATABASE_CONFIG_VERSION:
                 self.logger.log("Going to try to process a database configuration upgrade from %s to %s" % (config_version, CURRENT_DATABASE_CONFIG_VERSION), level=LogLevel.Warning)
                 try:
-                    if config_version == 1 and CURRENT_DATABASE_CONFIG_VERSION == 2:
+                    if config_version <= 1 and CURRENT_DATABASE_CONFIG_VERSION >= 2:
+                        self.logger.log("Upgrading to database version 2", level=LogLevel.Warning)
                         # From Database version 1 to 2 we added the outcome_types table, which I noticed was missing.
                         # Because I have a completed try run in the database I don't want to lose, I decided to take
                         # the opportunity to flesh out what a real database upgrade process would look like so we have
@@ -217,22 +218,26 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                             if 'outcome_types' in q.query:
                                 self._query_execute(q.query, q.args)
 
-                    elif config_version == 2 and CURRENT_DATABASE_CONFIG_VERSION == 3:
+                    if config_version <= 2 and CURRENT_DATABASE_CONFIG_VERSION >= 3:
+                        self.logger.log("Upgrading to database version 3", level=LogLevel.Warning)
                         # Add (all of) the constraints
                         for query_name in ALTER_QUERIES:
                             self._query_execute(ALTER_QUERIES[query_name])
 
-                    elif config_version == 3 and CURRENT_DATABASE_CONFIG_VERSION == 4:
+                    if config_version <= 3 and CURRENT_DATABASE_CONFIG_VERSION >= 4:
+                        self.logger.log("Upgrading to database version 4", level=LogLevel.Warning)
                         # Add killswitch
                         for q in INSERTION_QUERIES:
                             if 'config' in q.query and 'enabled' in q.query:
                                 self._query_execute(q.query, q.args)
 
-                    elif config_version == 4 and CURRENT_DATABASE_CONFIG_VERSION == 5:
+                    if config_version <= 4 and CURRENT_DATABASE_CONFIG_VERSION >= 5:
+                        self.logger.log("Upgrading to database version 5", level=LogLevel.Warning)
                         # Remove libraries table
                         self._query_execute("DROP TABLE IF EXISTS libraries")
 
-                    elif config_version == 5 and CURRENT_DATABASE_CONFIG_VERSION == 6:
+                    if config_version <= 5 and CURRENT_DATABASE_CONFIG_VERSION >= 6:
+                        self.logger.log("Upgrading to database version 6", level=LogLevel.Warning)
                         # Create the try_runs table, and port the existing try runs across to it
                         # The first time I wrote this migration, it was broken because I didn't
                         #   'select * from jobs' I called get_all_jobs which had been rewritten to
@@ -262,7 +267,8 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                         self._query_execute("ALTER TABLE jobs DROP try_revision")
 
-                    elif config_version == 6 and CURRENT_DATABASE_CONFIG_VERSION == 7:
+                    if config_version <= 6 and CURRENT_DATABASE_CONFIG_VERSION >= 7:
+                        self.logger.log("Upgrading to database version 7", level=LogLevel.Warning)
                         for table_name in CREATION_QUERIES:
                             if table_name == 'job_types':
                                 self._query_execute(CREATION_QUERIES[table_name])
@@ -280,7 +286,8 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                             if "fk_job_type" in query_name:
                                 self._query_execute(ALTER_QUERIES[query_name])
 
-                    elif config_version == 7 and CURRENT_DATABASE_CONFIG_VERSION == 8:
+                    if config_version <= 7 and CURRENT_DATABASE_CONFIG_VERSION >= 8:
+                        self.logger.log("Upgrading to database version 8", level=LogLevel.Warning)
                         # Add the column with no default (making the default zero)
                         self._query_execute("ALTER TABLE `jobs` ADD COLUMN `ff_version` TINYINT NOT NULL AFTER `job_type`")
                         # Add the column with no default (making the default zero)

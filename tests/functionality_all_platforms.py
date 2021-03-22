@@ -16,13 +16,14 @@ sys.path.append(".")
 sys.path.append("..")
 from automation import Updatebot
 
-from components.utilities import Struct, NeverUseMeClass
+from components.utilities import Struct
 from components.providerbase import BaseProvider
 from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExit
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
 from components.hg import MercurialProvider
+from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
@@ -93,10 +94,45 @@ CONDUIT_EDIT_OUTPUT = """
 {"error":null,"errorMessage":null,"response":{"object":{"id":3643,"phid":"PHID-DREV-4pi6s6fwd57bktfzvfns"},"transactions":[{"phid":"PHID-XACT-DREV-om5mlg2ib34yaoi"},{"phid":"PHID-XACT-DREV-2pzq4qktezb7qqc"}]}}
 """
 
+GIT_PRETTY_OUTPUT = """
+c8011782e13d5c1c402b07b7a02efa2f8d400efa|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000
+f9e59ad078552424ca165644f4da3b4e2687c3dc|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000
+62c10c170bb33f1ad6c9eb13d0cbdf13f95fb27e|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000
+"""
+
+GIT_DIFF_FILES_CHANGES = """
+M	src/libANGLE/renderer/vulkan/VertexArrayVk.cpp
+M	src/tests/gl_tests/StateChangeTest1.cpp
+A	src/tests/gl_tests/StateChangeTest2.cpp
+D	src/tests/gl_tests/StateChangeTest3.cpp
+R	src/tests/gl_tests/StateChangeTest4.cpp
+Q	src/tests/gl_tests/StateChangeTest5.cpp
+"""
+
+GIT_COMMIT_BODY = """
+If glBufferSubData results in a new vk::BufferHelper allocation,
+VertexArrayVk::mCurrentElementArrayBuffer needs to be updated.
+VertexArrayVk::syncState was working under the assumption that
+DIRTY_BIT_ELEMENT_ARRAY_BUFFER_DATA cannot result in a vk::BufferHelper
+pointer change.
+
+This assumption was broken in
+https://chromium-review.googlesource.com/c/angle/angle/+/2204655.
+
+Bug: b/178231226
+Change-Id: I969549c5ffec3456bdc08ac3e03a0fa0e7b4593f
+(cherry picked from commit bb062070cb5257098f0e2d775fa66b74d6d32468)
+Reviewed-on: https://chromium-review.googlesource.com/c/angle/angle/+/2693346
+Reviewed-by: Jamie Madill <jmadill@chromium.org>
+Commit-Queue: Jamie Madill <jmadill@chromium.org>
+"""
+
 
 def DEFAULT_EXPECTED_VALUES(revision):
+    # This is a bit confusing; but we use the same SHA hash for the (fake) library revision
+    # we are updating to as the try revision we are return from fake-taskcluster
     return Struct(**{
-        'library_version_id': "newversion_" + revision,
+        'library_version_id': revision,
         'filed_bug_id': 50,
         'try_revision_id': revision,
         'phab_revision': 83119
@@ -108,10 +144,22 @@ def COMMAND_MAPPINGS(expected_values):
         "./mach vendor": expected_values.library_version_id + " 2020-08-21T15:13:49.000+02:00",
         "./mach try auto": TRY_OUTPUT(expected_values.try_revision_id),
         "hg commit": "",
+        "hg checkout -C .": "",
+        "hg purge .": "",
+        "hg status": "",
+        "hg strip": "",
         "arc diff --verbatim": ARC_OUTPUT,
         "echo '{\"constraints\"": CONDUIT_USERNAME_SEARCH_OUTPUT,
         "echo '{\"transactions\":": CONDUIT_EDIT_OUTPUT,
-        "git log -1 --oneline": "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output"
+        "git log -1 --oneline": "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output",
+        "git clone https://example.invalid .": "",
+        "git rev-parse --abbrev-ref HEAD": "master",
+        "git branch --contains": "master",
+        "git log --pretty=%H|%ai|%ci": GIT_PRETTY_OUTPUT,
+        "git diff --name-status": GIT_DIFF_FILES_CHANGES,
+        "git log --pretty=%s": "Roll SPIRV-Tools from a61d07a72763 to 1cda495274bb (1 revision)",
+        "git log --pretty=%an": "Tom Ritter",
+        "git log --pretty=%b": GIT_COMMIT_BODY,
     }
 
 
@@ -159,6 +207,9 @@ class TestFunctionality(SimpleLoggingTest):
                 'url_taskcluster': 'http://localhost:27490/',
             },
             'Phabricator': {},
+            'Library': {
+                'vendoring_revision_override': try_revision,
+            }
         }
 
         providers = {
@@ -181,7 +232,7 @@ class TestFunctionality(SimpleLoggingTest):
             'Taskcluster': TaskclusterProvider,
             # Not Mocked At All
             'Phabricator': PhabricatorProvider,
-            'SCM': NeverUseMeClass
+            'SCM': SCMProvider,
         }
 
         expected_values = DEFAULT_EXPECTED_VALUES(try_revision)

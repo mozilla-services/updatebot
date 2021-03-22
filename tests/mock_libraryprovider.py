@@ -31,8 +31,8 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "bugzilla_component": "Audio/Video: Playback",
                 "maintainer_phab": "nobody",
                 "maintainer_bz": "nobody@mozilla.com",
-                "revision": None,
-                "repo_url": None,
+                "revision": self.config.get('vendoring_revision_override', None),
+                "repo_url": "https://example.invalid",
                 "tasks": [
                     LibraryProvider.validate_task({
                         "type": "vendoring",

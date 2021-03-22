@@ -62,7 +62,13 @@ class VendorTaskRunner:
             see_also.append(active_job.bugzilla_id)
 
         # Now we can process the new job
-        bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), "", task.cc, see_also)
+
+        # Get the information we will need to file a bug.
+        #  set ignore_commits_from_these_jobs to get commit details on all revisions since the one in-tree
+        upstream_commits = self.scmProvider.check_for_update(library, task, ignore_commits_from_these_jobs=None)
+        commit_details = self.scmProvider.build_bug_description(upstream_commits)
+
+        bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(upstream_commits), commit_details), task.cc, see_also)
 
         try_run_type = 'initial platform' if self.config_dictionary['General']['separate-platforms'] else 'all platforms'
 

@@ -60,7 +60,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
 
-    def check_for_update(self, library, task, all_library_jobs):
+    def check_for_update(self, library, task, ignore_commits_from_these_jobs):
         # This function uses two tricky variable names:
         #  all_upstream_commits - This means the commits that have occured upstream, on the branch we care about,
         #                         between the library's current revision and the tip of the branch.
@@ -117,7 +117,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
             # We do have new upstream commits.
             # Step 3: Get the most recent job for the library
-            most_recent_job = all_library_jobs[0] if all_library_jobs else None
+            most_recent_job = ignore_commits_from_these_jobs[0] if ignore_commits_from_these_jobs else None
 
             # Step 4: Check if the most recent job was performed on a revision _after_ the library's current revision or _before_.
             # 'After the library's current revision' means:

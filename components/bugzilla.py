@@ -15,6 +15,14 @@ class CommentTemplates:
             library.name, new_release_version, release_timestamp)
 
     @staticmethod
+    def UPDATE_DETAILS(num_commits, commit_details):
+        return """
+This update covers %s commits:
+
+%s
+""" % (num_commits, commit_details)
+
+    @staticmethod
     def EXAMINE_COMMITS_SUMMARY(library, new_commits):
         return "Examine %s for %s new commits, culminating in %s (%s)" % (
             library.name, len(new_commits), new_commits[-1].revision, new_commits[-1].commit_date)

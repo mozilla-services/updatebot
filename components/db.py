@@ -220,9 +220,13 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                     if config_version <= 2 and CURRENT_DATABASE_CONFIG_VERSION >= 3:
                         self.logger.log("Upgrading to database version 3", level=LogLevel.Warning)
+                        # Add the missing primary key to status_types
+                        self._query_execute("ALTER TABLE status_types ADD PRIMARY KEY (`id`)")
+
                         # Add (all of) the constraints
                         for query_name in ALTER_QUERIES:
-                            self._query_execute(ALTER_QUERIES[query_name])
+                            if query_name in ['jobs|fk_job_outcome', 'jobs|fk_job_status']:
+                                self._query_execute(ALTER_QUERIES[query_name])
 
                     if config_version <= 3 and CURRENT_DATABASE_CONFIG_VERSION >= 4:
                         self.logger.log("Upgrading to database version 4", level=LogLevel.Warning)

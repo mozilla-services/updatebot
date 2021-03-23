@@ -44,8 +44,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     @logEntryExit
     def set_reviewer(self, phab_revision, phab_username):
         # First get the user's phid
-        cmd = """echo '{"constraints": {"usernames":["%s"]}}' | arc call-conduit user.search""" \
-            % (phab_username)
+        cmd = """echo '{"constraints": {"usernames":["%s"]}}' | arc call-conduit --conduit-uri='%s' user.search""" \
+            % (phab_username, self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
@@ -59,8 +59,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         phid = result['response']['data'][0]['phid']
 
-        cmd = """echo '{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}' | arc call-conduit differential.revision.edit""" \
-            % (phid, phab_revision)
+        cmd = """echo '{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit""" \
+            % (phid, phab_revision, self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
@@ -68,8 +68,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def abandon(self, phab_revision):
-        cmd = """echo '{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}' | arc call-conduit differential.revision.edit""" \
-            % phab_revision
+        cmd = """echo '{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit """ \
+            % (phab_revision, self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:

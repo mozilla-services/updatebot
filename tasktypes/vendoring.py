@@ -75,6 +75,10 @@ class VendorTaskRunner:
         try:
             self.vendorProvider.vendor(library)
         except Exception:
+            # We're not going to commit these changes; so clean them out.
+            self.cmdProvider.run(["hg", "checkout", "-C", "."])
+            self.cmdProvider.run(["hg", "purge", "."])
+
             # Handle `./mach vendor` failing
             self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
             self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(""))  # TODO, put error message

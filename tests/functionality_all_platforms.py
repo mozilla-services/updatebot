@@ -168,7 +168,7 @@ class MockedBugzillaProvider(BaseProvider):
         self._filed_bug_id = config['filed_bug_id']
         pass
 
-    def file_bug(self, library, summary, description, cc, see_also=None):
+    def file_bug(self, library, summary, description, cc, needinfo, see_also=None):
         return self._filed_bug_id
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):

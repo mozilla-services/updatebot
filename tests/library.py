@@ -29,7 +29,8 @@ LIBRARIES = [
                         'type': "vendoring",
                         'enabled': True,
                         'branch': None,
-                        'cc': []
+                        'cc': [],
+                        'needinfo': []
                     }
         ],
         "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml"

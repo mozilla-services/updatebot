@@ -42,16 +42,17 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'summary': 'Update dav1d to new version V1 from 2020-08-21 15:13:49',
                 'description': '',
                 'whiteboard': '[3pl-filed]',
-                'cc': ['tom@mozilla.com', 'additional@example.com'],
+                'cc': ['tom@mozilla.com', 'jewilde@mozilla.com', 'additional@example.com'],
+                'flags': [{'name': 'needinfo', 'status': '?', 'requestee': 'needinfo@example.com'}],
                 'depends_on': 110,
                 'see_also': 210,
                 'groups': ['mozilla-employee-confidential']
             }
             for k in expectedContent:
                 assert k in content, k + " not in content"
-                assert expectedContent[k] == content[k], k + " is " + content[k] + " not " + expectedContent[k]
+                assert expectedContent[k] == content[k], str(k) + " is " + str(content[k]) + " not " + str(expectedContent[k])
             for k in content:
-                assert k in expectedContent, "Unexpected " + k + " in content"
+                assert k in expectedContent, "Unexpected " + str(k) + " in content"
 
             self.wfile.write("{\"id\":456}".encode())
         else:
@@ -110,7 +111,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
-        self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, 'V1', string_date_to_uniform_string_date('2020-08-21T15:13:49.000+02:00')), "", ['additional@example.com'], 210, 110, moco_confidential=True)
+        self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, 'V1', string_date_to_uniform_string_date('2020-08-21T15:13:49.000+02:00')), "", ['additional@example.com'], ['needinfo@example.com'], 210, 110, moco_confidential=True)
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(

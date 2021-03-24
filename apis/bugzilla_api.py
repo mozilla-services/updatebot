@@ -16,7 +16,9 @@ def kw(s):
     return sq('3pl-' + s)
 
 
-def fileBug(url, apikey, product, component, summary, description, severity, cc_list, see_also, depends_on, moco_confidential):
+def fileBug(url, apikey, product, component, summary, description, severity, cc_list, needinfo, see_also, depends_on, moco_confidential):
+    assert isinstance(cc_list, list)
+
     data = {
         'version': "unspecified",
         'op_sys': "unspecified",
@@ -28,7 +30,7 @@ def fileBug(url, apikey, product, component, summary, description, severity, cc_
         'summary': summary,
         'description': description,
         'whiteboard': kw('filed'),
-        'cc': ['tom@mozilla.com'] + cc_list
+        'cc': ['tom@mozilla.com', 'jewilde@mozilla.com'] + cc_list
     }
     if see_also:
         data['see_also'] = see_also
@@ -36,6 +38,17 @@ def fileBug(url, apikey, product, component, summary, description, severity, cc_
         data['depends_on'] = depends_on
     if moco_confidential:
         data['groups'] = ['mozilla-employee-confidential']
+    if needinfo:
+        data['flags'] = []
+        if isinstance(needinfo, str):
+            needinfo = [needinfo]
+
+        for n in needinfo:
+            data['flags'].append({
+                'name': 'needinfo',
+                'status': '?',
+                'requestee': n
+            })
 
     r = requests.post(url + "bug?api_key=" + apikey, json=data)
 

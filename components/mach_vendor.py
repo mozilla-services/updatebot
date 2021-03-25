@@ -13,7 +13,13 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
 
     @logEntryExit
     def check_for_update(self, library):
-        parts = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip().split(" ")
+        result = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip()
+
+        # ./mach vendor produces no output when no update is available
+        if not result:
+            return (None, None)
+
+        parts = result.split(" ")
         return (parts[0], string_date_to_uniform_string_date(parts[1]))
 
     @logEntryExit

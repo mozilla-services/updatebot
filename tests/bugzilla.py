@@ -94,6 +94,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'General': {'env': 'dev'},
             'apikey': 'bob',
             'url': 'http://localhost:27489/',
+            'repo': 'https://hg.mozilla.org/mozilla-central'
         })
         cls.bugzillaProvider.update_config(SimpleLoggerConfig)
         t = Thread(target=cls.server.serve_forever)

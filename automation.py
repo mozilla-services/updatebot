@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import re
 import sys
 from components.logging import LoggingProvider, SimpleLogger, LogLevel, SimpleLoggerConfig
 from components.commandprovider import CommandProvider
@@ -177,6 +178,18 @@ class Updatebot:
                 self.logger.log("The FF version we pulled from the repo is < 87: %s" % ff_version, level=LogLevel.Fatal)
                 sys.exit(1)
             config_dictionary['General']['ff-version'] = ff_version
+
+        if 'GECKO_HEAD_REPOSITORY' not in os.environ and 'repo' not in config_dictionary['General']:
+            self.logger.log("I cannot tell what repository I'm running from. Add 'repo' to the config dictionary or ensure GECKO_HEAD_REPOSITORY is in the environment.", level=LogLevel.Fatal)
+            sys.exit(1)
+        elif 'GECKO_HEAD_REPOSITORY' in os.environ:
+            config_dictionary['General']['repo'] = os.environ['GECKO_HEAD_REPOSITORY']
+
+        if re.match(r"https://hg.mozilla.org/mozilla-(\w+)", config_dictionary['General']['repo']):
+            config_dictionary['General']['repo'] = config_dictionary['General']['repo'].replace("https://hg.mozilla.org/", "")
+        else:
+            self.logger.log("The repository specified in the config dictionary was not of the form https://hg.mozilla.org/mozilla-foo.", level=LogLevel.Fatal)
+            sys.exit(1)
 
         return config_dictionary
 

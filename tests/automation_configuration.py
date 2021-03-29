@@ -118,7 +118,8 @@ class TestCommandRunner(unittest.TestCase):
             'General': {
                 'env': 'dev',
                 'gecko-path': 'nowhere',
-                'ff-version': 87
+                'ff-version': 87,
+                'repo': 'https://hg.mozilla.org/mozilla-central'
             },
             'Database': {'specialkey': 'database!'},
             'Vendor': {'specialkey': 'vendor!'},

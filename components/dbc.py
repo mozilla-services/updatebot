@@ -50,8 +50,8 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         all_jobs = self.db.get_all_jobs_for_library(library)
         return [j for j in all_jobs if j.status != JOBSTATUS.DONE]
 
-    def get_job(self, library, new_version):
-        return self.db.get_job(library, new_version, self.config['General']['ff-version'])
+    def get_job(self, library, new_version, limit_by_ff_version=True):
+        return self.db.get_job(library, new_version, self.config['General']['ff-version'] if limit_by_ff_version else None)
 
     # Only used for testing purposes, in the real database, we don't delete records.
     def delete_job(self, library=None, version=None, job_id=None):

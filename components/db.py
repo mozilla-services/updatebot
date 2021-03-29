@@ -399,10 +399,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
-                     AND j.version = %s
-                     AND j.ff_version = %s
-                   ORDER BY j.id ASC"""
-        args = (library.name, new_version, ff_version)
+                     AND j.version = %s"""
+        if ff_version:
+            query += " AND j.ff_version = %s "
+        query += " ORDER BY j.id ASC"
+
+        args = [library.name, new_version] + ([ff_version] if ff_version else [])
         results = self._query_get_rows(query, args)
         jobs = transform_job_and_try_results_into_objects(results)
         return jobs[0] if jobs else None

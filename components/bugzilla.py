@@ -28,6 +28,11 @@ This update covers %s commits:
             library.name, len(new_commits), new_commits[-1].revision, new_commits[-1].commit_date)
 
     @staticmethod
+    def COMMENT_ALSO_AFFECTS(ff_version, repo):
+        return "It looks like this set of revision(s) also affects Firefox version %s (which is currently on %s)." % (
+            ff_version, repo)
+
+    @staticmethod
     def EXAMINE_COMMITS_BODY(library, task, commit_details):
         return """
 We detected new commits to %s %s which is currently at revision %s.

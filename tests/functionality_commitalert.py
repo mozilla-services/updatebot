@@ -146,7 +146,8 @@ class TestFunctionality(SimpleLoggingTest):
             'General': {
                 'env': 'dev',
                 'gecko-path': '.',
-                'ff-version': None
+                'ff-version': None,
+                'repo': 'https://hg.mozilla.org/mozilla-central'
             },
             'Command': {
                 'test_mappings': None,

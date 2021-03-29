@@ -3,7 +3,8 @@
 localconfig = {
     'General': {
         'env': 'dev',
-        'gecko-path': '/path/to/mozilla-central'
+        'gecko-path': '/path/to/mozilla-central',
+        'repo': 'https://hg.mozilla.org/mozilla-central'
     },
     'Logging': {
         'level': 5,

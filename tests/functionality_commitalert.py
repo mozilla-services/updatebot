@@ -222,12 +222,12 @@ class TestFunctionality(SimpleLoggingTest):
                     continue
                 u.dbProvider.delete_job(job_id=job.id)
 
-    def _check_job(self, job, expected_values, call_counter=0):
+    def _check_job(self, job, expected_values, call_counter=0, outcome=None):
         self.assertEqual(job.type, JOBTYPE.COMMITALERT)
         self.assertEqual(job.ff_version, expected_values.ff_version)
         self.assertEqual(job.version, expected_values.new_version_id())
         self.assertEqual(job.status, JOBSTATUS.DONE)
-        self.assertEqual(job.outcome, JOBOUTCOME.ALL_SUCCESS)
+        self.assertEqual(job.outcome, outcome if outcome else JOBOUTCOME.ALL_SUCCESS)
         self.assertEqual(job.bugzilla_id, expected_values.filed_bug_id + call_counter)
 
     @logEntryExit
@@ -560,7 +560,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have two jobs.")
-        self._check_job(all_jobs[1], expected_values)
+        self._check_job(all_jobs[1], expected_values, outcome=JOBOUTCOME.CROSS_VERSION_STUB)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testAlertAcrossFFVersions ----------------------------------------

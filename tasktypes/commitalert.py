@@ -38,7 +38,7 @@ class CommitAlertTaskRunner:
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COMMENT_ALSO_AFFECTS(self.config_dictionary['General']['ff-version'], self.config_dictionary['General']['repo']))
 
             # We also need to make a stubby job entry for this ff version so we hit the above early return; otherwise we will repeat this ad-naseum
-            self.dbProvider.create_job(JOBTYPE.COMMITALERT, library, newest_commit.revision, JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS, existing_job.bugzilla_id, phab_revision=None, try_run=None, try_run_type=None)
+            self.dbProvider.create_job(JOBTYPE.COMMITALERT, library, newest_commit.revision, JOBSTATUS.DONE, JOBOUTCOME.CROSS_VERSION_STUB, existing_job.bugzilla_id, phab_revision=None, try_run=None, try_run_type=None)
             return
 
         self.logger.log("Processing %s for %s upstream revisions culminating in %s." % (library.name, len(unseen_upstream_commits), newest_commit.revision), level=LogLevel.Info)

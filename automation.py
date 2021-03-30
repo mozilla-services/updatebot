@@ -56,7 +56,7 @@ class Updatebot:
         # Pre-initialize this with a print-based logger for validation error output.
         self.logger = SimpleLogger()
         self.config_dictionary = config_dictionary
-        config_dictionary = self._validate(config_dictionary)
+        self.config_dictionary = self._validate(self.config_dictionary)
 
         """
         Provider initialization is complicated.

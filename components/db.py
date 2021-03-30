@@ -145,9 +145,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     def __del__(self):
         if self.database_config.get('use_tmp_db', False) and self._successfully_created_tmp_db:
-            with self.connection.cursor() as cursor:
-                self.logger.log("Dropping database " + self.database_config['db'], level=LogLevel.Info)
-                cursor.execute("drop database " + self.database_config['db'])
+            if self.database_config.get('keep_tmp_db', False):
+                self.logger.log("Not dropping tmp database " + self.database_config['db'], level=LogLevel.Info)
+            else:
+                with self.connection.cursor() as cursor:
+                    self.logger.log("Dropping tmp database " + self.database_config['db'], level=LogLevel.Info)
+                    cursor.execute("drop database " + self.database_config['db'])
 
     def _query_get_single(self, query):
         with self.connection.cursor() as cursor:

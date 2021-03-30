@@ -135,13 +135,14 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(current_library_version_func, new_library_version_func, expected_commits_seen, expected_bugs_filed_func, library_filter, branch="master", repo_func=None):
+    def _setup(current_library_version_func, new_library_version_func, expected_commits_seen, expected_bugs_filed_func, library_filter, branch="master", repo_func=None, keep_tmp_db=False):
         real_command_runner = CommandProvider({})
         real_command_runner.update_config({
             'LoggingProvider': SimpleLogger(localconfig['Logging'])
         })
 
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
+        db_config['keep_tmp_db'] = keep_tmp_db
         configs = {
             'General': {
                 'env': 'dev',

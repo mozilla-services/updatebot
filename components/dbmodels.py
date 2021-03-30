@@ -32,6 +32,7 @@ class JOBOUTCOME(IntEnum):
     UNCLASSIFIED_FAILURES = 5
     ALL_SUCCESS = 6
     ABORTED = 7
+    CROSS_VERSION_STUB = 8
 
     # See above
     def translate(self, _escape_table):

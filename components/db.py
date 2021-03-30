@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 8
+CURRENT_DATABASE_CONFIG_VERSION = 9
 
 CREATION_QUERIES = {
     "config": """
@@ -292,6 +292,11 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                         self._query_execute("ALTER TABLE `jobs` ADD COLUMN `ff_version` TINYINT NOT NULL AFTER `job_type`")
                         # Add the column with no default (making the default zero)
                         self._query_execute("ALTER TABLE `jobs` ADD COLUMN `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER `ff_version`")
+
+                    if config_version <= 8 and CURRENT_DATABASE_CONFIG_VERSION >= 9:
+                        self.logger.log("Upgrading to database version 9", level=LogLevel.Warning)
+
+                        self._query_execute("INSERT IGNORE outcome_types SET id = %s, name = %s", (JOBOUTCOME.CROSS_VERSION_STUB, 'CROSS_VERSION_STUB'))
 
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)

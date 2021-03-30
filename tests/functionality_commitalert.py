@@ -20,6 +20,7 @@ from components.utilities import Struct, NeverUseMeClass
 from components.providerbase import BaseProvider
 from components.logging import SimpleLogger, SimpleLoggingTest, LoggingProvider, log, logEntryExit
 from components.dbc import DatabaseProvider
+from components.bugzilla import CommentTemplates
 from components.dbmodels import JOBTYPE, JOBSTATUS, JOBOUTCOME
 from components.scmprovider import SCMProvider
 from components.commandprovider import CommandProvider
@@ -104,10 +105,11 @@ def COMMAND_MAPPINGS(expected_values):
 
 class MockedBugzillaProvider(BaseProvider):
     def __init__(self, config):
+        self.config = config
+        self.config['comment_filed'] = ""
         self._filed_bug_id = config['filed_bug_id']
         self._expected_commits_seen = config['expected_commits_seen']
         self._expected_bugs_filed = config['expected_bugs_filed_func']
-        pass
 
     def file_bug(self, library, summary, description, cc_list, see_also=None, depends_on=None, moco_confidential=False):
         assert str(self._expected_commits_seen()) + " new commits" in summary, \
@@ -119,7 +121,28 @@ class MockedBugzillaProvider(BaseProvider):
         return self._filed_bug_id + self._expected_bugs_filed()
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
-        pass
+        self.config['comment_filed'] = comment
+
+
+PROVIDERS = {
+    # Not Mocked At All
+    'Logging': LoggingProvider,
+    # Fully Mocked
+    'Command': TestCommandProvider,
+    # Not Mocked At All
+    'Database': DatabaseProvider,
+    # Fully Mocked, avoids needing to make a fake
+    # bugzilla server which provides no additional logic coverage
+    'Bugzilla': MockedBugzillaProvider,
+    # Fully mocked
+    'Library': MockLibraryProvider,
+    # Not mocked
+    'SCM': SCMProvider,
+    'Mercurial': NeverUseMeClass,
+    'Taskcluster': NeverUseMeClass,
+    'Vendor': NeverUseMeClass,
+    'Phabricator': NeverUseMeClass,
+}
 
 
 class TestFunctionality(SimpleLoggingTest):
@@ -172,32 +195,12 @@ class TestFunctionality(SimpleLoggingTest):
             }
         }
 
-        providers = {
-            # Not Mocked At All
-            'Logging': LoggingProvider,
-            # Fully Mocked
-            'Command': TestCommandProvider,
-            # Not Mocked At All
-            'Database': DatabaseProvider,
-            # Fully Mocked, avoids needing to make a fake
-            # bugzilla server which provides no additional logic coverage
-            'Bugzilla': MockedBugzillaProvider,
-            # Fully mocked
-            'Library': MockLibraryProvider,
-            # Not mocked
-            'SCM': SCMProvider,
-            'Mercurial': NeverUseMeClass,
-            'Taskcluster': NeverUseMeClass,
-            'Vendor': NeverUseMeClass,
-            'Phabricator': NeverUseMeClass,
-        }
-
         expected_values = DEFAULT_EXPECTED_VALUES(new_library_version_func)
         configs['General']['ff-version'] = expected_values.ff_version
         configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 
-        u = Updatebot(configs, providers)
+        u = Updatebot(configs, PROVIDERS)
 
         # Ensure we don't have a dirty database with existing jobs
         tc = unittest.TestCase()

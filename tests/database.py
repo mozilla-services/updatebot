@@ -24,7 +24,7 @@ except ImportError:
     sys.exit(1)
 
 
-def transform_db_config_to_tmp_db(config):
+def transform_db_config_to_tmp_db(oldconfig):
     database_name = 'updatebot_test_' \
         + str(int(time.time() * 1000000)) \
         + "_" \
@@ -35,7 +35,7 @@ def transform_db_config_to_tmp_db(config):
     # One test would finish, but not del the DB; and a second DB would be
     #     created which would edit the localconfig. When we went to del
     #     the first DB, it would use the db value from the shared localconfig
-    config = copy.deepcopy(localconfig['Database'])
+    config = copy.deepcopy(oldconfig)
     config['db'] = database_name
     config['use_tmp_db'] = True
 

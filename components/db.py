@@ -137,18 +137,11 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
         if database_config.get('use_tmp_db', False):
             with self.connection.cursor() as cursor:
-                cursor.execute("create database " + database_config['db'] + ";")
+                cursor.execute("create database if not exists " + database_config['db'] + ";")
                 self._successfully_created_tmp_db = True
-                cursor.execute("use " + database_config['db'])
 
-            with self.connection.cursor() as cursor:
-                cursor.execute("show tables")
-                results = cursor.fetchall()
-                for r in results:
-                    print(r)
-        else:
-            with self.connection.cursor() as cursor:
-                cursor.execute("use " + database_config['db'])
+        with self.connection.cursor() as cursor:
+            cursor.execute("use " + database_config['db'])
 
     def __del__(self):
         if self.database_config.get('use_tmp_db', False) and self._successfully_created_tmp_db:

@@ -13,7 +13,7 @@ from components.logging import LogLevel
 class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, database_config):
         self.config = database_config
-        self.db = MySQLDatabase(database_config)
+        self.db = MySQLDatabase(self.config)
 
     def _update_config(self, config):
         self.db.update_config(config)

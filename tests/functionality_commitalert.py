@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import sys
+import copy
 import inspect
 import unittest
 import functools
@@ -528,6 +529,41 @@ class TestFunctionality(SimpleLoggingTest):
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoAlertsNewCommitsNoUpdate ----------------------------------------
+
+    @logEntryExit
+    def testAlertAcrossFFVersions(self):
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            lambda: "0886ba657dedc54fad06018618cc07689198abea",
+            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
+            lambda: 1,
+            lambda: 0,
+            library_filter,
+            keep_tmp_db=True)
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        config_dictionary = copy.deepcopy(u.config_dictionary)
+        config_dictionary['Database']['keep_tmp_db'] = False
+        config_dictionary['General']['ff-version'] -= 1
+        expected_values.ff_version -= 1
+        config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
+
+        u = Updatebot(config_dictionary, PROVIDERS)
+        u.run(library_filter=library_filter)
+
+        expected_comment = CommentTemplates.COMMENT_ALSO_AFFECTS(config_dictionary['General']['ff-version'], config_dictionary['General']['repo'])
+        self.assertEqual(config_dictionary['Bugzilla']['comment_filed'], expected_comment, "Did not file a comment matching the expected value.")
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have two jobs.")
+        self._check_job(all_jobs[1], expected_values)
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testAlertAcrossFFVersions ----------------------------------------
 
 
 if __name__ == '__main__':

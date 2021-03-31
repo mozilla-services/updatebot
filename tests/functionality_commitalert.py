@@ -112,7 +112,7 @@ class MockedBugzillaProvider(BaseProvider):
         self._expected_commits_seen = config['expected_commits_seen']
         self._expected_bugs_filed = config['expected_bugs_filed_func']
 
-    def file_bug(self, library, summary, description, cc_list, see_also=None, depends_on=None, moco_confidential=False):
+    def file_bug(self, library, summary, description, cc_list, needinfo, see_also=None, depends_on=None, moco_confidential=False):
         assert str(self._expected_commits_seen()) + " new commits" in summary, \
             "We did not see the expected number of commits in the bug we filed. Expected %s, summary is '%s'" % (self._expected_commits_seen(), summary)
 

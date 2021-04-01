@@ -4,6 +4,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import subprocess
+
 from components.bugzilla import CommentTemplates
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
@@ -99,14 +101,19 @@ class VendorTaskRunner:
 
         try:
             self.vendorProvider.vendor(library)
-        except Exception:
+        except Exception as e:
             # We're not going to commit these changes; so clean them out.
             self.cmdProvider.run(["hg", "checkout", "-C", "."])
             self.cmdProvider.run(["hg", "purge", "."])
 
             # Handle `./mach vendor` failing
             self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
-            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(""))  # TODO, put error message
+            if isinstance(e, subprocess.CalledProcessError):
+                msg = e.stderr + "\n\n" if e.stderr else ""
+                msg += e.stdout
+            else:
+                msg = str(e)
+            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR("Could not vendor library received the following error from ./mach vendor:\n\n%s" % msg), needinfo=library.maintainer_bz)
             return
 
         self.mercurialProvider.commit(library, bugzilla_id, new_version)

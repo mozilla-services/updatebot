@@ -11,6 +11,14 @@ from components.logging import LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
+def repo_and_commit_to_url(repo, commit):
+    if "https://chromium.googlesource.com" in repo:
+        return repo + "/+/" + commit
+
+    # Works for libdavid, which is on gitlab, although there's no way to tell
+    return repo.replace(".git", "") + "-/commit/" + commit
+
+
 class Commit:
     def __init__(self, pretty_line):
         parts = pretty_line.split("|")
@@ -23,7 +31,7 @@ class Commit:
         self.files_deleted = []
         self.files_other = []
 
-    def populate_details(self, run):
+    def populate_details(self, repo, run):
         rev_range = [self.revision + "^", self.revision]
 
         files_changed = run(["git", "diff", "--name-status"] + rev_range).stdout.decode().split("\n")
@@ -45,7 +53,7 @@ class Commit:
         self.summary = run(["git", "log", "--pretty=%s", "-1", self.revision]).stdout.decode()
         self.author = run(["git", "log", "--pretty=%an", "-1", self.revision]).stdout.decode()
         self.description = run(["git", "log", "--pretty=%b", "-1", self.revision]).stdout.decode()
-        self.revision_link = "https://chromium.googlesource.com/angle/angle" + "/+/" + self.revision
+        self.revision_link = repo_and_commit_to_url(repo, self.revision)
 
     def __eq__(self, other):
         if isinstance(other, Commit):
@@ -169,7 +177,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 unseen_new_upstream_commits = all_new_upstream_commits
 
             # Step 6: Populate the second list with additional details about the commits
-            [c.populate_details(self.run) for c in unseen_new_upstream_commits]
+            [c.populate_details(library.repo_url, self.run) for c in unseen_new_upstream_commits]
 
         finally:
             # Step 7 Return us to the origin directory and clean up

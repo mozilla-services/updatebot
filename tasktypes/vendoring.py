@@ -185,28 +185,35 @@ class VendorTaskRunner:
                         comment_lines.append("**Lint Jobs Failed**:")
                         printed_lint_header = True
                     comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
+        if printed_lint_header:
+            comment_lines.append("")
 
         # Build up the comment we will leave
         if results['known_issues']:
             comment_lines.append("**Known Issues (From Push Health)**:")
             for t in results['known_issues']:
+                comment_lines.append("")
                 comment_lines.append("\t" + t)
                 comment_lines.append("\t\t- " + get_failed_summary_string(results['known_issues'][t]))
                 for j in results['known_issues'][t]:
                     comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
+            comment_lines.append("")
 
         if results['taskcluster_classified']:
             comment_lines.append("**Known Issues (From Taskcluster)**:")
             for j in results['taskcluster_classified']:
                 comment_lines.append("\t\t- %s (%s) - %s" % (j.job_type_name, j.task_id, self.taskclusterProvider.failure_classifications[j.failure_classification_id]))
+            comment_lines.append("")
 
         if results['to_investigate']:
             comment_lines.append("**Needs Investigation**:")
             for t in results['to_investigate']:
+                comment_lines.append("")
                 comment_lines.append("\t" + t)
                 comment_lines.append("\t\t- " + get_failed_summary_string(results['to_investigate'][t]))
                 for j in results['to_investigate'][t]:
                     comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
+            comment_lines.append("")
 
         return (True, results, comment_lines)
 

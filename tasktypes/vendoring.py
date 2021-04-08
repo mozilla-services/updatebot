@@ -16,6 +16,27 @@ class VendorTaskRunner:
         self.config_dictionary = config_dictionary
 
     # ====================================================================
+    """
+    Callgraph:
+
+    process_task ->
+        _process_new_job -> []
+        _process_existing_job ->
+            _process_job_details_for_awaiting_initial_platform_results ->
+                _job_is_completed_without_build_failures
+            _process_job_details_for_awaiting_second_platform_results ->
+                _get_comments_on_push ->
+                    _job_is_completed_without_build_failures
+                _process_job_results ->
+                    _process_unclassified_failures
+            _process_job_details_for_awaiting_retrigger_results ->
+                _get_comments_on_push ->
+                    _job_is_completed_without_build_failures
+                _process_job_results ->
+                    _process_unclassified_failures
+
+    """
+    # ====================================================================
 
     def process_task(self, library, task):
         assert task.type == 'vendoring'
@@ -273,8 +294,8 @@ class VendorTaskRunner:
 
         # Get the push health and a comment string we may use in the bug.
         # Along the way, confirm that all the jobs have succeeded and there are no build failures
-        success, results, comment_lines = self._get_comments_on_push(library, existing_job)
-        if not success:
+        no_build_failures, results, comment_lines = self._get_comments_on_push(library, existing_job)
+        if not no_build_failures:
             return
 
         # If we need to retrigger jobs
@@ -287,6 +308,22 @@ class VendorTaskRunner:
             self.dbProvider.update_job_status(existing_job)
             return
 
+        self._process_job_results(library, task, existing_job, results, comment_lines)
+
+    # ==================================
+
+    @logEntryExitNoArgs
+    def _process_job_details_for_awaiting_retrigger_results(self, library, task, existing_job):
+        self.logger.log("Handling try runs in Awaiting Retrigger Results")
+
+        # Get the push health and a comment string we will use in the bug
+        no_build_failures, results, comment_lines = self._get_comments_on_push(library, existing_job)
+        if no_build_failures:
+            self._process_job_results(library, task, existing_job, results, comment_lines)
+
+    # ==================================
+
+    def _process_job_results(self, library, task, existing_job, results, comment_lines):
         # We don't need to retrigger jobs, but we do have unclassified failures:
         if results['to_investigate'] and comment_lines:
             # This updates the job status to DONE, so return immediately after
@@ -314,17 +351,6 @@ class VendorTaskRunner:
 
         existing_job.status = JOBSTATUS.DONE
         self.dbProvider.update_job_status(existing_job)
-
-    # ==================================
-
-    @logEntryExitNoArgs
-    def _process_job_details_for_awaiting_retrigger_results(self, library, task, existing_job):
-        self.logger.log("Handling try runs in Awaiting Retrigger Results")
-
-        # Get the push health and a comment string we will use in the bug
-        success, results, comment_lines = self._get_comments_on_push(library, existing_job)
-        if success:
-            self._process_unclassified_failures(library, task, existing_job, comment_lines)
 
     # ==================================
 

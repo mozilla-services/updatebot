@@ -60,7 +60,11 @@ class VendorTaskRunner:
         self.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)
 
         self.cmdProvider.run(["hg", "status"])  # hey what the fruck?
-        self.cmdProvider.run(["hg", "strip", "roots(outgoing())", "--no-backup"])
+        ret = self.cmdProvider.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
+        if ret.returncode == 255:
+            if "abort: empty revision set" not in ret.stderr.decode():
+                self.logger.log("hg strip failed but not in a permissible way", level=LogLevel.Warning)
+                ret.check_returncode()
 
     # ====================================================================
 

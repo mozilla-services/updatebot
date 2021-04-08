@@ -331,7 +331,6 @@ class VendorTaskRunner:
             self.logger.log(c, level=LogLevel.Debug)
 
         self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz)
-        self.phabricatorProvider.abandon(existing_job.phab_revision)
         existing_job.outcome = JOBOUTCOME.UNCLASSIFIED_FAILURES
         existing_job.status = JOBSTATUS.DONE
         self.dbProvider.update_job_status(existing_job)

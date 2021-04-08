@@ -83,8 +83,9 @@ In either event, I have done all I can, so you will need to take it from here.
 These failures could mean that the library update changed something and caused
 tests to fail. You'll need to review them yourself and decide where to go from here.
 
-In either event, I have done all I can, so I'm abandoning this revision and you will
-need to take it from here. You can replicate the patch locally with `./mach vendor %s`
+In either event, I have done all I can and you will need to take it from here. If you
+don't want to land my patch, you can replicate it locally for editing with
+`./mach vendor %s`
 """ % (library.yaml_path)
 
     @staticmethod

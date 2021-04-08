@@ -125,6 +125,12 @@ for p in dir(JOBTYPE):
 
 class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     def __init__(self, database_config):
+        pymysql.converters.encoders[JOBSTATUS] = lambda x, y=None: pymysql.converters.escape_int(x.value)
+        pymysql.converters.encoders[JOBOUTCOME] = lambda x, y=None: pymysql.converters.escape_int(x.value)
+        pymysql.converters.encoders[JOBTYPE] = lambda x, y=None: pymysql.converters.escape_int(x.value)
+        pymysql.converters.conversions = pymysql.converters.encoders.copy()
+        pymysql.converters.conversions.update(pymysql.converters.decoders)
+
         self._successfully_created_tmp_db = False
         self.database_config = database_config
         self.connection = pymysql.connect(

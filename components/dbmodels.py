@@ -14,14 +14,6 @@ class JOBSTATUS(IntEnum):
     AWAITING_RETRIGGER_RESULTS = 3
     DONE = 4
 
-    # pymysql expects simple arguments, e.g. ints and strings.
-    # Rather than putting foo.value everywhere, we're just going
-    # to define the ultimate function pymysql calls to translate
-    # the value into unicode for the database operation, and
-    # hope this doesn't cause problems down the road.
-    def translate(self, _escape_table):
-        return str(self.value)
-
 
 @unique
 class JOBOUTCOME(IntEnum):
@@ -34,19 +26,11 @@ class JOBOUTCOME(IntEnum):
     ABORTED = 7
     CROSS_VERSION_STUB = 8
 
-    # See above
-    def translate(self, _escape_table):
-        return str(self.value)
-
 
 @unique
 class JOBTYPE(IntEnum):
     VENDORING = 1
     COMMITALERT = 2
-
-    # See above
-    def translate(self, _escape_table):
-        return str(self.value)
 
 
 def transform_job_and_try_results_into_objects(rows):

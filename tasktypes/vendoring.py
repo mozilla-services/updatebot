@@ -61,7 +61,7 @@ class VendorTaskRunner:
         # regardless of if outgoing commits exist or not.
         self.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)
 
-        self.cmdProvider.run(["hg", "status"])  # hey what the fruck?
+        self.cmdProvider.run(["hg", "status"])
         ret = self.cmdProvider.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
         if ret.returncode == 255:
             if "abort: empty revision set" not in ret.stderr.decode():

@@ -109,7 +109,6 @@ class TestBugzillaProvider(unittest.TestCase):
     def testFile(self):
         library = Struct(**{
             'name': 'dav1d',
-            'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
         self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, 'V1', string_date_to_uniform_string_date('2020-08-21T15:13:49.000+02:00')), "", ['additional@example.com'], ['needinfo@example.com'], 210, 110, moco_confidential=True)

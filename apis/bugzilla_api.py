@@ -133,3 +133,14 @@ def closeBug(url, apikey, bugID, comment):
                 return
 
     raise Exception(j)
+
+
+def findOpenBugs(url, bugIDs):
+    r = requests.get(url + "bug?resolution=---&id=%s&include_fields=id" % ",".join([str(b) for b in bugIDs]))
+
+    try:
+        j = json.loads(r.text)
+    except Exception as e:
+        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+
+    return [b['id'] for b in j['bugs']]

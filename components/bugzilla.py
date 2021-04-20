@@ -3,7 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from apis.bugzilla_api import fileBug, commentOnBug, closeBug
+from apis.bugzilla_api import fileBug, commentOnBug, closeBug, findOpenBugs
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel, logEntryExit
 
@@ -150,3 +150,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
     @logEntryExit
     def close_bug(self, bug_id, comment):
         closeBug(self.config['url'], self.config['apikey'], bug_id, comment)
+
+    @logEntryExit
+    def find_open_bugs(self, bug_ids):
+        return findOpenBugs(self.config['url'], bug_ids)

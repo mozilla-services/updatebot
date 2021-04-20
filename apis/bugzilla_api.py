@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import json
 import requests
 
@@ -14,6 +15,16 @@ def sq(s):
 
 def kw(s):
     return sq('3pl-' + s)
+
+
+def task_id_comment_tag():
+    return os.environ.get('TASK_ID', '')
+
+
+def task_id_whiteboard():
+    if "TASK_ID" in os.environ:
+        return sq('task_id: ' + os.environ['TASK_ID'])
+    return ''
 
 
 def fileBug(url, apikey, product, component, summary, description, severity, cc_list, needinfo, see_also, depends_on, moco_confidential):
@@ -29,7 +40,7 @@ def fileBug(url, apikey, product, component, summary, description, severity, cc_
         'severity': severity,
         'summary': summary,
         'description': description,
-        'whiteboard': kw('filed'),
+        'whiteboard': kw('filed') + task_id_whiteboard(),
         'cc': ['tom@mozilla.com', 'jewilde@mozilla.com'] + cc_list
     }
     if see_also:
@@ -66,7 +77,8 @@ def fileBug(url, apikey, product, component, summary, description, severity, cc_
 def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
     data = {
         'id': bugID,
-        'comment': {'body': comment}
+        'comment': {'body': comment},
+        'comment_tags': [task_id_comment_tag()]
     }
 
     if assignee:
@@ -101,7 +113,8 @@ def closeBug(url, apikey, bugID, comment):
         'id': bugID,
         'status': 'RESOLVED',
         'resolution': 'WONTFIX',
-        'comment': {'body': comment}
+        'comment': {'body': comment},
+        'comment_tags': [task_id_comment_tag()]
     }
 
     r = requests.put(

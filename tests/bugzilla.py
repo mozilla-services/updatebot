@@ -58,6 +58,18 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         else:
             assert False, "Got a path %s I didn't expect" % self.path
 
+    def do_GET(self):
+        expectedPath_find = "/bug?resolution=---&id=1,2,3&include_fields=id"
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+
+        if expectedPath_find == self.path:
+            self.wfile.write('{"bugs":[{"id":2}]}'.encode())
+        else:
+            assert False, "Got a path %s I didn't expect" % self.path
+
     def do_PUT(self):
         expectedPath_comment = "/bug/123?api_key=bob"
         size = int(self.headers.get('content-length'))
@@ -123,6 +135,9 @@ class TestBugzillaProvider(unittest.TestCase):
 
         self.bugzillaProvider.comment_on_bug(
             123, "Test Flags", needinfo='Jon')
+
+    def testGet(self):
+        self.assertEqual([2], self.bugzillaProvider.find_open_bugs([1, 2, 3]))
 
 
 if __name__ == '__main__':

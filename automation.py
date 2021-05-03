@@ -185,7 +185,9 @@ class Updatebot:
         elif 'GECKO_HEAD_REPOSITORY' in os.environ:
             config_dictionary['General']['repo'] = os.environ['GECKO_HEAD_REPOSITORY']
 
-        if re.match(r"https://hg.mozilla.org/mozilla-(\w+)", config_dictionary['General']['repo']):
+        if re.match(r"https://hg.mozilla.org/projects/(\w+)", config_dictionary['General']['repo']):
+            config_dictionary['General']['repo'] = config_dictionary['General']['repo'].replace("https://hg.mozilla.org/projects/", "")
+        elif re.match(r"https://hg.mozilla.org/mozilla-(\w+)", config_dictionary['General']['repo']):
             config_dictionary['General']['repo'] = config_dictionary['General']['repo'].replace("https://hg.mozilla.org/", "")
         else:
             self.logger.log("The repository specified in the config dictionary was not of the form https://hg.mozilla.org/mozilla-foo.", level=LogLevel.Fatal)

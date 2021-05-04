@@ -73,7 +73,6 @@ class TestDatabaeQueries(unittest.TestCase):
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
             self.assertEqual(newJob.type, JOBTYPE.VENDORING)
-            self.assertEqual(newJob.ff_version, 88)
             self.assertEqual(newJob.library_shortname, library.name)
             self.assertEqual(newJob.version, version)
             self.assertEqual(newJob.status, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS)

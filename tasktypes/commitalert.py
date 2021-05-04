@@ -35,14 +35,18 @@ class CommitAlertTaskRunner:
             return
 
         newest_commit = unseen_upstream_commits[-1]
-        existing_job = self.dbProvider.get_job(library, newest_commit.revision, limit_by_ff_version=False)
+        existing_job = self.dbProvider.get_job(library, newest_commit.revision)
         if existing_job:
-            self.logger.log("We found a job with id %s for revision %s that was processed for ff version %s (I am ff version %s). Adding a comment there and aborting." % (
-                existing_job.id, newest_commit.revision, existing_job.ff_version, self.config_dictionary['General']['ff-version']), level=LogLevel.Info)
+            # XXX TODO
+            # We need to look at the FF versions this job has been associated with. If our current FF version is included
+            # then do nothing.
+            # Otherwise mark our FF version as affected and add our FF version to the list associated with this job.
+            self.logger.log("We found a job with id %s for revision <> that was processed for ff version %s (I am ff version %s). Adding a comment there and aborting." % (
+                existing_job.id, newest_commit.revision, self.config_dictionary['General']['ff-version']), level=LogLevel.Info)
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COMMENT_ALSO_AFFECTS(self.config_dictionary['General']['ff-version'], self.config_dictionary['General']['repo']))
 
             # We also need to make a stubby job entry for this ff version so we hit the above early return; otherwise we will repeat this ad-naseum
-            self.dbProvider.create_job(JOBTYPE.COMMITALERT, library, newest_commit.revision, JOBSTATUS.DONE, JOBOUTCOME.CROSS_VERSION_STUB, existing_job.bugzilla_id, phab_revision=None, try_run=None, try_run_type=None)
+            # self.dbProvider.create_job(JOBTYPE.COMMITALERT, library, newest_commit.revision, JOBSTATUS.DONE, JOBOUTCOME.CROSS_VERSION_STUB, existing_job.bugzilla_id, phab_revision=None, try_run=None, try_run_type=None)
             return
 
         self.logger.log("Processing %s for %s upstream revisions culminating in %s." % (library.name, len(unseen_upstream_commits), newest_commit.revision), level=LogLevel.Info)

@@ -43,19 +43,18 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         return self.db.get_all_try_runs()
 
     def get_all_jobs_for_library(self, library):
-        all_jobs = self.db.get_all_jobs_for_library(library)
-        return [j for j in all_jobs if j.ff_version == self.config['General']['ff-version']]
+        return self.db.get_all_jobs_for_library(library)
 
     def get_all_active_jobs_for_library(self, library):
         all_jobs = self.db.get_all_jobs_for_library(library)
         return [j for j in all_jobs if j.status != JOBSTATUS.DONE]
 
-    def get_job(self, library, new_version, limit_by_ff_version=True):
-        return self.db.get_job(library, new_version, self.config['General']['ff-version'] if limit_by_ff_version else None)
+    def get_job(self, library, new_version):
+        return self.db.get_job(library, new_version)
 
     # Only used for testing purposes, in the real database, we don't delete records.
     def delete_job(self, library=None, version=None, job_id=None):
-        return self.db.delete_job(library=library, version=version, job_id=job_id, ff_version=self.config['General']['ff-version'])
+        return self.db.delete_job(library=library, version=version, job_id=job_id)
 
     def create_job(self, jobtype, library, new_version, status, outcome, bug_id, phab_revision=None, try_run=None, try_run_type=None):
         return self.db.create_job(jobtype, self.config['General']['ff-version'], library, new_version, status, outcome, bug_id, phab_revision, try_run, try_run_type)
@@ -115,7 +114,7 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         print_objects("STATUSES", self.get_all_statuses(), status_columns)
         print_objects("OUTCOMES", self.get_all_outcomes(), status_columns)
 
-        job_columns = ['id', 'type', 'ff_version', 'created', 'library_shortname', 'version',
+        job_columns = ['id', 'type', 'created', 'library_shortname', 'version',
                        'status', 'outcome', 'bugzilla_id', 'phab_revision']
         print_objects("JOBS", self.get_all_jobs(), job_columns)
 

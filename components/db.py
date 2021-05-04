@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 9
+CURRENT_DATABASE_CONFIG_VERSION = 10
 
 CREATION_QUERIES = {
     "config": """
@@ -51,7 +51,6 @@ CREATION_QUERIES = {
       CREATE TABLE `jobs` (
         `id` INT NOT NULL AUTO_INCREMENT,
         `job_type` TINYINT NOT NULL,
-        `ff_version` TINYINT NOT NULL,
         `created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `library` VARCHAR(255) NOT NULL,
         `version` VARCHAR(64) NOT NULL ,
@@ -304,6 +303,11 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                         self._query_execute("INSERT IGNORE outcome_types SET id = %s, name = %s", (JOBOUTCOME.CROSS_VERSION_STUB, 'CROSS_VERSION_STUB'))
 
+                    if config_version <= 9 and CURRENT_DATABASE_CONFIG_VERSION >= 10:
+                        self.logger.log("Upgrading to database version 10", level=LogLevel.Warning)
+
+                        self._query_execute("ALTER TABLE `jobs` DROP COLUMN `ff_version`")
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -400,27 +404,25 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return transform_job_and_try_results_into_objects(results)
 
     @logEntryExit
-    def get_job(self, library, new_version, ff_version):
+    def get_job(self, library, new_version):
         query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
                      AND j.version = %s"""
-        if ff_version:
-            query += " AND j.ff_version = %s "
         query += " ORDER BY j.id ASC"
 
-        args = [library.name, new_version] + ([ff_version] if ff_version else [])
+        args = [library.name, new_version]
         results = self._query_get_rows(query, args)
         jobs = transform_job_and_try_results_into_objects(results)
         return jobs[0] if jobs else None
 
     @logEntryExit
-    def create_job(self, jobtype, ff_version, library, new_version, status, outcome, bug_id, phab_revision, try_run, try_run_type):
+    def create_job(self, jobtype, library, new_version, status, outcome, bug_id, phab_revision, try_run, try_run_type):
         # Omitting the created column initializes it to current timestamp
-        query = "INSERT INTO jobs(job_type, ff_version, library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s, %s, %s)"
-        args = (jobtype, ff_version, library.name, new_version, status, outcome, bug_id, phab_revision)
+        query = "INSERT INTO jobs(job_type, library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s, %s)"
+        args = (jobtype, library.name, new_version, status, outcome, bug_id, phab_revision)
         job_id = self._query_execute(query, args)
 
         if try_run:
@@ -441,18 +443,16 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
-    def delete_job(self, library=None, version=None, job_id=None, ff_version=None):
+    def delete_job(self, library=None, version=None, job_id=None):
         assert job_id or (library and version), "You must provide a way to delete a job"
-        assert ff_version, "You must provide a ff_version to delete a job"
 
         if job_id:
-            # Technically ff_version is redundant here, but we'll use it anyway
             query = "DELETE FROM try_runs WHERE job_id = %s"
             args = (job_id)
             self._query_execute(query, args)
 
-            query = "DELETE FROM jobs WHERE id = %s AND ff_version = %s"
-            args = (job_id, ff_version)
+            query = "DELETE FROM jobs WHERE id = %s"
+            args = (job_id)
             self._query_execute(query, args)
         else:
             query = """DELETE t.*
@@ -460,11 +460,10 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        INNER JOIN jobs as j
                           ON j.id = t.job_id
                        WHERE j.library = %s
-                         AND j.version = %s
-                         AND j.ff_version = %s"""
-            args = (library.name, version, ff_version)
+                         AND j.version = %s"""
+            args = (library.name, version)
             self._query_execute(query, args)
 
-            query = "DELETE FROM jobs WHERE library = %s AND version = %s and ff_version = %s"
-            args = (library.name, version, ff_version)
+            query = "DELETE FROM jobs WHERE library = %s AND version = %s"
+            args = (library.name, version)
             self._query_execute(query, args)

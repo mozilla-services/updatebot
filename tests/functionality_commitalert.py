@@ -94,7 +94,6 @@ def DEFAULT_EXPECTED_VALUES(new_library_version_func):
     return Struct(**{
         'new_version_id': new_library_version_func,
         'filed_bug_id': 50,
-        'ff_version': 87
     })
 
 
@@ -230,7 +229,6 @@ class TestFunctionality(SimpleLoggingTest):
 
     def _check_job(self, job, expected_values, call_counter=0, outcome=None):
         self.assertEqual(job.type, JOBTYPE.COMMITALERT)
-        self.assertEqual(job.ff_version, expected_values.ff_version)
         self.assertEqual(job.version, expected_values.new_version_id())
         self.assertEqual(job.status, JOBSTATUS.DONE)
         self.assertEqual(job.outcome, outcome if outcome else JOBOUTCOME.ALL_SUCCESS)

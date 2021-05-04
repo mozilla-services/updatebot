@@ -61,7 +61,6 @@ class Job:
         if row:
             self.id = row['id']
             self.type = JOBTYPE(row['job_type'])
-            self.ff_version = row['ff_version']
             self.created = row['created']
             self.library_shortname = row['library']
             self.version = row['version']

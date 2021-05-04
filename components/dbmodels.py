@@ -35,15 +35,17 @@ class JOBTYPE(IntEnum):
 
 def transform_job_and_try_results_into_objects(rows):
     """
-    In this function we are given an array of rows where the try runs
-    have been left-outer-joined into the jobs table, so we have duplicate
-    job data.
+    In this function we are given an array of rows where the firefox
+    versions and try runs have been left-outer-joined into the jobs
+    table, so we have duplicate job data.
     We're going to transform this data into objects
     """
     jobs = {}
     for r in rows:
         jobs[r['job_id']] = Job(r)
     for r in rows:
+        if r['ff_version']:
+            jobs[r['job_id']].ff_versions.add(r['ff_version'])
         if r['try_run_id']:
             jobs[r['job_id']].try_runs.append(TryRun(r, id_column='try_run_id'))
 
@@ -53,7 +55,13 @@ def transform_job_and_try_results_into_objects(rows):
     for j in jobs:
         jobs[j].try_runs.sort(key=lambda i: i.id)
 
-    return list(jobs.values())
+    job_list = list(jobs.values())
+
+    # Every job should be associated with at least one Firefox Version.
+    for j in job_list:
+        assert len(j.ff_versions) > 0, "Job ID %s does not have any associated Firefox Versions." % j.id
+
+    return job_list
 
 
 class Job:
@@ -68,10 +76,14 @@ class Job:
             self.outcome = JOBOUTCOME(row['outcome'])
             self.bugzilla_id = row['bugzilla_id']
             self.phab_revision = row['phab_revision']
+            self.ff_versions = set()
             self.try_runs = []
 
     def get_try_run_ids(self):
         return ",".join([t.revision for t in self.try_runs])
+
+    def get_ff_versions(self):
+        return ",".join(self.ff_versions)
 
 
 class TryRun:

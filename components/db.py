@@ -62,6 +62,13 @@ CREATION_QUERIES = {
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,
+    "job_to_ff_version": """
+      CREATE TABLE `job_to_ff_version` (
+        `job_id` INT NOT NULL,
+        `ff_version` TINYINT NOT NULL,
+        PRIMARY KEY (`job_id`, `ff_version`)
+      ) ENGINE = InnoDB;
+    """,
     "try_runs": """
       CREATE TABLE `try_runs` (
         `id` INT NOT NULL AUTO_INCREMENT,
@@ -83,6 +90,8 @@ ALTER_QUERIES = {
         "ALTER TABLE jobs ADD CONSTRAINT fk_job_type FOREIGN KEY (job_type) REFERENCES job_types(id)",
     'try_runs|fk_tryrun_job':
         "ALTER TABLE try_runs ADD CONSTRAINT fk_tryrun_job FOREIGN KEY (job_id) REFERENCES jobs(id)",
+    'job_to_ff_version|fk_job_to_ff_version_job':
+        "ALTER TABLE job_to_ff_version ADD CONSTRAINT fk_job_to_ff_version_job FOREIGN KEY (job_id) REFERENCES jobs(id)",
 }
 
 INSERTION_QUERIES = [
@@ -306,6 +315,32 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                     if config_version <= 9 and CURRENT_DATABASE_CONFIG_VERSION >= 10:
                         self.logger.log("Upgrading to database version 10", level=LogLevel.Warning)
 
+                        for table_name in CREATION_QUERIES:
+                            if table_name == 'job_to_ff_version':
+                                self._query_execute(CREATION_QUERIES[table_name])
+
+                        for query_name in ALTER_QUERIES:
+                            if "fk_job_to_ff_version_job" in query_name:
+                                self._query_execute(ALTER_QUERIES[query_name])
+
+                        self._query_execute("""
+                            INSERT INTO job_to_ff_version(job_id, ff_version)
+                            SELECT id, ff_version FROM jobs WHERE outcome <> 8
+                            """)
+
+                        self._query_execute("""
+                            INSERT INTO job_to_ff_version(job_id, ff_version)
+                            SELECT j1.id, j2.ff_version
+                            FROM jobs j1
+                            INNER JOIN jobs j2
+                                ON j1.library = j2.library
+                                AND j1.version = j2.version
+                                AND j1.ff_version <> j2.ff_version
+                            WHERE j1.outcome <> 8
+                            AND   j2.outcome = 8
+                            """)
+
+                        self._query_execute("DELETE FROM `jobs` WHERE outcome = 8")
                         self._query_execute("ALTER TABLE `jobs` DROP COLUMN `ff_version`")
 
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
@@ -377,8 +412,10 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def get_all_jobs(self):
-        query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
+        query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
+                   LEFT OUTER JOIN job_to_ff_version as v
+                       ON j.id = v.job_id
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    ORDER BY j.id ASC"""
@@ -393,8 +430,10 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def get_all_jobs_for_library(self, library):
-        query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
+        query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
+                   LEFT OUTER JOIN job_to_ff_version as v
+                       ON j.id = v.job_id
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
@@ -405,8 +444,10 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def get_job(self, library, new_version):
-        query = """SELECT j.*, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
+        query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
+                   LEFT OUTER JOIN job_to_ff_version as v
+                       ON j.id = v.job_id
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
@@ -419,11 +460,15 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return jobs[0] if jobs else None
 
     @logEntryExit
-    def create_job(self, jobtype, library, new_version, status, outcome, bug_id, phab_revision, try_run, try_run_type):
+    def create_job(self, jobtype, library, new_version, ff_version, status, outcome, bug_id, phab_revision, try_run, try_run_type):
         # Omitting the created column initializes it to current timestamp
         query = "INSERT INTO jobs(job_type, library, version, status, outcome, bugzilla_id, phab_revision) VALUES(%s, %s, %s, %s, %s, %s, %s)"
         args = (jobtype, library.name, new_version, status, outcome, bug_id, phab_revision)
         job_id = self._query_execute(query, args)
+
+        query = "INSERT INTO job_to_ff_version(job_id, ff_version) VALUES(%s, %s)"
+        args = (job_id, ff_version)
+        self._query_execute(query, args)
 
         if try_run:
             query = "INSERT INTO try_runs(revision, job_id, purpose) VALUES(%s, %s, %s)"
@@ -451,6 +496,10 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
             args = (job_id)
             self._query_execute(query, args)
 
+            query = "DELETE FROM job_to_ff_version WHERE job_id = %s"
+            args = (job_id)
+            self._query_execute(query, args)
+
             query = "DELETE FROM jobs WHERE id = %s"
             args = (job_id)
             self._query_execute(query, args)
@@ -459,6 +508,15 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        FROM try_runs as t
                        INNER JOIN jobs as j
                           ON j.id = t.job_id
+                       WHERE j.library = %s
+                         AND j.version = %s"""
+            args = (library.name, version)
+            self._query_execute(query, args)
+
+            query = """DELETE v.*
+                       FROM job_to_ff_version as v
+                       INNER JOIN jobs as j
+                          ON j.id = v.job_id
                        WHERE j.library = %s
                          AND j.version = %s"""
             args = (library.name, version)

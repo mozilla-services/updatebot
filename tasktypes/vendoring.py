@@ -109,11 +109,11 @@ class VendorTaskRunner:
             # Handle `./mach vendor` failing
             self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
             if isinstance(e, subprocess.CalledProcessError):
-                msg = e.stderr.decode().strip() + "\n\n" if e.stderr else ""
-                msg += e.stdout.decode().strip()
+                msg = e.stderr.decode().rstrip() + "\n\n" if e.stderr else ""
+                msg += e.stdout.decode().rstrip()
             else:
                 msg = str(e)
-            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR("Could not vendor library. Received the following error from ./mach vendor:\n\n%s" % msg), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, msg), needinfo=library.maintainer_bz)
             return
 
         self.mercurialProvider.commit(library, bugzilla_id, new_version)

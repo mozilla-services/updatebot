@@ -99,12 +99,12 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
 """
 
     @staticmethod
-    def COULD_NOT_VENDOR(message):
-        s = "`./mach vendor %s` failed"
-        if message:
+    def COULD_NOT_VENDOR(library, errormessage):
+        s = "`./mach vendor %s` failed" % library.yaml_path
+        if errormessage:
             s += " with the following message:\n\n"
-            for m in message.split("\n"):
-                s += "> " + m
+            for l in errormessage.split("\n"):
+                s += "> " + l + "\n"
         return s
 
     @staticmethod

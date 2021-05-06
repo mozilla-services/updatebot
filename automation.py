@@ -162,7 +162,7 @@ class Updatebot:
             self.logger.log("['General']['env'] must be defined in the config dictionary with a value of prod or dev.", level=LogLevel.Fatal)
             sys.exit(1)
 
-        if 'ff-version' not in config_dictionary['General']:
+        if 'ff-version' not in config_dictionary['General'] or not config_dictionary['General']['ff-version']:
             ff_version = 0
             try:
                 with open(os.path.join(config_dictionary['General']['gecko-path'], "browser", "config", "version.txt")) as version_file:

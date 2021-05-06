@@ -176,7 +176,7 @@ class TestFunctionality(SimpleLoggingTest):
             'General': {
                 'env': 'dev',
                 'gecko-path': '.',
-                'ff-version': None,
+                'ff-version': 87,
                 'repo': 'https://hg.mozilla.org/mozilla-central'
             },
             'Command': {
@@ -202,7 +202,6 @@ class TestFunctionality(SimpleLoggingTest):
         }
 
         expected_values = DEFAULT_EXPECTED_VALUES(new_library_version_func)
-        configs['General']['ff-version'] = expected_values.ff_version
         configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 

@@ -75,22 +75,63 @@ class VendorTaskRunner:
 
     @logEntryExit
     def _process_new_job(self, library, task, new_version, timestamp):
-        see_also = []
+        # We need this really dumb _styleN functions because otherwise flake8 will complain about
+        #   redefining functions. (Because I have to use 'def' below because you can't have multi-line lambdas)
+        def clean_up_old_job_style1(x, y):
+            pass
+
+        old_job = None
+        clean_up_old_job = clean_up_old_job_style1
+
+        # ==========================================================================================
+        # We need to do some work to handle previously opened bugs. Because we want to duplicate them
+        # in favor of the bug we have not yet filed, we will create a lambda for us to call later after
+        # we have filed the newer bug and have its id.
 
         # First, we need to see if there was a previously active job for this library.
-        # If so, we need to close that job out.
-        active_jobs = self.dbProvider.get_all_active_jobs_for_library(library)
+        # This is a job that is _actively running_ in Updatebot and hasn't progressed to the 'Done' state.
+        # There should only ever be one of these (although only because we restrict vendoring tasks
+        #   to -central).
+        active_jobs = self.dbProvider.get_all_active_jobs_for_library(library, JOBTYPE.VENDORING)
         assert len(active_jobs) <= 1, "Got more than one active job for library %s" % (library.name)
-        self.logger.log("Found %i active jobs for this library" % len(active_jobs), level=LogLevel.Info)
-        if len(active_jobs) == 1:
-            active_job = active_jobs[0]
-            self.bugzillaProvider.close_bug(active_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED())
-            self.phabricatorProvider.abandon(active_job.phab_revision)
-            active_job.status = JOBSTATUS.DONE
-            active_job.outcome = JOBOUTCOME.ABORTED
-            self.dbProvider.update_job_status(active_job)
-            see_also.append(active_job.bugzilla_id)
 
+        self.logger.log("Found %i active jobs for this library" % len(active_jobs), level=LogLevel.Info)
+        if active_jobs:
+            old_job = active_jobs[0]
+
+            def clean_up_old_job_style2(old_job, new_bug_id):
+                self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
+                self.phabricatorProvider.abandon(old_job.phab_revision)
+                old_job.status = JOBSTATUS.DONE
+                old_job.outcome = JOBOUTCOME.ABORTED
+                self.dbProvider.update_job_status(old_job)
+            clean_up_old_job = clean_up_old_job_style2
+
+        # Then we need to check if there are any job-completed but still-open bugs for a _different revision_
+        # We assume that we should close any such bugs we find.
+        # Because we always do this, there should always only be one such bug.  And if we had found an active
+        # job, that should have been the one.
+        existing_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.VENDORING)
+        open_bugs = self.bugzillaProvider.find_open_bugs([j.bugzilla_id for j in existing_jobs])
+        jobs_with_open_bugs = [j for j in existing_jobs if j.bugzilla_id in open_bugs]
+
+        assert len(jobs_with_open_bugs) <= 1, "Got more than one completed job with still-open bugs for library %s" % (library.name)
+        assert not old_job or old_job.id == jobs_with_open_bugs[0].id, "We had an active job with id %s and then we found an existing job with id %s" % (old_job.id, existing_jobs[0].id)
+        assert not jobs_with_open_bugs or jobs_with_open_bugs[0].version != new_version, "We have an existing job, but it's the same revision as the revision we thought was New."
+
+        if not old_job and jobs_with_open_bugs:
+            self.logger.log("Found %s completed jobs with still-open bugs for this library (%s)" % (len(open_bugs), ", ".join(map(str, open_bugs))), level=LogLevel.Info)
+
+            if jobs_with_open_bugs:
+                old_job = jobs_with_open_bugs[0]  # The array has previoiusly assert it has one element, and now we know its bug is open
+
+                def clean_up_old_job_style3(old_job, new_bug_id):
+                    self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
+                    self.phabricatorProvider.abandon(old_job.phab_revision)
+                    # No need to update the job because it's already in 'Done' status
+                clean_up_old_job = clean_up_old_job_style3
+
+        # ==========================================================================================
         # Now we can process the new job
 
         # Get the information we will need to file a bug.
@@ -99,6 +140,7 @@ class VendorTaskRunner:
         commit_details = self.scmProvider.build_bug_description(upstream_commits)
 
         bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(upstream_commits), commit_details), task.cc, see_also)
+        clean_up_old_job(old_job, bugzilla_id)
 
         try_run_type = 'initial platform' if self.config_dictionary['General']['separate-platforms'] else 'all platforms'
 
@@ -155,8 +197,21 @@ class VendorTaskRunner:
             If some of the jobs succeeded, add this note to a comment we will post.
           Post the comment, set assignee, needinfo, set reviewr, and set state to JOB_PROCESSING_DONE
         """
+        my_ff_version = self.config_dictionary['General']['ff-version']
+
         if existing_job.status == JOBSTATUS.DONE:
-            self.logger.log("This job has already been completed")
+            # The job has been completed, but we still need to double check if it has acknowleged our current FF version
+            if my_ff_version in existing_job.ff_versions:
+                self.logger.log("We found a job with id %s for revision %s that was already processed for this ff version (%s)." % (
+                    existing_job.id, existing_job.version, my_ff_version), level=LogLevel.Info)
+                return
+
+            self.logger.log("We found a job with id %s for revision %s but it hasn't been processed for this ff version (%s) yet." % (
+                existing_job.id, existing_job.version, my_ff_version), level=LogLevel.Info)
+            self.bugzillaProvider.mark_ff_version_affected(existing_job.bugzilla_id, my_ff_version, affected=True)
+
+            self.dbProvider.update_job_ff_versions(existing_job, my_ff_version)
+            existing_job.ff_versions.add(my_ff_version)
             return
 
         if existing_job.status == JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS:

@@ -56,6 +56,7 @@ def transform_job_and_try_results_into_objects(rows):
         jobs[j].try_runs.sort(key=lambda i: i.id)
 
     job_list = list(jobs.values())
+    job_list.sort(key=lambda x: (x.created, x.id), reverse=True)
 
     # Every job should be associated with at least one Firefox Version.
     for j in job_list:

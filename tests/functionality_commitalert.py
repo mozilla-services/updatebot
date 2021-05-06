@@ -351,9 +351,11 @@ class TestFunctionality(SimpleLoggingTest):
         # Run it again, we should create another job.
         u.run(library_filter=library_filter)
 
+        # The most recently created job has moved to the first slot in the array
         all_jobs = u.dbProvider.get_all_jobs()
+
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[1], expected_values, call_counter)
+        self._check_job(all_jobs[0], expected_values, call_counter)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlerts ----------------------------------------
@@ -400,9 +402,10 @@ class TestFunctionality(SimpleLoggingTest):
         # Run it again, we should create another job.
         u.run(library_filter=library_filter)
 
+        # The most recently created job has moved to the first slot in the array
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[1], expected_values, call_counter)
+        self._check_job(all_jobs[0], expected_values, call_counter)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlertsSkip2 ----------------------------------------
@@ -462,9 +465,10 @@ class TestFunctionality(SimpleLoggingTest):
         # Run it a third time, and now we should create another job.
         u.run(library_filter=library_filter)
 
+        # The most recently created job has moved to the first slot in the array
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[1], expected_values, expected_bugs_that_have_been_filed())
+        self._check_job(all_jobs[0], expected_values, expected_bugs_that_have_been_filed())
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlertsTimeLagged ----------------------------------------
@@ -526,9 +530,10 @@ class TestFunctionality(SimpleLoggingTest):
         # Run it a third time, and now we should create another job.
         u.run(library_filter=library_filter)
 
+        # The most recently created job has moved to the first slot in the array
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[1], expected_values, expected_bugs_that_have_been_filed())
+        self._check_job(all_jobs[0], expected_values, expected_bugs_that_have_been_filed())
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoAlertsNewCommitsNoUpdate ----------------------------------------

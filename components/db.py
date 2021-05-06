@@ -418,7 +418,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        ON j.id = v.job_id
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
-                   ORDER BY j.id ASC"""
+                   ORDER BY j.created DESC, j.id DESC"""
         results = self._query_get_rows(query)
         return transform_job_and_try_results_into_objects(results)
 
@@ -437,7 +437,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s
-                   ORDER BY j.id ASC"""
+                   ORDER BY j.created DESC, j.id DESC"""
         args = (library.name)
         results = self._query_get_rows(query, args)
         return transform_job_and_try_results_into_objects(results)
@@ -452,7 +452,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        ON j.id = t.job_id
                    WHERE j.library = %s
                      AND j.version = %s"""
-        query += " ORDER BY j.id ASC"
+        query += " ORDER BY j.created DESC, j.id DESC"
 
         args = [library.name, new_version]
         results = self._query_get_rows(query, args)

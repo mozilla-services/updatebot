@@ -23,6 +23,7 @@ class CommitAlertTaskRunner:
 
     def process_task(self, library, task):
         assert task.type == 'commit-alert'
+        my_ff_version = self.config_dictionary['General']['ff-version']
 
         all_library_jobs = self.dbProvider.get_all_jobs_for_library(library)
         all_library_jobs = [j for j in all_library_jobs if j.type == JOBTYPE.COMMITALERT]
@@ -37,16 +38,18 @@ class CommitAlertTaskRunner:
         newest_commit = unseen_upstream_commits[-1]
         existing_job = self.dbProvider.get_job(library, newest_commit.revision)
         if existing_job:
-            # XXX TODO
-            # We need to look at the FF versions this job has been associated with. If our current FF version is included
-            # then do nothing.
-            # Otherwise mark our FF version as affected and add our FF version to the list associated with this job.
-            self.logger.log("We found a job with id %s for revision <> that was processed for ff version %s (I am ff version %s). Adding a comment there and aborting." % (
-                existing_job.id, newest_commit.revision, self.config_dictionary['General']['ff-version']), level=LogLevel.Info)
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COMMENT_ALSO_AFFECTS(self.config_dictionary['General']['ff-version'], self.config_dictionary['General']['repo']))
+            if my_ff_version in existing_job.ff_versions:
+                # We've already seen this revision, and we've already associated it with this FF version
+                self.logger.log("We found a job with id %s for revision %s that was already processed for this ff version (%s)." % (
+                    existing_job.id, newest_commit.revision, my_ff_version), level=LogLevel.Info)
+                return
 
-            # We also need to make a stubby job entry for this ff version so we hit the above early return; otherwise we will repeat this ad-naseum
-            # self.dbProvider.create_job(JOBTYPE.COMMITALERT, library, newest_commit.revision, JOBSTATUS.DONE, JOBOUTCOME.CROSS_VERSION_STUB, existing_job.bugzilla_id, phab_revision=None, try_run=None, try_run_type=None)
+            self.logger.log("We found a job with id %s for revision %s but it hasn't been processed for this ff version (%s) yet." % (
+                existing_job.id, newest_commit.revision, my_ff_version), level=LogLevel.Info)
+            self.bugzillaProvider.mark_ff_version_affected(existing_job.bugzilla_id, my_ff_version)
+
+            self.dbProvider.update_job_ff_versions(existing_job, my_ff_version)
+            existing_job.ff_versions.add(my_ff_version)
             return
 
         self.logger.log("Processing %s for %s upstream revisions culminating in %s." % (library.name, len(unseen_upstream_commits), newest_commit.revision), level=LogLevel.Info)

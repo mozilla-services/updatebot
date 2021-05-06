@@ -221,7 +221,7 @@ class TestFunctionality(SimpleLoggingTest):
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
             if library_filter not in lib.name:
                 continue
-            all_jobs = u.dbProvider.get_all_jobs_for_library(lib)
+            all_jobs = u.dbProvider.get_all_jobs_for_library(lib, JOBTYPE.COMMITALERT)
             for job in all_jobs:
                 if job.type != JOBTYPE.COMMITALERT:
                     continue

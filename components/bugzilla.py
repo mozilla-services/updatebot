@@ -33,9 +33,16 @@ This update covers %s commits:
             ff_version, repo)
 
     @staticmethod
-    def EXAMINE_COMMITS_BODY(library, task, commit_details):
+    def EXAMINE_COMMITS_BODY(library, task, commit_details, open_dependencies):
+        open_dependencies_str = ""
+        if open_dependencies:
+            open_dependencies = [str(x) for x in open_dependencies]
+            open_dependencies_str = """\n
+This list only contains new commits, it looks like there are other open dependencies
+that contain other commits you should review: Bug """ + ", Bug ".join(open_dependencies)
+
         return """
-We detected new commits to %s %s which is currently at revision %s.
+We detected new commits to %s %s which is currently at revision %s.%s
 
 Please review these and determine if an update to the library is necessary.
 If no update is necessary, this bug may have its security-group cleared and
@@ -47,6 +54,7 @@ security group.
             library.name,
             "on branch '" + task.branch + "'" if task.branch else "",
             library.revision,
+            open_dependencies_str,
             commit_details
         )
 

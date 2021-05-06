@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import re
 import sys
 import unittest
 
@@ -71,30 +72,40 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
             assert False, "Got a path %s I didn't expect" % self.path
 
     def do_PUT(self):
-        expectedPath_comment = "/bug/123?api_key=bob"
+        expectedPath_comment = "/bug/123"
+        expectedPath_status = "/bug/456?api_key=bob"
         size = int(self.headers.get('content-length'))
         content = json.loads(self.rfile.read(size).decode("utf-8"))
+        bug_id = re.match(r"/bug/([0-9]+)\?api_key=bob", self.path).groups(0)[0]
 
         self.send_response(200)
         self.send_header("Content-type", "application/json")
         self.end_headers()
 
-        if expectedPath_comment == self.path:
+        if expectedPath_comment in self.path:
             assert 'id' in content
             assert 'comment' in content
             assert 'body' in content['comment']
-            if 'flags' in content:
+            if bug_id == "1234":
+                assert content['comment']['body'] == CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION)
+            elif bug_id == "1236":
+                assert 'flags' in content
                 assert content['comment']['body'] == "Test Flags"
                 assert content['flags'][0]['name'] == 'needinfo'
                 assert content['flags'][0]['status'] == '?'
                 assert content['flags'][0]['requestee'] == 'Jon'
-            elif 'assigned_to' in content:
+            elif bug_id == "1235":
+                assert 'assigned_to' in content
                 assert content['comment']['body'] == "Test Assignee"
                 assert content['assigned_to'] == 'Jon'
-            else:
-                assert content['comment']['body'] == CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION)
 
-            self.wfile.write("{'bugs':[{'alias':null,'changes':{},'last_change_time':'2020-07-10T18:58:21Z','id':123}]}".replace("'", '"').encode())
+            self.wfile.write(("{'bugs':[{'alias':null,'changes':{},'last_change_time':'2020-07-10T18:58:21Z','id':" + bug_id + "}]}").replace("'", '"').encode())
+        elif expectedPath_status == self.path:
+            assert 'id' in content
+            assert 'cf_status_firefox76' in content
+            assert content['cf_status_firefox76'] == 'affected'
+
+            self.wfile.write("{'bugs':[{'alias':null,'changes':{},'last_change_time':'2020-07-10T18:58:21Z','id':456}]}".replace("'", '"').encode())
         else:
             assert False, "Got a path %s I didn't expect" % self.path
 
@@ -128,13 +139,16 @@ class TestBugzillaProvider(unittest.TestCase):
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(
-            123, CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION))
+            1234, CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION))
 
         self.bugzillaProvider.comment_on_bug(
-            123, "Test Assignee", assignee='Jon')
+            1235, "Test Assignee", assignee='Jon')
 
         self.bugzillaProvider.comment_on_bug(
-            123, "Test Flags", needinfo='Jon')
+            1236, "Test Flags", needinfo='Jon')
+
+    def testStatus(self):
+        self.bugzillaProvider.mark_ff_version_affected(456, 76)
 
     def testGet(self):
         self.assertEqual([2], self.bugzillaProvider.find_open_bugs([1, 2, 3]))

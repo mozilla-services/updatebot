@@ -123,7 +123,7 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
     def BUG_SUPERSEDED():
         return """
 This bug is being closed because a newer revision of the library is available.
-It will be linked in the See Also field.
+This bug will be marked as a duplicate of it (because although this bug is older, it is superseded by the newer one).
 """
 
 
@@ -165,7 +165,9 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def find_open_bugs(self, bug_ids):
-        return findOpenBugs(self.config['url'], bug_ids)
+        if len(bug_ids) > 0:
+            return findOpenBugs(self.config['url'], bug_ids)
+        return []
 
     @logEntryExit
     def mark_ff_version_affected(self, bug_id, ff_version, affected=True):

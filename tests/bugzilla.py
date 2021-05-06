@@ -74,6 +74,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
     def do_PUT(self):
         expectedPath_comment = "/bug/123"
         expectedPath_status = "/bug/456?api_key=bob"
+        expectedPath_close = "/bug/789"
         size = int(self.headers.get('content-length'))
         content = json.loads(self.rfile.read(size).decode("utf-8"))
         bug_id = re.match(r"/bug/([0-9]+)\?api_key=bob", self.path).groups(0)[0]
@@ -85,6 +86,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         if expectedPath_comment in self.path:
             assert 'id' in content
             assert 'comment' in content
+            assert 'comment_tags' in content
             assert 'body' in content['comment']
             if bug_id == "1234":
                 assert content['comment']['body'] == CommentTemplates.TRY_RUN_SUBMITTED(TRY_REVISION)
@@ -106,6 +108,27 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
             assert content['cf_status_firefox76'] == 'affected'
 
             self.wfile.write("{'bugs':[{'alias':null,'changes':{},'last_change_time':'2020-07-10T18:58:21Z','id':456}]}".replace("'", '"').encode())
+        elif expectedPath_close in self.path:
+            assert 'id' in content
+            assert 'status' in content
+            assert content['status'] == 'RESOLVED'
+            assert 'resolution' in content
+            assert 'comment' in content
+            assert 'comment_tags' in content
+            assert 'body' in content['comment']
+
+            if bug_id == "7890":
+                assert content['resolution'] == 'WONTFIX'
+                assert content['comment']['body'] == "Hello World"
+
+            elif bug_id == "7891":
+                assert content['resolution'] == 'DUPLICATE'
+                assert content['comment']['body'] == "Hello Earth"
+
+                assert 'dupe_id' in content
+                assert content['dupe_id'] == 12345
+
+            self.wfile.write(("{'bugs':[{'alias':null,'changes':{},'last_change_time':'2020-07-10T18:58:21Z','id':" + bug_id + "}]}").replace("'", '"').encode())
         else:
             assert False, "Got a path %s I didn't expect" % self.path
 
@@ -152,6 +175,10 @@ class TestBugzillaProvider(unittest.TestCase):
 
     def testGet(self):
         self.assertEqual([2], self.bugzillaProvider.find_open_bugs([1, 2, 3]))
+
+    def testClose(self):
+        self.bugzillaProvider.wontfix_bug(7890, "Hello World")
+        self.bugzillaProvider.dupe_bug(7891, "Hello Earth", 12345)
 
 
 if __name__ == '__main__':

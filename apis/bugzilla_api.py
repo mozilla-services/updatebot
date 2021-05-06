@@ -108,14 +108,18 @@ def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
     raise Exception(j)
 
 
-def closeBug(url, apikey, bugID, comment):
+def closeBug(url, apikey, bugID, resolution, comment, dupe_id=None):
+    assert dupe_id is None or resolution == 'DUPLICATE'
     data = {
         'id': bugID,
         'status': 'RESOLVED',
-        'resolution': 'WONTFIX',
+        'resolution': resolution,
         'comment': {'body': comment},
         'comment_tags': [task_id_comment_tag()]
     }
+
+    if dupe_id:
+        data['dupe_id'] = dupe_id
 
     r = requests.put(
         url + "bug/" + str(bugID) + "?api_key=" + apikey,

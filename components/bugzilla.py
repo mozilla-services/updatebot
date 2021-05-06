@@ -148,8 +148,12 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
         self.logger.log("Filed Comment on Bug %s" % (bug_id), level=LogLevel.Info)
 
     @logEntryExit
-    def close_bug(self, bug_id, comment):
-        closeBug(self.config['url'], self.config['apikey'], bug_id, comment)
+    def wontfix_bug(self, bug_id, comment):
+        closeBug(self.config['url'], self.config['apikey'], bug_id, 'WONTFIX', comment)
+
+    @logEntryExit
+    def dupe_bug(self, bug_id, comment, dupe_id):
+        closeBug(self.config['url'], self.config['apikey'], bug_id, 'DUPLICATE', comment, dupe_id=dupe_id)
 
     @logEntryExit
     def find_open_bugs(self, bug_ids):

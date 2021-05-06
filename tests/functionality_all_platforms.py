@@ -174,6 +174,12 @@ class MockedBugzillaProvider(BaseProvider):
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
         pass
 
+    def wontfix_bug(self, bug_id, comment):
+        pass
+
+    def dupe_bug(self, bug_id, comment, dupe_id):
+        pass
+
 
 class TestFunctionality(SimpleLoggingTest):
     @classmethod

@@ -25,8 +25,7 @@ class CommitAlertTaskRunner:
         assert task.type == 'commit-alert'
         my_ff_version = self.config_dictionary['General']['ff-version']
 
-        all_library_jobs = self.dbProvider.get_all_jobs_for_library(library)
-        all_library_jobs = [j for j in all_library_jobs if j.type == JOBTYPE.COMMITALERT]
+        all_library_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.COMMITALERT)
         # Order them from newest to oldest
         sorted(all_library_jobs, key=lambda x: x.created)
 

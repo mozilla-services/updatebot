@@ -42,12 +42,13 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def get_all_try_runs(self):
         return self.db.get_all_try_runs()
 
-    def get_all_jobs_for_library(self, library):
-        return self.db.get_all_jobs_for_library(library)
+    def get_all_jobs_for_library(self, library, jobtype):
+        jobs = self.db.get_all_jobs_for_library(library)
+        return [j for j in jobs if j.type == jobtype]
 
-    def get_all_active_jobs_for_library(self, library):
+    def get_all_active_jobs_for_library(self, library, jobtype):
         all_jobs = self.db.get_all_jobs_for_library(library)
-        return [j for j in all_jobs if j.status != JOBSTATUS.DONE]
+        return [j for j in all_jobs if j.status != JOBSTATUS.DONE and j.type == jobtype]
 
     def get_job(self, library, new_version):
         return self.db.get_job(library, new_version)

@@ -144,3 +144,27 @@ def findOpenBugs(url, bugIDs):
         raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
 
     return [b['id'] for b in j['bugs']]
+
+
+def markFFVersionAffected(url, apikey, bugID, ff_version, affected):
+    data = {
+        'id': bugID,
+        'cf_status_firefox' + str(ff_version): 'affected' if affected else 'unaffected'
+    }
+
+    r = requests.put(
+        url + "bug/" + str(bugID) + "?api_key=" + apikey,
+        json=data
+    )
+
+    try:
+        j = json.loads(r.text)
+    except Exception as e:
+        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+
+    if 'bugs' in j:
+        if len(j['bugs']) > 0:
+            if j['bugs'][0]['id'] == bugID:
+                return
+
+    raise Exception(j)

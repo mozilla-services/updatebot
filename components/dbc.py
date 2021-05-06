@@ -62,6 +62,9 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def update_job_status(self, existing_job):
         return self.db.update_job_status(existing_job)
 
+    def update_job_ff_versions(self, existing_job, ff_version_to_add):
+        return self.db.update_job_ff_versions(existing_job, ff_version_to_add)
+
     def add_try_run(self, existing_job, try_revision, try_run_type):
         return self.db.add_try_run(existing_job, try_revision, try_run_type)
 

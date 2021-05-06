@@ -482,6 +482,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
+    def update_job_ff_versions(self, existing_job, ff_version_to_add):
+        query = "INSERT INTO job_to_ff_version(job_id, ff_version) VALUES(%s, %s)"
+        args = (existing_job.id, ff_version_to_add)
+        self._query_execute(query, args)
+
+    @logEntryExit
     def add_try_run(self, existing_job, try_revision, try_run_type):
         query = "INSERT INTO try_runs(revision, job_id, purpose) VALUES(%s, %s, %s)"
         args = (try_revision, existing_job.id, try_run_type)

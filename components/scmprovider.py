@@ -125,7 +125,6 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 return []
 
             # We do have new upstream commits.
-            # Step 3: Get the most recent job for the library
             most_recent_job = ignore_commits_from_these_jobs[0] if ignore_commits_from_these_jobs else None
 
             # Step 4: Check if the most recent job was performed on a revision _after_ the library's current revision or _before_.

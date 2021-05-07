@@ -47,4 +47,5 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
         if stdout is None:
             self.logger.log("We did not find a mapped response for the command `%s`." % argument_string, level=LogLevel.Warning)
         return Struct(**{'stdout':
-                         Struct(**{'decode': lambda: stdout})})
+                         Struct(**{'decode': lambda: stdout}),
+                         'returncode': 0})

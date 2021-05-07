@@ -135,11 +135,11 @@ class VendorTaskRunner:
         # Now we can process the new job
 
         # Get the information we will need to file a bug.
-        #  set ignore_commits_from_these_jobs to get commit details on all revisions since the one in-tree
-        upstream_commits = self.scmProvider.check_for_update(library, task, ignore_commits_from_these_jobs=None)
-        commit_details = self.scmProvider.build_bug_description(upstream_commits)
+        #  We pass in the most recent job
+        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, existing_jobs)
+        commit_details = self.scmProvider.build_bug_description(all_upstream_commits)
 
-        bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(upstream_commits), commit_details), task.cc, see_also)
+        bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc)
         clean_up_old_job(old_job, bugzilla_id)
 
         try_run_type = 'initial platform' if self.config_dictionary['General']['separate-platforms'] else 'all platforms'

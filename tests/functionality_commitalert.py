@@ -21,7 +21,6 @@ from components.utilities import Struct, NeverUseMeClass
 from components.providerbase import BaseProvider
 from components.logging import SimpleLogger, SimpleLoggingTest, LoggingProvider, log, logEntryExit
 from components.dbc import DatabaseProvider
-from components.bugzilla import CommentTemplates
 from components.dbmodels import JOBTYPE, JOBSTATUS, JOBOUTCOME
 from components.scmprovider import SCMProvider
 from components.commandprovider import CommandProvider
@@ -107,11 +106,12 @@ class MockedBugzillaProvider(BaseProvider):
     def __init__(self, config):
         self.config = config
         self.config['comment_filed'] = ""
+        self.open_bugs = set()
         self._filed_bug_id = config['filed_bug_id']
         self._expected_commits_seen = config['expected_commits_seen']
         self._expected_bugs_filed = config['expected_bugs_filed_func']
 
-    def file_bug(self, library, summary, description, cc_list, needinfo, see_also=None, depends_on=None, moco_confidential=False):
+    def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, moco_confidential=False):
         assert str(self._expected_commits_seen()) + " new commits" in summary, \
             "We did not see the expected number of commits in the bug we filed. Expected %s, summary is '%s'" % (self._expected_commits_seen(), summary)
 
@@ -127,6 +127,12 @@ class MockedBugzillaProvider(BaseProvider):
         pass
 
     def dupe_bug(self, bug_id, comment, dupe_id):
+        pass
+
+    def find_open_bugs(self, bug_ids):
+        return [self._filed_bug_id + self._expected_bugs_filed()]
+
+    def mark_ff_version_affected(self, bug_id, ff_version, affected):
         pass
 
 
@@ -554,21 +560,20 @@ class TestFunctionality(SimpleLoggingTest):
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
         self._check_job(all_jobs[0], expected_values)
 
+        old_ff_version = u.config_dictionary['General']['ff-version']
+
         config_dictionary = copy.deepcopy(u.config_dictionary)
         config_dictionary['Database']['keep_tmp_db'] = False
         config_dictionary['General']['ff-version'] -= 1
-        expected_values.ff_version -= 1
         config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
 
         u = Updatebot(config_dictionary, PROVIDERS)
         u.run(library_filter=library_filter)
 
-        expected_comment = CommentTemplates.COMMENT_ALSO_AFFECTS(config_dictionary['General']['ff-version'], config_dictionary['General']['repo'])
-        self.assertEqual(config_dictionary['Bugzilla']['comment_filed'], expected_comment, "Did not file a comment matching the expected value.")
-
         all_jobs = u.dbProvider.get_all_jobs()
-        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have two jobs.")
-        self._check_job(all_jobs[1], expected_values, outcome=JOBOUTCOME.CROSS_VERSION_STUB)
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should still have one job.")
+        self._check_job(all_jobs[0], expected_values)
+        self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version - 1, old_ff_version]), "I did not add the second Firefox version to the bug")
 
         TestFunctionality._cleanup(u, library_filter)
         # end testAlertAcrossFFVersions ----------------------------------------

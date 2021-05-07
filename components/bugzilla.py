@@ -103,8 +103,8 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
         s = "`./mach vendor %s` failed" % library.yaml_path
         if errormessage:
             s += " with the following message:\n\n"
-            for l in errormessage.split("\n"):
-                s += "> " + l + "\n"
+            for line in errormessage.split("\n"):
+                s += "> " + line + "\n"
         return s
 
     @staticmethod

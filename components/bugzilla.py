@@ -15,12 +15,19 @@ class CommentTemplates:
             library.name, new_release_version, release_timestamp)
 
     @staticmethod
-    def UPDATE_DETAILS(num_commits, commit_details):
+    def UPDATE_DETAILS(num_commits, num_new_commits, commit_details):
+        new_commit_str = ""
+        if num_new_commits != num_commits:
+            if num_new_commits == 1:
+                new_commit_str = ", including %s new upstream commit I've never filed a bug on before. (It's the top one.)" % (num_new_commits)
+            else:
+                new_commit_str = ", including %s new upstream commits I've never filed a bug on before. (They're the top %s.)" % (num_new_commits, num_new_commits)
+
         return """
-This update covers %s commits:
+This update covers %s commits%s:
 
 %s
-""" % (num_commits, commit_details)
+""" % (num_commits, new_commit_str, commit_details)
 
     @staticmethod
     def EXAMINE_COMMITS_SUMMARY(library, new_commits):

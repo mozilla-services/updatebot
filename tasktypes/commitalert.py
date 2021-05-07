@@ -10,6 +10,7 @@ import functools
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit
 from components.bugzilla import CommentTemplates
+from components.scmprovider import _contains_commit
 
 
 class CommitAlertTaskRunner:
@@ -20,20 +21,35 @@ class CommitAlertTaskRunner:
         self.config_dictionary = config_dictionary
 
     # ====================================================================
-
     def process_task(self, library, task):
         assert task.type == 'commit-alert'
         my_ff_version = self.config_dictionary['General']['ff-version']
 
         all_library_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.COMMITALERT)
-        # Order them from newest to oldest
-        sorted(all_library_jobs, key=lambda x: x.created)
+        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, all_library_jobs)
+        self.logger.log("We found %s previous jobs, %s upstream commits, and %s unseen upstream commits." % (
+            len(all_library_jobs), len(all_upstream_commits), len(unseen_upstream_commits)), level=LogLevel.Info)
 
-        unseen_upstream_commits = self.scmProvider.check_for_update(library, task, all_library_jobs)
+        # ==========================================================================================
+        # We need to mark previously opened bugs as affected or not.
+        open_bugs = self.bugzillaProvider.find_open_bugs([j.bugzilla_id for j in all_library_jobs])
+        jobs_with_open_bugs = [j for j in all_library_jobs if j.bugzilla_id in open_bugs]
+        self.logger.log("We need to potentially update the FF version on %s open bugs." % len(open_bugs), level=LogLevel.Info)
+        for j in jobs_with_open_bugs:
+            if my_ff_version not in j.ff_versions:
+                is_affected = _contains_commit(all_upstream_commits, j.version)
+                self.logger.log("Updating bug %s to set FF version %s as %s." % (
+                    j.bugzilla_id, my_ff_version, "affected" if is_affected else "unaffected"), level=LogLevel.Info)
+                self.bugzillaProvider.mark_ff_version_affected(j.bugzilla_id, my_ff_version, affected=is_affected)
+                j.ff_versions.add(my_ff_version)
+                self.dbProvider.update_job_ff_versions(j, my_ff_version)
+
+        # ==========================================================================================
         if not unseen_upstream_commits:
-            # We logged the reason for this already; just return
+            self.logger.log("Okay, we didn't see any new upstream commits, so we're done here.", level=LogLevel.Info)
             return
 
+        # ==========================================================================================
         newest_commit = unseen_upstream_commits[-1]
         existing_job = self.dbProvider.get_job(library, newest_commit.revision)
         if existing_job:

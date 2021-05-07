@@ -170,7 +170,7 @@ class MockedBugzillaProvider(BaseProvider):
         self._filed_bug_id = config['filed_bug_id']
         pass
 
-    def file_bug(self, library, summary, description, cc, needinfo, see_also=None):
+    def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None):
         return self._filed_bug_id
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
@@ -180,6 +180,12 @@ class MockedBugzillaProvider(BaseProvider):
         pass
 
     def dupe_bug(self, bug_id, comment, dupe_id):
+        pass
+
+    def find_open_bugs(self, bug_ids):
+        return [self._filed_bug_id]
+
+    def mark_ff_version_affected(self, bug_id, ff_version, affected):
         pass
 
 

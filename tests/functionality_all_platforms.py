@@ -180,6 +180,12 @@ class MockedBugzillaProvider(BaseProvider):
     def dupe_bug(self, bug_id, comment, dupe_id):
         pass
 
+    def find_open_bugs(self, bug_ids):
+        return [self._filed_bug_id]
+
+    def mark_ff_version_affected(self, bug_id, ff_version, affected):
+        pass
+
 
 class TestFunctionality(SimpleLoggingTest):
     @classmethod

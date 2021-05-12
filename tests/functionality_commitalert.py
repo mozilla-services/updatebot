@@ -564,7 +564,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         config_dictionary = copy.deepcopy(u.config_dictionary)
         config_dictionary['Database']['keep_tmp_db'] = False
-        config_dictionary['General']['ff-version'] -= 1
+        config_dictionary['General']['ff-version'] += 1
         config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
 
         u = Updatebot(config_dictionary, PROVIDERS)
@@ -573,7 +573,7 @@ class TestFunctionality(SimpleLoggingTest):
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should still have one job.")
         self._check_job(all_jobs[0], expected_values)
-        self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version - 1, old_ff_version]), "I did not add the second Firefox version to the bug")
+        self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the bug")
 
         TestFunctionality._cleanup(u, library_filter)
         # end testAlertAcrossFFVersions ----------------------------------------

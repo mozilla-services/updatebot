@@ -89,10 +89,10 @@ def GENERIC_EXPECTED_COMMITS_SEEN(get_next_lib_revision, get_current_lib_revisio
     return - (REPO_COMMITS.index(get_next_lib_revision()) - REPO_COMMITS.index(get_current_lib_revision())) if get_next_lib_revision() else 0
 
 
-def DEFAULT_EXPECTED_VALUES(new_library_version_func):
+def DEFAULT_EXPECTED_VALUES(new_library_version_func, get_filed_bug_id_func):
     return Struct(**{
         'new_version_id': new_library_version_func,
-        'filed_bug_id': 50,
+        'get_filed_bug_id_func': get_filed_bug_id_func,
     })
 
 
@@ -102,26 +102,39 @@ def COMMAND_MAPPINGS(expected_values):
     }
 
 
+ALL_BUGS = False
+ONLY_OPEN = True
+
+
 class MockedBugzillaProvider(BaseProvider):
     def __init__(self, config):
         self.config = config
-        self.config['comment_filed'] = ""
-        self.open_bugs = set()
-        self._filed_bug_id = config['filed_bug_id']
-        self._expected_commits_seen = config['expected_commits_seen']
-        self._expected_bugs_filed = config['expected_bugs_filed_func']
+        self._expected_commits_seen_func = config['expected_commits_seen_func']
+        self._get_filed_bug_id_func = config['get_filed_bug_id_func']
+        self._filed_bug_ids_func = config['filed_bug_ids_func']
 
     def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, moco_confidential=False):
-        assert str(self._expected_commits_seen()) + " new commits" in summary, \
-            "We did not see the expected number of commits in the bug we filed. Expected %s, summary is '%s'" % (self._expected_commits_seen(), summary)
+        expected_summary_str = str(self._expected_commits_seen_func()) + " new commits"
+        assert expected_summary_str in summary, \
+            "We did not see the expected number of commits in the bug we filed. Expected '%s', summary is '%s'" % (expected_summary_str, summary)
 
-        assert depends_on is None or depends_on == self._filed_bug_id + self._expected_bugs_filed() - 1, \
-            "We did not set the depends_on correctly when we filed the bug. Expected %s got %s" % (self._filed_bug_id + self._expected_bugs_filed() - 1, depends_on)
+        have_prior_bugs = len(self._filed_bug_ids_func(ALL_BUGS)) > 0
+        assert not have_prior_bugs or depends_on == self._filed_bug_ids_func(ALL_BUGS)[-1], \
+            "We did not set the depends_on correctly when we filed the bug. Expected %s got %s" % (
+            (self._filed_bug_ids_func(ALL_BUGS)[-1] if have_prior_bugs else "no depends"), depends_on)
 
-        return self._filed_bug_id + self._expected_bugs_filed()
+        references_prior_bug = "This list only contains new commits, it looks like" in description
+        if have_prior_bugs and len(self._filed_bug_ids_func(ONLY_OPEN)) > 0:
+            assert references_prior_bug, \
+                "We did not see the expected reference to prior open bugs we expected to see. Description: " + description
+        else:
+            assert not references_prior_bug, \
+                "We saw a reference to a prior bug we did not expect to see. Description: " + description
+
+        return self._get_filed_bug_id_func()
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
-        self.config['comment_filed'] = comment
+        pass
 
     def wontfix_bug(self, bug_id, comment):
         pass
@@ -130,7 +143,7 @@ class MockedBugzillaProvider(BaseProvider):
         pass
 
     def find_open_bugs(self, bug_ids):
-        return [self._filed_bug_id + self._expected_bugs_filed()]
+        return self._filed_bug_ids_func(ONLY_OPEN)
 
     def mark_ff_version_affected(self, bug_id, ff_version, affected):
         pass
@@ -170,7 +183,15 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(current_library_version_func, new_library_version_func, expected_commits_seen, expected_bugs_filed_func, library_filter, branch="master", repo_func=None, keep_tmp_db=False):
+    def _setup(current_library_version_func,
+               new_library_version_func,
+               expected_commits_seen_func,
+               get_filed_bug_id_func,
+               filed_bug_ids_func,
+               library_filter,
+               branch="master",
+               repo_func=None,
+               keep_tmp_db=False):
         real_command_runner = CommandProvider({})
         real_command_runner.update_config({
             'LoggingProvider': SimpleLogger(localconfig['Logging'])
@@ -193,9 +214,9 @@ class TestFunctionality(SimpleLoggingTest):
             'Database': db_config,
             'Vendor': {},
             'Bugzilla': {
-                'filed_bug_id': None,
-                'expected_commits_seen': expected_commits_seen,
-                'expected_bugs_filed_func': expected_bugs_filed_func
+                'expected_commits_seen_func': expected_commits_seen_func,
+                'get_filed_bug_id_func': get_filed_bug_id_func,
+                'filed_bug_ids_func': filed_bug_ids_func
             },
             'Mercurial': {},
             'Taskcluster': {},
@@ -207,8 +228,7 @@ class TestFunctionality(SimpleLoggingTest):
             }
         }
 
-        expected_values = DEFAULT_EXPECTED_VALUES(new_library_version_func)
-        configs['Bugzilla']['filed_bug_id'] = expected_values.filed_bug_id
+        expected_values = DEFAULT_EXPECTED_VALUES(new_library_version_func, get_filed_bug_id_func)
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 
         u = Updatebot(configs, PROVIDERS)
@@ -232,21 +252,22 @@ class TestFunctionality(SimpleLoggingTest):
                     continue
                 u.dbProvider.delete_job(job_id=job.id)
 
-    def _check_job(self, job, expected_values, call_counter=0, outcome=None):
+    def _check_job(self, job, expected_values, outcome=None):
         self.assertEqual(job.type, JOBTYPE.COMMITALERT)
         self.assertEqual(job.version, expected_values.new_version_id())
         self.assertEqual(job.status, JOBSTATUS.DONE)
         self.assertEqual(job.outcome, outcome if outcome else JOBOUTCOME.ALL_SUCCESS)
-        self.assertEqual(job.bugzilla_id, expected_values.filed_bug_id + call_counter)
+        self.assertEqual(job.bugzilla_id, expected_values.get_filed_bug_id_func())
 
     @logEntryExit
     def testNoAlert(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
-            lambda: "",
-            lambda: 0,
-            lambda: 0,
+            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",  # current_library_version_func
+            lambda: "",  # new_library_version_func
+            lambda: 0,   # expected_commits_seen_func
+            lambda: 5,   # get_filed_bug_id_func,
+            lambda x: [],  # filed_bug_ids_func
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -260,10 +281,11 @@ class TestFunctionality(SimpleLoggingTest):
     def testSimpleAlert(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "0886ba657dedc54fad06018618cc07689198abea",
-            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
-            lambda: 1,
-            lambda: 0,
+            lambda: "0886ba657dedc54fad06018618cc07689198abea",  # current_library_version_func
+            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",  # new_library_version_func
+            lambda: 1,  # expected_commits_seen_func
+            lambda: 5,   # get_filed_bug_id_func,
+            lambda x: [],  # filed_bug_ids_func
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -278,10 +300,11 @@ class TestFunctionality(SimpleLoggingTest):
     def testSimpleAlertOnBranch(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "b6972c67b63be20a4b28ed246fd06f6173265bb5",
-            lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
-            lambda: 1,
-            lambda: 0,
+            lambda: "b6972c67b63be20a4b28ed246fd06f6173265bb5",  # current_library_version_func
+            lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",  # new_library_version_func
+            lambda: 1,   # expected_commits_seen_func
+            lambda: 5,   # get_filed_bug_id_func,
+            lambda x: [],  # filed_bug_ids_func
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -300,10 +323,11 @@ class TestFunctionality(SimpleLoggingTest):
         """
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
-            lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
-            lambda: 2,
-            lambda: 0,
+            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",  # current_library_version_func
+            lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",  # new_library_version_func
+            lambda: 2,   # expected_commits_seen_func
+            lambda: 5,   # get_filed_bug_id_func,
+            lambda x: [],  # filed_bug_ids_func
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -336,12 +360,25 @@ class TestFunctionality(SimpleLoggingTest):
 
         expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
 
+        def get_filed_bug_id():
+            if call_counter == 0:
+                return 50
+            return 51
+
+        def expected_bugs_that_have_been_filed(only_open):
+            if call_counter == 0:
+                return []
+            if call_counter == 1:
+                return [50]
+            return [50, 51]
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
             get_next_lib_revision,
             expected_commits_seen,
-            lambda: call_counter,
+            get_filed_bug_id,
+            expected_bugs_that_have_been_filed,
             library_filter,
             repo_func=get_lib_repo)
 
@@ -350,7 +387,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
-        self._check_job(all_jobs[0], expected_values, call_counter)
+        self._check_job(all_jobs[0], expected_values)
 
         call_counter += 1
 
@@ -361,7 +398,7 @@ class TestFunctionality(SimpleLoggingTest):
         all_jobs = u.dbProvider.get_all_jobs()
 
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[0], expected_values, call_counter)
+        self._check_job(all_jobs[0], expected_values)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlerts ----------------------------------------
@@ -387,12 +424,25 @@ class TestFunctionality(SimpleLoggingTest):
 
         expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
 
+        def get_filed_bug_id():
+            if call_counter == 0:
+                return 50
+            return 51
+
+        def expected_bugs_that_have_been_filed(only_open):
+            if call_counter == 0:
+                return []
+            elif call_counter == 1:
+                return [50]
+            return [50, 51]
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
             get_next_lib_revision,
             expected_commits_seen,
-            lambda: call_counter,
+            get_filed_bug_id,
+            expected_bugs_that_have_been_filed,
             library_filter,
             repo_func=get_lib_repo)
 
@@ -401,7 +451,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
-        self._check_job(all_jobs[0], expected_values, call_counter)
+        self._check_job(all_jobs[0], expected_values)
 
         call_counter += 1
 
@@ -411,7 +461,7 @@ class TestFunctionality(SimpleLoggingTest):
         # The most recently created job has moved to the first slot in the array
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[0], expected_values, call_counter)
+        self._check_job(all_jobs[0], expected_values)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlertsSkip2 ----------------------------------------
@@ -435,18 +485,26 @@ class TestFunctionality(SimpleLoggingTest):
                 return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
             return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
 
-        def expected_bugs_that_have_been_filed():
-            if call_counter < 2:
-                return 0
-            return 1
-
         expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
+
+        def get_filed_bug_id():
+            if call_counter < 2:
+                return 50
+            return 51
+
+        def expected_bugs_that_have_been_filed(only_open):
+            if call_counter == 0:
+                return []
+            elif call_counter in [1, 2]:
+                return [50]
+            return [50, 51]
 
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
             get_next_lib_revision,
             expected_commits_seen,
+            get_filed_bug_id,
             expected_bugs_that_have_been_filed,
             library_filter,
             repo_func=get_lib_repo)
@@ -456,7 +514,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
-        self._check_job(all_jobs[0], expected_values, expected_bugs_that_have_been_filed())
+        self._check_job(all_jobs[0], expected_values)
 
         call_counter += 1
 
@@ -474,7 +532,7 @@ class TestFunctionality(SimpleLoggingTest):
         # The most recently created job has moved to the first slot in the array
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[0], expected_values, expected_bugs_that_have_been_filed())
+        self._check_job(all_jobs[0], expected_values)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoSimpleAlertsTimeLagged ----------------------------------------
@@ -502,16 +560,24 @@ class TestFunctionality(SimpleLoggingTest):
                 return 1
             return 1
 
-        def expected_bugs_that_have_been_filed():
+        def get_filed_bug_id():
             if call_counter < 2:
-                return 0
-            return 1
+                return 50
+            return 51
+
+        def expected_bugs_that_have_been_filed(only_open):
+            if call_counter == 0:
+                return []
+            elif call_counter in [1, 2]:
+                return [50]
+            return [50, 51]
 
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
             get_next_lib_revision,
             expected_commits_seen,
+            get_filed_bug_id,
             expected_bugs_that_have_been_filed,
             library_filter,
             repo_func=get_lib_repo)
@@ -521,7 +587,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
-        self._check_job(all_jobs[0], expected_values, expected_bugs_that_have_been_filed())
+        self._check_job(all_jobs[0], expected_values)
 
         call_counter += 1
 
@@ -539,19 +605,27 @@ class TestFunctionality(SimpleLoggingTest):
         # The most recently created job has moved to the first slot in the array
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
-        self._check_job(all_jobs[0], expected_values, expected_bugs_that_have_been_filed())
+        self._check_job(all_jobs[0], expected_values)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoAlertsNewCommitsNoUpdate ----------------------------------------
 
     @logEntryExit
     def testAlertAcrossFFVersions(self):
+        call_counter = 0
+
+        def filed_bug_ids(only_open):
+            if call_counter == 0:
+                return []
+            return [5]
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "0886ba657dedc54fad06018618cc07689198abea",
-            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",
-            lambda: 1,
-            lambda: 0,
+            lambda: "0886ba657dedc54fad06018618cc07689198abea",  # current_library_version_func
+            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",  # new_library_version_func
+            lambda: 1,   # expected_commits_seen_func
+            lambda: 5,   # get_filed_bug_id_func,
+            filed_bug_ids,
             library_filter,
             keep_tmp_db=True)
         u.run(library_filter=library_filter)
@@ -566,6 +640,8 @@ class TestFunctionality(SimpleLoggingTest):
         config_dictionary['Database']['keep_tmp_db'] = False
         config_dictionary['General']['ff-version'] += 1
         config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
+
+        call_counter += 1
 
         u = Updatebot(config_dictionary, PROVIDERS)
         u.run(library_filter=library_filter)

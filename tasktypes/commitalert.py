@@ -4,6 +4,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import copy
+import functools
+
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit
 from components.bugzilla import CommentTemplates
@@ -12,7 +15,8 @@ from components.bugzilla import CommentTemplates
 class CommitAlertTaskRunner:
     def __init__(self, provider_dictionary, config_dictionary):
         self.__dict__.update(provider_dictionary)
-        self.logger = self.loggingProvider
+        self.logger = copy.deepcopy(self.loggingProvider)
+        self.logger.log = functools.partial(self.logger.log, category=self.__class__.mro()[0].__name__)
         self.config_dictionary = config_dictionary
 
     # ====================================================================

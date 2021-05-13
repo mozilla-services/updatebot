@@ -84,6 +84,9 @@ class TestConfigLoggingProvider(BaseTestConfigProvider):
     def _update_config(self, config):
         self.also_expected = "Made it!"
 
+    def log(self, category):
+        pass
+
 
 class TestConfigCommandProvider(BaseTestConfigProvider):
     def __init__(self, config):

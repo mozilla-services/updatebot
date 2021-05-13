@@ -745,6 +745,103 @@ class TestFunctionality(SimpleLoggingTest):
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoAlertsNewCommitsNoUpdate ----------------------------------------
 
+    @logEntryExit
+    def testOneAlertCloseItAnotherAlertBumpFF(self):
+        """
+        This test creates one alert, then closes it. Then we create a second alert and confirm that
+        it doesn't reference the first. Then we Bump FF and confirm it only edits the second alert.
+        """
+        call_counter = 0
+
+        def get_current_lib_revision():
+            return "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830"
+
+        def get_next_lib_revision():
+            if call_counter < 1:
+                return "0886ba657dedc54fad06018618cc07689198abea"
+            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+
+        def get_lib_repo():
+            if call_counter < 1:
+                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
+            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+
+        # They are ordered newest to oldest, so we need to invert the number
+        def expected_commits_seen():
+            if call_counter < 1:
+                return 1
+            return 1
+
+        def get_filed_bug_id():
+            if call_counter == 0:
+                return 50
+            elif call_counter == 1:
+                return 51
+            else:
+                assert False
+
+        def expected_bugs_that_have_been_filed(only_open):
+            if call_counter == 0:
+                return []
+            if call_counter == 1 and only_open:
+                return []
+            if call_counter == 1:
+                return [50]
+            if call_counter > 1 and only_open:
+                return [51]
+            if call_counter > 1:
+                return [50, 51]
+
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            get_current_lib_revision,
+            get_next_lib_revision,
+            expected_commits_seen,
+            get_filed_bug_id,
+            expected_bugs_that_have_been_filed,
+            library_filter,
+            repo_func=get_lib_repo,
+            keep_tmp_db=True)
+
+        # Run it once. We should create a job.
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        # Now we bump and this implictly closes the first bug via expected_bugs_that_have_been_filed
+        call_counter += 1
+
+        # Run it again, and now we should create another job.
+        u.run(library_filter=library_filter)
+
+        # The most recently created job has moved to the first slot in the array
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
+        self._check_job(all_jobs[0], expected_values)
+
+        # Now bump the Firefox Version
+        old_ff_version = u.config_dictionary['General']['ff-version']
+
+        config_dictionary = copy.deepcopy(u.config_dictionary)
+        config_dictionary['Database']['keep_tmp_db'] = False
+        config_dictionary['General']['ff-version'] += 1
+        config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
+
+        call_counter += 1
+
+        u = Updatebot(config_dictionary, PROVIDERS)
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should still have two jobs.")
+        self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the second bug")
+        self.assertEqual(all_jobs[1].ff_versions, set([old_ff_version]), "I did add the second Firefox version to the first bug but shouldn't have")
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testOneAlertCloseItAnotherAlertBumpFF ----------------------------------------
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

@@ -8,6 +8,8 @@ import sys
 sys.path.append(".")
 sys.path.append("..")
 
+import inspect
+
 from components.utilities import Struct
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
@@ -39,7 +41,14 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
                         raise Exception("TestCommandProvider was asked to really execute something; but doesn't have a means to do so")
                     return self.real_runner.run(args, shell=shell, clean_return=clean_return)
                 else:
-                    stdout = self.mappings[m]
+                    func = self.mappings[m]
+
+                    # If the lambda for this output expects a parameter, give it the command we want to execute
+                    # But we don't require a parameter
+                    if len(inspect.signature(func).parameters) > 0:
+                        stdout = func(argument_string)
+                    else:
+                        stdout = func()
                     self.logger.log("We found a mapped response, providing it.", level=LogLevel.Info)
                     self.logger.log("---\n%s\n---" % stdout, level=LogLevel.Debug2)
                 break

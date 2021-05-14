@@ -50,7 +50,7 @@ class TestLibraryProvider(unittest.TestCase):
         # We will need a CommandProvider, so instatiate that directly
         cls.commandProvider = TestCommandProvider({
             'test_mappings': {
-                "find": LIBRARY_FIND_OUTPUT
+                "find": lambda x: LIBRARY_FIND_OUTPUT
             }
         })
         # And provide it with a logger

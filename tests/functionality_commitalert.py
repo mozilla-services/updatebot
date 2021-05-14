@@ -112,6 +112,10 @@ class MockedBugzillaProvider(BaseProvider):
         self._expected_commits_seen_func = config['expected_commits_seen_func']
         self._get_filed_bug_id_func = config['get_filed_bug_id_func']
         self._filed_bug_ids_func = config['filed_bug_ids_func']
+        if config['assert_affected_func']:
+            self._assert_affected_func = config['assert_affected_func']
+        else:
+            self._assert_affected_func = lambda a, b, c: True
 
     def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, moco_confidential=False):
         expected_summary_str = str(self._expected_commits_seen_func()) + " new commits"
@@ -146,7 +150,7 @@ class MockedBugzillaProvider(BaseProvider):
         return self._filed_bug_ids_func(ONLY_OPEN)
 
     def mark_ff_version_affected(self, bug_id, ff_version, affected):
-        pass
+        self._assert_affected_func(bug_id, ff_version, affected)
 
 
 PROVIDERS = {
@@ -189,6 +193,7 @@ class TestFunctionality(SimpleLoggingTest):
                get_filed_bug_id_func,
                filed_bug_ids_func,
                library_filter,
+               assert_affected_func=None,
                branch="master",
                repo_func=None,
                keep_tmp_db=False):
@@ -216,7 +221,8 @@ class TestFunctionality(SimpleLoggingTest):
             'Bugzilla': {
                 'expected_commits_seen_func': expected_commits_seen_func,
                 'get_filed_bug_id_func': get_filed_bug_id_func,
-                'filed_bug_ids_func': filed_bug_ids_func
+                'filed_bug_ids_func': filed_bug_ids_func,
+                'assert_affected_func': assert_affected_func
             },
             'Mercurial': {},
             'Taskcluster': {},
@@ -696,6 +702,10 @@ class TestFunctionality(SimpleLoggingTest):
                 return [50]
             return [50, 51]
 
+        def assert_affected(bug_id, ff_version, affected):
+            affected_str = "affected" if affected else "unaffected"
+            assert affected, "Marked %s as %s for %s when we shouldn't have." % (bug_id, affected_str, ff_version)
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
@@ -704,6 +714,7 @@ class TestFunctionality(SimpleLoggingTest):
             get_filed_bug_id,
             expected_bugs_that_have_been_filed,
             library_filter,
+            assert_affected_func=assert_affected,
             repo_func=get_lib_repo,
             keep_tmp_db=True)
 
@@ -792,6 +803,10 @@ class TestFunctionality(SimpleLoggingTest):
             if call_counter > 1:
                 return [50, 51]
 
+        def assert_affected(bug_id, ff_version, affected):
+            affected_str = "affected" if affected else "unaffected"
+            assert affected, "Marked %s as %s for %s when we shouldn't have." % (bug_id, affected_str, ff_version)
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             get_current_lib_revision,
@@ -800,6 +815,7 @@ class TestFunctionality(SimpleLoggingTest):
             get_filed_bug_id,
             expected_bugs_that_have_been_filed,
             library_filter,
+            assert_affected_func=assert_affected,
             repo_func=get_lib_repo,
             keep_tmp_db=True)
 
@@ -841,6 +857,73 @@ class TestFunctionality(SimpleLoggingTest):
 
         TestFunctionality._cleanup(u, library_filter)
         # end testOneAlertCloseItAnotherAlertBumpFF ----------------------------------------
+
+    @logEntryExit
+    def testUnaffectedVersion(self):
+        """
+        In this test, we file a bug, and then bump the FF version. On the new version, we tell it is
+        not affected by returning the 'new' version as the 'current' version. This simulates it not
+        being affected; and we assert that we marked the old bug as unaffected.
+
+        Note this isn't a perfect test, because really we expect to mark things as 'unaffected' not
+        because we update a library before Updatebot runs for the first time on a new FF version; but
+        because in FF Version n+1 we change to a new upstream branch, and we need to mark the old bugs
+        on a different branch as unaffected for the new FF version.
+        """
+        call_counter = 0
+
+        def current_library_version():
+            if call_counter == 0:
+                return "0886ba657dedc54fad06018618cc07689198abea"
+            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+
+        def new_library_version():
+            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+
+        def filed_bug_ids(only_open):
+            if call_counter == 0:
+                return []
+            return [5]
+
+        def assert_affected(bug_id, ff_version, affected):
+            affected_str = "affected" if affected else "unaffected"
+            assert not affected, "Marked %s as %s for %s when we shouldn't have." % (bug_id, affected_str, ff_version)
+
+        library_filter = "aom"
+        (u, expected_values) = TestFunctionality._setup(
+            current_library_version,
+            new_library_version,
+            lambda: 1,   # expected_commits_seen_func
+            lambda: 5,   # get_filed_bug_id_func,
+            filed_bug_ids,
+            library_filter,
+            assert_affected_func=assert_affected,
+            keep_tmp_db=True)
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
+        self._check_job(all_jobs[0], expected_values)
+
+        old_ff_version = u.config_dictionary['General']['ff-version']
+
+        config_dictionary = copy.deepcopy(u.config_dictionary)
+        config_dictionary['Database']['keep_tmp_db'] = False
+        config_dictionary['General']['ff-version'] += 1
+        config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
+
+        call_counter += 1
+
+        u = Updatebot(config_dictionary, PROVIDERS)
+        u.run(library_filter=library_filter)
+
+        all_jobs = u.dbProvider.get_all_jobs()
+        self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should still have one job.")
+        self._check_job(all_jobs[0], expected_values)
+        self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the bug")
+
+        TestFunctionality._cleanup(u, library_filter)
+        # end testUnaffectedVersion ----------------------------------------
 
 
 if __name__ == '__main__':

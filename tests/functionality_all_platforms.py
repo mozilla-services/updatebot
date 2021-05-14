@@ -29,7 +29,7 @@ from apis.phabricator import PhabricatorProvider
 
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_libraryprovider import MockLibraryProvider
-from tests.mock_treeherder_server import MockTreeherderServer
+from tests.mock_treeherder_server import MockTreeherderServer, reset_seen_counters
 from tests.database import transform_db_config_to_tmp_db
 
 try:
@@ -290,6 +290,7 @@ class TestFunctionality(SimpleLoggingTest):
 
     @staticmethod
     def _cleanup(u, expected_values):
+        reset_seen_counters()
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
             for task in lib.tasks:
                 if task.type != 'vendoring':

@@ -27,7 +27,7 @@ def task_id_whiteboard():
     return ''
 
 
-def fileBug(url, apikey, product, component, summary, description, severity, cc_list, needinfo, see_also, depends_on, moco_confidential):
+def fileBug(url, apikey, ff_version, product, component, summary, description, severity, cc_list, needinfo, see_also, depends_on, moco_confidential):
     assert isinstance(cc_list, list)
 
     data = {
@@ -41,6 +41,7 @@ def fileBug(url, apikey, product, component, summary, description, severity, cc_
         'summary': summary,
         'description': description,
         'whiteboard': kw('filed') + task_id_whiteboard(),
+        'cf_status_firefox' + str(ff_version): 'affected',
         'cc': ['tom@mozilla.com', 'jewilde@mozilla.com'] + cc_list
     }
     if see_also:

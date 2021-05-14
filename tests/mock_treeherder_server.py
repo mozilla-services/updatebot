@@ -142,6 +142,11 @@ RETRIGGER_RESPONSE = """
 seen_counters = {}
 
 
+def reset_seen_counters():
+    global seen_counters
+    seen_counters = {}
+
+
 def find_and_increment_seen_counter(key):
     if key not in seen_counters:
         seen_counters[key] = 1
@@ -158,19 +163,21 @@ def get_appropriate_filename(path):
 
     page = path[path.index("&page=") + len("&page="):] if has_page else "1"
 
-    key = push_id + "_" + page
-    seen_counter = find_and_increment_seen_counter(key)
-    key += "_" + seen_counter
+    first_key = push_id + "_" + page
+    seen_counter = find_and_increment_seen_counter(first_key)
+    first_key += "_" + seen_counter
 
     log("Checking for push_id", push_id, "page", page, "seen", seen_counter, level=LogLevel.Debug)
 
-    if key not in PUSH_IDS:
-        key = push_id + "_" + page + "_" + "A"
-        log("Response-specific key missing, checking for key ", key, level=LogLevel.Debug)
-        if key not in PUSH_IDS:
-            assert False, "Could not find either key in PUSH_IDS"
-
-    return PUSH_IDS[key]
+    if first_key not in PUSH_IDS:
+        second_key = push_id + "_" + page + "_" + "A"
+        log("Response-specific key %s missing, checking for key %s" % (first_key, second_key), level=LogLevel.Info)
+        if second_key not in PUSH_IDS:
+            assert False, "Could not find %s or %s in PUSH_IDS" % (first_key, second_key)
+        else:
+            return PUSH_IDS[second_key]
+    else:
+        return PUSH_IDS[first_key]
 
 
 class MockTreeherderServer(server.BaseHTTPRequestHandler):

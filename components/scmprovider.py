@@ -206,6 +206,11 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         raise Exception(problem)
 
     def build_bug_description(self, list_of_commits):
+        # The commits are ordered oldest to newest.
+        # But when we file a bug we want the newest commit to be at the top.
+        list_of_commits = copy.deepcopy(list_of_commits)
+        list_of_commits.reverse()
+
         s = "----------------------------------------\n"
         for c in list_of_commits:
             s += "%s by %s\n" % (c.revision, c.author)

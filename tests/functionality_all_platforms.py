@@ -94,12 +94,6 @@ CONDUIT_EDIT_OUTPUT = """
 {"error":null,"errorMessage":null,"response":{"object":{"id":3643,"phid":"PHID-DREV-4pi6s6fwd57bktfzvfns"},"transactions":[{"phid":"PHID-XACT-DREV-om5mlg2ib34yaoi"},{"phid":"PHID-XACT-DREV-2pzq4qktezb7qqc"}]}}
 """
 
-GIT_PRETTY_OUTPUT = """
-c8011782e13d5c1c402b07b7a02efa2f8d400efa|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000
-f9e59ad078552424ca165644f4da3b4e2687c3dc|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000
-62c10c170bb33f1ad6c9eb13d0cbdf13f95fb27e|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000
-"""
-
 GIT_DIFF_FILES_CHANGES = """
 M	src/libANGLE/renderer/vulkan/VertexArrayVk.cpp
 M	src/tests/gl_tests/StateChangeTest1.cpp
@@ -128,15 +122,11 @@ Commit-Queue: Jamie Madill <jmadill@chromium.org>
 """
 
 
-def DEFAULT_EXPECTED_VALUES(sha_hash, get_filed_bug_id_func):
-    # This is a bit confusing; but we use the same SHA hash for the current, and new
-    # library revision (which doesn't mattter, Updatebot doesn't compare versions on
-    # Vendoring tasks, it just believes an updated is needed if ./mach vendor --check-for-update
-    # says so) and _also_ the revision id returned from 'the try server'.  We suffix
-    # the library hashes with _current and _new, but the try revision hash is left unchanged
+def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func):
     return Struct(**{
-        'library_new_version_id': sha_hash + "_new",
-        'try_revision_id': sha_hash,
+        'git_pretty_output_func': git_pretty_output_func,
+        'library_new_version_id': lambda: git_pretty_output_func(False)[0].split("|")[0],
+        'try_revision_id': lambda: git_pretty_output_func(False)[0].split("|")[0],
         'get_filed_bug_id_func': get_filed_bug_id_func,
         'phab_revision': 83119
     })
@@ -144,25 +134,25 @@ def DEFAULT_EXPECTED_VALUES(sha_hash, get_filed_bug_id_func):
 
 def COMMAND_MAPPINGS(expected_values):
     return {
-        "./mach vendor": lambda :expected_values.library_new_version_id + " 2020-08-21T15:13:49.000+02:00",
-        "./mach try auto": lambda :TRY_OUTPUT(expected_values.try_revision_id),
-        "hg commit": lambda :"",
-        "hg checkout -C .": lambda :"",
-        "hg purge .": lambda :"",
-        "hg status": lambda :"",
-        "hg strip": lambda :"",
-        "arc diff --verbatim": lambda :ARC_OUTPUT,
-        "echo '{\"constraints\"": lambda :CONDUIT_USERNAME_SEARCH_OUTPUT,
-        "echo '{\"transactions\":": lambda :CONDUIT_EDIT_OUTPUT,
-        "git log -1 --oneline": lambda :"0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output",
-        "git clone https://example.invalid .": lambda :"",
-        "git rev-parse --abbrev-ref HEAD": lambda :"master",
-        "git branch --contains": lambda :"master",
-        "git log --pretty=%H|%ai|%ci": lambda :GIT_PRETTY_OUTPUT,
-        "git diff --name-status": lambda :GIT_DIFF_FILES_CHANGES,
-        "git log --pretty=%s": lambda :"Roll SPIRV-Tools from a61d07a72763 to 1cda495274bb (1 revision)",
-        "git log --pretty=%an": lambda :"Tom Ritter",
-        "git log --pretty=%b": lambda :GIT_COMMIT_BODY,
+        "./mach vendor": lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00",
+        "./mach try auto": lambda: TRY_OUTPUT(expected_values.try_revision_id()),
+        "hg commit": lambda: "",
+        "hg checkout -C .": lambda: "",
+        "hg purge .": lambda: "",
+        "hg status": lambda: "",
+        "hg strip": lambda: "",
+        "arc diff --verbatim": lambda: ARC_OUTPUT,
+        "echo '{\"constraints\"": lambda: CONDUIT_USERNAME_SEARCH_OUTPUT,
+        "echo '{\"transactions\":": lambda: CONDUIT_EDIT_OUTPUT,
+        "git log -1 --oneline": lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output",
+        "git clone https://example.invalid .": lambda: "",
+        "git rev-parse --abbrev-ref HEAD": lambda: "master",
+        "git branch --contains": lambda: "master",
+        "git diff --name-status": lambda: GIT_DIFF_FILES_CHANGES,
+        "git log --pretty=%H|%ai|%ci": lambda cmd: "\n".join(expected_values.git_pretty_output_func("_current" not in cmd)),
+        "git log --pretty=%s": lambda: "Roll SPIRV-Tools from a61d07a72763 to 1cda495274bb (1 revision)",
+        "git log --pretty=%an": lambda: "Tom Ritter",
+        "git log --pretty=%b": lambda: GIT_COMMIT_BODY,
     }
 
 
@@ -212,7 +202,7 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(sha_hash,
+    def _setup(git_pretty_output_func,
                library_filter,
                get_filed_bug_id_func,
                filed_bug_ids_func,
@@ -244,7 +234,7 @@ class TestFunctionality(SimpleLoggingTest):
             },
             'Phabricator': {},
             'Library': {
-                'vendoring_revision_override': sha_hash + "_current",
+                'vendoring_revision_override': "_current",
             }
         }
 
@@ -271,7 +261,7 @@ class TestFunctionality(SimpleLoggingTest):
             'SCM': SCMProvider,
         }
 
-        expected_values = DEFAULT_EXPECTED_VALUES(sha_hash, get_filed_bug_id_func)
+        expected_values = DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func)
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
 
         u = Updatebot(configs, providers)
@@ -283,7 +273,7 @@ class TestFunctionality(SimpleLoggingTest):
             for task in lib.tasks:
                 if task.type != 'vendoring':
                     continue
-                j = u.dbProvider.get_job(lib, expected_values.library_new_version_id)
+                j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
                 tc.assertEqual(j, None, "When running %s, we found an existing job, indicating the database is dirty and should be cleaned." % inspect.stack()[1].function)
 
         return (u, expected_values, _check_jobs)
@@ -295,7 +285,7 @@ class TestFunctionality(SimpleLoggingTest):
             for task in lib.tasks:
                 if task.type != 'vendoring':
                     continue
-                u.dbProvider.delete_job(library=lib, version=expected_values.library_new_version_id)
+                u.dbProvider.delete_job(library=lib, version=expected_values.library_new_version_id())
 
     @staticmethod
     def _check_jobs(u, library_filter, expected_values, status, outcome):
@@ -309,25 +299,25 @@ class TestFunctionality(SimpleLoggingTest):
                 if task.type != 'vendoring':
                     continue
 
-                j = u.dbProvider.get_job(lib, expected_values.library_new_version_id)
+                j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
 
                 tc.assertNotEqual(j, None)
                 tc.assertEqual(lib.name, j.library_shortname)
-                tc.assertEqual(expected_values.library_new_version_id, j.version)
+                tc.assertEqual(expected_values.library_new_version_id(), j.version)
                 tc.assertEqual(status, j.status, "Expected status %s, got status %s" % (status.name, j.status.name))
                 tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))
                 tc.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
                 tc.assertEqual(expected_values.phab_revision, j.phab_revision)
                 tc.assertEqual(len(j.try_runs), 1)
                 tc.assertEqual(
-                    expected_values.try_revision_id, j.try_runs[0].revision)
+                    expected_values.try_revision_id(), j.try_runs[0].revision)
                 tc.assertEqual('all platforms', j.try_runs[0].purpose)
 
     @logEntryExit
     def testAllNewJobs(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            "try_rev",
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
@@ -341,7 +331,7 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobClassifiedFailures(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            "e152bb86666565ee6619c15f60156cd6c79580a9",
+            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
@@ -368,7 +358,7 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobBuildFailed(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            "55ca6286e3e4f4fba5d0448333fa99fc5a404a73",
+            lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
@@ -395,7 +385,7 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobAllSuccess(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            "56082fc4acfacba40993e47ef8302993c59e264e",
+            lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
@@ -422,7 +412,7 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobUnclassifiedFailureNoRetriggers(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            "4173dda99ea962d907e3fa043db5e26711085ed2",
+            lambda b: ["4173dda99ea962d907e3fa043db5e26711085ed2|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
@@ -449,7 +439,7 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobUnclassifiedFailuresNeedingRetriggers(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            "ab2232a04301f1d2dbeea7050488f8ec2dde5451",
+            lambda b: ["ab2232a04301f1d2dbeea7050488f8ec2dde5451|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func

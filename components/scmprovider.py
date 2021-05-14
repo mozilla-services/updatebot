@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import functools
 
-from components.logging import LogLevel
+from components.logging import LogLevel, logEntryExit
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
@@ -68,6 +68,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
 
+    @logEntryExit
     def check_for_update(self, library, task, ignore_commits_from_these_jobs):
         # This function uses two tricky variable names:
         #  all_upstream_commits - This means the commits that have occured upstream, on the branch we care about,

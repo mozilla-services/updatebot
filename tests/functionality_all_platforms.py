@@ -363,7 +363,7 @@ class TestFunctionality(SimpleLoggingTest):
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it a build job failed
             u.run(library_filter=library_filter)
-            # Should be DONE and Failed.
+            # Should be DONE and Success.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
         finally:
             TestFunctionality._cleanup(u, expected_values)

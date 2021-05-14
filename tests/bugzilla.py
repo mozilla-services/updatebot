@@ -47,6 +47,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'flags': [{'name': 'needinfo', 'status': '?', 'requestee': 'needinfo@example.com'}],
                 'depends_on': 110,
                 'see_also': 210,
+                'cf_status_firefox88': 'affected',
                 'groups': ['mozilla-employee-confidential']
             }
             for k in expectedContent:
@@ -138,10 +139,13 @@ class TestBugzillaProvider(unittest.TestCase):
     def setUpClass(cls):
         cls.server = server.HTTPServer(('', 27489), MockBugzillaServer)
         cls.bugzillaProvider = BugzillaProvider({
-            'General': {'env': 'dev'},
+            'General': {
+                'env': 'dev',
+                'ff-version': 88,
+                'repo': 'https://hg.mozilla.org/mozilla-central'
+            },
             'apikey': 'bob',
             'url': 'http://localhost:27489/',
-            'repo': 'https://hg.mozilla.org/mozilla-central'
         })
         cls.bugzillaProvider.update_config(SimpleLoggerConfig)
         t = Thread(target=cls.server.serve_forever)

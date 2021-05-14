@@ -170,7 +170,15 @@ class MockedBugzillaProvider(BaseProvider):
         else:
             self._assert_affected_func = lambda a, b, c: True
 
-    def file_bug(self, library, summary, description, cc, needinfo, see_also=None):
+    def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None):
+        references_prior_bug = "I've never filed a bug on before." in description
+        if len(self._filed_bug_ids_func(False)) > 0:
+            assert references_prior_bug, "We did not reference a prior bug when we should have"
+            self.config['expect_a_dupe'] = True
+        else:
+            assert not references_prior_bug, "We should not have referenced a prior bug but we did"
+            self.config['expect_a_dupe'] = False
+
         return self._get_filed_bug_id_func()
 
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
@@ -180,7 +188,13 @@ class MockedBugzillaProvider(BaseProvider):
         pass
 
     def dupe_bug(self, bug_id, comment, dupe_id):
-        pass
+        assert self.config['expect_a_dupe'], "We marked a bug as a duplicate when we weren't execting to."
+        assert bug_id == self._filed_bug_ids_func(ALL_BUGS)[-1], \
+            "We expected to close %s as a dupe, but it was actually %s" % (
+                self._filed_bug_ids_func(ALL_BUGS)[-1], bug_id)
+        assert dupe_id == self._get_filed_bug_id_func(), \
+            "We expected to mark %s as a dupe of %s as a dupe, but we actually marked it a dupe of %s" % (
+                bug_id, self._get_filed_bug_id_func(), dupe_id)
 
     def find_open_bugs(self, bug_ids):
         return self._filed_bug_ids_func(ONLY_OPEN)
@@ -462,6 +476,75 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
+
+    # Create -> Finish -> Create
+    @logEntryExit
+    def testSecondJobReferencesFirst(self):
+        call_counter = 0
+
+        def git_pretty_output(since_last_job):
+            lines = [
+                "56082fc4acfacba40993e47ef8302993c59e264f|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264e|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000",
+                "62c10c170bb33f1ad6c9eb13d0cbdf13f95fb27e|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000",
+            ]
+            if call_counter == 0:
+                assert not since_last_job
+                return lines[1:]
+            else:
+                if since_last_job:
+                    return lines[0:1]
+                return lines
+
+        def get_filed_bug_id():
+            if call_counter == 0:
+                return 50
+            return 51
+
+        def get_filed_bugs(only_open):
+            if call_counter == 0:
+                return []
+            return [50]
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            git_pretty_output,
+            library_filter,
+            get_filed_bug_id,
+            get_filed_bugs
+        )
+
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+            call_counter += 1
+            reset_seen_counters()
+
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
         finally:
             TestFunctionality._cleanup(u, expected_values)
 

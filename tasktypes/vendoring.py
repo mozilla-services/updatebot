@@ -100,6 +100,7 @@ class VendorTaskRunner:
             old_job = active_jobs[0]
 
             def clean_up_old_job_style2(old_job, new_bug_id):
+                self.logger.log("Marking active Job ID %s as superseded by Bug ID %s ." % (old_job.id, new_bug_id), level=LogLevel.Info)
                 self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
                 self.phabricatorProvider.abandon(old_job.phab_revision)
                 old_job.status = JOBSTATUS.DONE
@@ -126,6 +127,7 @@ class VendorTaskRunner:
                 old_job = jobs_with_open_bugs[0]  # The array has previoiusly assert it has one element, and now we know its bug is open
 
                 def clean_up_old_job_style3(old_job, new_bug_id):
+                    self.logger.log("Marking completed Job ID %s as superseded by Bug ID %s ." % (old_job.id, new_bug_id), level=LogLevel.Info)
                     self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
                     self.phabricatorProvider.abandon(old_job.phab_revision)
                     # No need to update the job because it's already in 'Done' status

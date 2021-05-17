@@ -548,6 +548,101 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             TestFunctionality._cleanup(u, expected_values)
 
+    # Create -> Finish -> Create -> Finish -> Create
+    @logEntryExit
+    def testThreeJobs(self):
+        call_counter = 0
+
+        def git_pretty_output(since_last_job):
+            lines = [
+                "56082fc4acfacba40993e47ef8302993c59e264f|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264e|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264d|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000",
+            ]
+            if call_counter == 0:
+                assert not since_last_job
+                return lines[2:]
+            elif call_counter == 1:
+                if since_last_job:
+                    return lines[1:2]
+                return lines[1:]
+            else:
+                if since_last_job:
+                    return lines[0:1]
+                return lines
+
+        def get_filed_bug_id():
+            if call_counter == 0:
+                return 50
+            elif call_counter == 1:
+                return 51
+            return 52
+
+        def get_filed_bugs(only_open):
+            if call_counter == 0:
+                return []
+            elif call_counter == 1:
+                return [50]
+            elif only_open:
+                return [51]
+            return [50, 51]
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            git_pretty_output,
+            library_filter,
+            get_filed_bug_id,
+            get_filed_bugs
+        )
+
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+            call_counter += 1
+            reset_seen_counters()
+
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+            call_counter += 1
+            reset_seen_counters()
+
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

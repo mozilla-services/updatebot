@@ -82,8 +82,8 @@ rebasing 539628:2f4625139f7e "Bug 1652037 - Wire up build_clang_tidy_external in
 (activating bookmark civet)
 
 Completed
-(D83119) 539629:94adaadd8131 Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
--> https://phabricator-dev.allizom.org/D83119
+(D%s) 539629:94adaadd8131 Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
+-> https://phabricator-dev.allizom.org/D%s
 """
 
 CONDUIT_USERNAME_SEARCH_OUTPUT = """
@@ -128,11 +128,15 @@ def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func):
         'library_new_version_id': lambda: git_pretty_output_func(False)[0].split("|")[0],
         'try_revision_id': lambda: git_pretty_output_func(False)[0].split("|")[0],
         'get_filed_bug_id_func': get_filed_bug_id_func,
-        'phab_revision': 83119
+        'phab_revision_func': lambda: 83000 + get_filed_bug_id_func()
     })
 
 
-def COMMAND_MAPPINGS(expected_values):
+def AssertFalse():
+    assert False, "We should not abanson any phabricator revision in this test."
+
+
+def COMMAND_MAPPINGS(expected_values, abandon_callback):
     return {
         "./mach vendor": lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00",
         "./mach try auto": lambda: TRY_OUTPUT(expected_values.try_revision_id()),
@@ -141,9 +145,10 @@ def COMMAND_MAPPINGS(expected_values):
         "hg purge .": lambda: "",
         "hg status": lambda: "",
         "hg strip": lambda: "",
-        "arc diff --verbatim": lambda: ARC_OUTPUT,
+        "arc diff --verbatim": lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func()),
         "echo '{\"constraints\"": lambda: CONDUIT_USERNAME_SEARCH_OUTPUT,
-        "echo '{\"transactions\":": lambda: CONDUIT_EDIT_OUTPUT,
+        "echo '{\"transactions\": [{\"type\":\"reviewers.set\"": lambda: CONDUIT_EDIT_OUTPUT,
+        "echo '{\"transactions\": [{\"type\":\"abandon\"": abandon_callback if abandon_callback else AssertFalse,
         "git log -1 --oneline": lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output",
         "git clone https://example.invalid .": lambda: "",
         "git rev-parse --abbrev-ref HEAD": lambda: "master",
@@ -221,6 +226,7 @@ class TestFunctionality(SimpleLoggingTest):
                get_filed_bug_id_func,
                filed_bug_ids_func,
                assert_affected_func=None,
+               abandon_callback=None,
                keep_tmp_db=False):
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         db_config['keep_tmp_db'] = keep_tmp_db
@@ -276,7 +282,7 @@ class TestFunctionality(SimpleLoggingTest):
         }
 
         expected_values = DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func)
-        configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values)
+        configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values, abandon_callback)
 
         u = Updatebot(configs, providers)
         _check_jobs = functools.partial(TestFunctionality._check_jobs, u, library_filter, expected_values)
@@ -321,7 +327,7 @@ class TestFunctionality(SimpleLoggingTest):
                 tc.assertEqual(status, j.status, "Expected status %s, got status %s" % (status.name, j.status.name))
                 tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))
                 tc.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
-                tc.assertEqual(expected_values.phab_revision, j.phab_revision)
+                tc.assertEqual(expected_values.phab_revision_func(), j.phab_revision)
                 tc.assertEqual(len(j.try_runs), 1)
                 tc.assertEqual(
                     expected_values.try_revision_id(), j.try_runs[0].revision)
@@ -370,12 +376,22 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> Jobs are Running -> Build Failed
     @logEntryExit
     def testExistingJobBuildFailed(self):
+        global was_abandoned
+        was_abandoned = False
+
+        def abandon_callback(cmd):
+            global was_abandoned
+            was_abandoned = True
+            assert "83050" in cmd, "Did not see the Phabricator revision we expected to when we abandoned one."
+            return CONDUIT_EDIT_OUTPUT
+
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
             lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [],  # filed_bug_ids_func
+            abandon_callback=abandon_callback
         )
 
         try:
@@ -391,6 +407,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
+            self.assertTrue(was_abandoned, "Did not successfully abandon the phabricator patch.")
         finally:
             TestFunctionality._cleanup(u, expected_values)
 
@@ -508,12 +525,22 @@ class TestFunctionality(SimpleLoggingTest):
                 return []
             return [50]
 
+        global was_abandoned
+        was_abandoned = False
+
+        def abandon_callback(cmd):
+            global was_abandoned
+            was_abandoned = True
+            assert "83050" in cmd, "Did not see the Phabricator revision we expected to when we abandoned one."
+            return CONDUIT_EDIT_OUTPUT
+
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
             git_pretty_output,
             library_filter,
             get_filed_bug_id,
-            get_filed_bugs
+            get_filed_bugs,
+            abandon_callback=abandon_callback
         )
 
         try:
@@ -529,6 +556,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Success
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertFalse(was_abandoned, "We should not have abandoned the phabricator patch.")
 
             call_counter += 1
             reset_seen_counters()
@@ -545,6 +573,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Success
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertTrue(was_abandoned, "Did not successfully abandon the phabricator patch.")
         finally:
             TestFunctionality._cleanup(u, expected_values)
 
@@ -587,12 +616,23 @@ class TestFunctionality(SimpleLoggingTest):
                 return [51]
             return [50, 51]
 
+        global abandon_count
+        abandon_count = 0
+
+        def abandon_callback(cmd):
+            global abandon_count
+            abandon_count += 1
+            expected = str(83000 + get_filed_bug_id() - 1)
+            assert expected in cmd, "Did not see the Phabricator revision we expected (%s) to when we abandoned one (%s)." % (expected, cmd)
+            return CONDUIT_EDIT_OUTPUT
+
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
             git_pretty_output,
             library_filter,
             get_filed_bug_id,
-            get_filed_bugs
+            get_filed_bugs,
+            abandon_callback=abandon_callback
         )
 
         try:
@@ -608,6 +648,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Success
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertEqual(abandon_count, 0, "We prematurely abandoned the phabricator revision.")
 
             call_counter += 1
             reset_seen_counters()
@@ -624,6 +665,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Success
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertEqual(abandon_count, 1, "We did not abandon the phabricator revision as expected.")
 
             call_counter += 1
             reset_seen_counters()
@@ -640,6 +682,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Success
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertEqual(abandon_count, 2, "We did not abandon the phabricator revision as expected.")
         finally:
             TestFunctionality._cleanup(u, expected_values)
 

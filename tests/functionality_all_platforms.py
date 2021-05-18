@@ -259,7 +259,7 @@ class TestFunctionality(SimpleLoggingTest):
             'General': {
                 'env': 'dev',
                 'gecko-path': '.',
-                'ff-version': '87',
+                'ff-version': 87,
                 'repo': 'https://hg.mozilla.org/mozilla-central'
             },
             'Command': {'test_mappings': None},
@@ -863,6 +863,7 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(abandon_count, 2, "We over abandoned the phabricator revision as expected.")
         finally:
             TestFunctionality._cleanup(u, expected_values)
+
 
 
 if __name__ == '__main__':

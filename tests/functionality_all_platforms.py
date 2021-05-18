@@ -639,7 +639,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully, and aborted the other one
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
-            all_jobs = u.dbProvider.get_all_jobs()
+            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 2, "I should have created two jobs.")
             self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
             self.assertTrue(was_abandoned, "We did not abandon the phabricator revision as expected.")
@@ -835,7 +835,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully, and aborted the other one
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
-            all_jobs = u.dbProvider.get_all_jobs()
+            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 2, "I should have created two jobs.")
             self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
             self.assertEqual(abandon_count, 1, "We did not abandon the phabricator revision as expected.")
@@ -847,7 +847,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully, and aborted the other one
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
-            all_jobs = u.dbProvider.get_all_jobs()
+            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 3, "I should have created three jobs.")
             self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
             self.assertEqual(all_jobs[2].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
@@ -908,10 +908,119 @@ class TestFunctionality(SimpleLoggingTest):
 
             # Run it
             u.run(library_filter=library_filter)
-            all_jobs = u.dbProvider.get_all_jobs()
+            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 1, "I should still have one job.")
             self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the second bug")
 
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
+
+    # Create -> Finish -> Create -> Finish -> Bugzilla Reopens Bug #1 -> Create
+    @logEntryExit
+    def testThreeJobsReopenFirst(self):
+        call_counter = 0
+
+        def git_pretty_output(since_last_job):
+            lines = [
+                "56082fc4acfacba40993e47ef8302993c59e264f|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264e|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264d|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000",
+            ]
+            if call_counter == 0:
+                assert not since_last_job
+                return lines[2:]
+            elif call_counter == 1:
+                if since_last_job:
+                    return lines[1:2]
+                return lines[1:]
+            else:
+                if since_last_job:
+                    return lines[0:1]
+                return lines
+
+        def get_filed_bug_id():
+            if call_counter == 0:
+                return 50
+            elif call_counter == 1:
+                return 51
+            return 52
+
+        def get_filed_bugs(only_open):
+            if call_counter == 0:
+                return []
+            elif call_counter == 1:
+                return [50]
+            elif only_open:
+                return [50, 51]
+            return [50, 51]
+
+        global abandon_count
+        abandon_count = 0
+
+        def abandon_callback(cmd):
+            global abandon_count
+            abandon_count += 1
+            expected = str(83000 + get_filed_bug_id() - 1)
+            assert expected in cmd, "Did not see the Phabricator revision we expected (%s) to when we abandoned one (%s)." % (expected, cmd)
+            return CONDUIT_EDIT_OUTPUT
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            git_pretty_output,
+            library_filter,
+            get_filed_bug_id,
+            get_filed_bugs,
+            abandon_callback=abandon_callback
+        )
+
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertEqual(abandon_count, 0, "We prematurely abandoned the phabricator revision.")
+
+            call_counter += 1
+            reset_seen_counters()
+
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertEqual(abandon_count, 1, "We did not abandon the phabricator revision as expected.")
+
+            call_counter += 1
+            reset_seen_counters()
+
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertEqual(abandon_count, 2, "We did not abandon the phabricator revision as expected.")
         finally:
             TestFunctionality._cleanup(u, expected_values)
 

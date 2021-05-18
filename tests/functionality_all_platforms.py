@@ -208,6 +208,30 @@ class MockedBugzillaProvider(BaseProvider):
         self._assert_affected_func(bug_id, ff_version, affected)
 
 
+PROVIDERS = {
+    # Not Mocked At All
+    'Logging': LoggingProvider,
+    # Fully Mocked
+    'Command': TestCommandProvider,
+    # Not Mocked At All
+    'Database': DatabaseProvider,
+    # Not Mocked At All
+    'Vendor': VendorProvider,
+    # Fully Mocked
+    'Library': MockLibraryProvider,
+    # Fully Mocked, avoids needing to make a fake
+    # bugzilla server which provides no additional logic coverage
+    'Bugzilla': MockedBugzillaProvider,
+    # Not Mocked At All
+    'Mercurial': MercurialProvider,
+    # Not Mocked At All, but does point to a fake server
+    'Taskcluster': TaskclusterProvider,
+    # Not Mocked At All
+    'Phabricator': PhabricatorProvider,
+    'SCM': SCMProvider,
+}
+
+
 class TestFunctionality(SimpleLoggingTest):
     @classmethod
     def setUpClass(cls):
@@ -258,33 +282,10 @@ class TestFunctionality(SimpleLoggingTest):
             }
         }
 
-        providers = {
-            # Not Mocked At All
-            'Logging': LoggingProvider,
-            # Fully Mocked
-            'Command': TestCommandProvider,
-            # Not Mocked At All
-            'Database': DatabaseProvider,
-            # Not Mocked At All
-            'Vendor': VendorProvider,
-            # Fully Mocked
-            'Library': MockLibraryProvider,
-            # Fully Mocked, avoids needing to make a fake
-            # bugzilla server which provides no additional logic coverage
-            'Bugzilla': MockedBugzillaProvider,
-            # Not Mocked At All
-            'Mercurial': MercurialProvider,
-            # Not Mocked At All, but does point to a fake server
-            'Taskcluster': TaskclusterProvider,
-            # Not Mocked At All
-            'Phabricator': PhabricatorProvider,
-            'SCM': SCMProvider,
-        }
-
         expected_values = DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func)
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values, abandon_callback)
 
-        u = Updatebot(configs, providers)
+        u = Updatebot(configs, PROVIDERS)
         _check_jobs = functools.partial(TestFunctionality._check_jobs, u, library_filter, expected_values)
 
         # Ensure we don't have a dirty database with existing jobs

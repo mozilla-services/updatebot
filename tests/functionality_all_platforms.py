@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import sys
+import copy
 import inspect
 import unittest
 import functools
@@ -864,6 +865,55 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             TestFunctionality._cleanup(u, expected_values)
 
+    # Create -> All Success -> Bump FF Version
+    @logEntryExit
+    def testBumpFFVersion(self):
+        call_counter = 0
+
+        def filed_bug_ids(only_open):
+            if call_counter == 0:
+                return []
+            return [50]
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            library_filter,
+            lambda: 50,  # get_filed_bug_id_func,
+            filed_bug_ids,
+            keep_tmp_db=True
+        )
+
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success.
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+            old_ff_version = u.config_dictionary['General']['ff-version']
+            config_dictionary = copy.deepcopy(u.config_dictionary)
+            config_dictionary['Database']['keep_tmp_db'] = False
+            config_dictionary['General']['ff-version'] += 1
+            config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
+
+            u = Updatebot(config_dictionary, PROVIDERS)
+
+            # Run it
+            u.run(library_filter=library_filter)
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 1, "I should still have one job.")
+            self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the second bug")
+
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
 
 if __name__ == '__main__':

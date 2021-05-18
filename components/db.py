@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 10
+CURRENT_DATABASE_CONFIG_VERSION = 11
 
 CREATION_QUERIES = {
     "config": """
@@ -343,6 +343,11 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                         self._query_execute("DELETE FROM `jobs` WHERE outcome = 8")
                         self._query_execute("ALTER TABLE `jobs` DROP COLUMN `ff_version`")
 
+                    if config_version <= 10 and CURRENT_DATABASE_CONFIG_VERSION >= 11:
+                        for q in INSERTION_QUERIES:
+                            if 'RELINQUISHED' in q.query:
+                                self._query_execute(q.query, q.args)
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -411,14 +416,16 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return [Struct(**r) for r in results]
 
     @logEntryExit
-    def get_all_jobs(self):
+    def get_all_jobs(self, include_relinquished):
         query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
                    LEFT OUTER JOIN job_to_ff_version as v
                        ON j.id = v.job_id
                    LEFT OUTER JOIN try_runs as t
-                       ON j.id = t.job_id
-                   ORDER BY j.created DESC, j.id DESC"""
+                       ON j.id = t.job_id """
+        if not include_relinquished:
+            query += " AND j.status <> 5 "
+        query += "ORDER BY j.created DESC, j.id DESC"""
         results = self._query_get_rows(query)
         return transform_job_and_try_results_into_objects(results)
 
@@ -429,21 +436,23 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return [TryRun(r) for r in results]
 
     @logEntryExit
-    def get_all_jobs_for_library(self, library):
+    def get_all_jobs_for_library(self, library, include_relinquished):
         query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
                    LEFT OUTER JOIN job_to_ff_version as v
                        ON j.id = v.job_id
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
-                   WHERE j.library = %s
-                   ORDER BY j.created DESC, j.id DESC"""
+                   WHERE j.library = %s """
+        if not include_relinquished:
+            query += " AND j.status <> 5 "
+        query += "ORDER BY j.created DESC, j.id DESC"""
         args = (library.name)
         results = self._query_get_rows(query, args)
         return transform_job_and_try_results_into_objects(results)
 
     @logEntryExit
-    def get_job(self, library, new_version):
+    def get_job(self, library, new_version, include_relinquished):
         query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
                    LEFT OUTER JOIN job_to_ff_version as v
@@ -452,6 +461,8 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        ON j.id = t.job_id
                    WHERE j.library = %s
                      AND j.version = %s"""
+        if not include_relinquished:
+            query += " AND j.status <> 5 "
         query += " ORDER BY j.created DESC, j.id DESC"
 
         args = [library.name, new_version]

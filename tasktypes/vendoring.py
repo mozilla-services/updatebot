@@ -171,7 +171,7 @@ class VendorTaskRunner:
         try_revision = self.taskclusterProvider.submit_to_try(library, platform_restriction)
 
         self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
-        phab_revision = self.phabricatorProvider.submit_patch()
+        phab_revision = self.phabricatorProvider.submit_patch(bugzilla_id)
         self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, next_status, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision, try_run_type)
 
     # ====================================================================

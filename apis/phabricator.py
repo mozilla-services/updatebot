@@ -23,7 +23,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             self.url = config['url']
 
     @logEntryExit
-    def submit_patch(self):
+    def submit_patch(self, bug_id):
         ret = self.run(["arc", "diff", "--verbatim", "--conduit-uri", self.url])
         output = ret.stdout.decode()
 
@@ -37,6 +37,13 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         if not phab_revision:
             raise Exception("Could not find a phabricator revision in the output of arc diff using regex %s" % r.pattern)
+
+        cmd = """echo '{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit --""" \
+            % (bug_id, phab_revision, self.url)
+        ret = self.run([cmd], shell=True)
+        result = json.loads(ret.stdout.decode())
+        if result['error']:
+            raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (phab_revision))
 
         self.logger.log("Submitted phabricator patch at {0}".format(self.url + phab_revision), level=LogLevel.Info)
         return phab_revision

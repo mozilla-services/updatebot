@@ -133,8 +133,8 @@ def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func):
     })
 
 
-def AssertFalse():
-    assert False, "We should not abanson any phabricator revision in this test."
+def AssertFalse(a=False, b=False, c=False):
+    assert False, "We should not have called this function in this test."
 
 
 def COMMAND_MAPPINGS(expected_values, abandon_callback):
@@ -174,7 +174,7 @@ class MockedBugzillaProvider(BaseProvider):
         if config['assert_affected_func']:
             self._assert_affected_func = config['assert_affected_func']
         else:
-            self._assert_affected_func = lambda a, b, c: True
+            self._assert_affected_func = AssertFalse
 
     def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None):
         references_prior_bug = "I've never filed a bug on before." in description
@@ -875,12 +875,22 @@ class TestFunctionality(SimpleLoggingTest):
                 return []
             return [50]
 
+        global was_marked_affected
+        was_marked_affected = False
+
+        def assert_affected(bug_id, ff_version, affected):
+            global was_marked_affected
+            was_marked_affected = True
+            affected_str = "affected" if affected else "unaffected"
+            assert affected, "Marked %s as %s for %s when we shouldn't have." % (bug_id, affected_str, ff_version)
+
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
             lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
             filed_bug_ids,
+            assert_affected_func=assert_affected,
             keep_tmp_db=True
         )
 
@@ -897,6 +907,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Success.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            self.assertFalse(was_marked_affected)
 
             old_ff_version = u.config_dictionary['General']['ff-version']
             config_dictionary = copy.deepcopy(u.config_dictionary)
@@ -911,6 +922,7 @@ class TestFunctionality(SimpleLoggingTest):
             all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 1, "I should still have one job.")
             self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the second bug")
+            self.assertTrue(was_marked_affected)
 
         finally:
             TestFunctionality._cleanup(u, expected_values)

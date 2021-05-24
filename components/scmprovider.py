@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import copy
 import shutil
 import tempfile
 import functools
@@ -64,6 +65,13 @@ class Commit:
         return "Commit: " + self.revision
 
 
+def _contains_commit(list_of_commits, revision):
+    for c in list_of_commits:
+        if revision == c.revision:
+            return True
+    return False
+
+
 class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
@@ -80,6 +88,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         #  The second is always a subset of the first. *However* the only way to figure out the second is by asking
         #  Updatebot 'what jobs (for this library) have you run before'? and examining the result. This is what
         #  Step 4 is about below.
+        #
+        #  We do return both lists, because while we only need the unseen list for filing a new bug, we need the
+        #  all-upstream list to mark any open bugs as (potentially) affecting a new FF version.
 
         # Step 0: Get the repo and update to the correct branch.
         # If no branch is specified, the default branch we clone is assumed to be correct
@@ -122,7 +133,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             all_new_upstream_commits = self._commits_since(library.revision)
             if not all_new_upstream_commits:
                 self.logger.log("Checking for updates to %s but no new upstream commits were found from our current in-tree revision %s." % (library.name, library.revision), level=LogLevel.Info)
-                return []
+                return [], []
 
             # We do have new upstream commits.
             most_recent_job = ignore_commits_from_these_jobs[0] if ignore_commits_from_these_jobs else None
@@ -155,7 +166,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 unseen_new_upstream_commits = self._commits_since(most_recent_job.version)
                 if len(unseen_new_upstream_commits) == 0:
                     self.logger.log("Already processed revision %s in bug %s" % (most_recent_job.version, most_recent_job.bugzilla_id), level=LogLevel.Info)
-                    return []
+                    return all_new_upstream_commits, []
 
                 # Step 5: Ensure that the unseen list of a strict ordered subset of the 'all-new' list
                 # Techinically this is optional; we could have started at Step 3. But this approach is
@@ -176,8 +187,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 # list of new upstream commits is the list of the unseen upstream commits.
                 unseen_new_upstream_commits = all_new_upstream_commits
 
-            # Step 6: Populate the second list with additional details about the commits
+            # Step 6: Populate the lists with additional details about the commits
             [c.populate_details(library.repo_url, self.run) for c in unseen_new_upstream_commits]
+            [c.populate_details(library.repo_url, self.run) for c in all_new_upstream_commits]
 
         finally:
             # Step 7 Return us to the origin directory and clean up
@@ -185,7 +197,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             shutil.rmtree(tmpdirname)
 
         # Step 8: Return it
-        return unseen_new_upstream_commits
+        return all_new_upstream_commits, unseen_new_upstream_commits
 
     def _commits_since(self, revision):
         ret = self.run(["git", "log", "--pretty=%H|%ai|%ci", revision + "..HEAD"])

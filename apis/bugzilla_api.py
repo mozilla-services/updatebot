@@ -41,9 +41,10 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, s
         'summary': summary,
         'description': description,
         'whiteboard': kw('filed') + task_id_whiteboard(),
-        'cf_status_firefox' + str(ff_version): 'affected',
         'cc': ['tom@mozilla.com', 'jewilde@mozilla.com'] + cc_list
     }
+    if "allizom" not in url:
+        data['cf_status_firefox' + str(ff_version)] = 'affected'
     if see_also:
         data['see_also'] = see_also
     if depends_on:

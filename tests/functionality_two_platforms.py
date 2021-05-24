@@ -156,6 +156,7 @@ def COMMAND_MAPPINGS(expected_values, abandon_callback):
         "echo '{\"constraints\"": lambda: CONDUIT_USERNAME_SEARCH_OUTPUT,
         "echo '{\"transactions\": [{\"type\":\"reviewers.set\"": lambda: CONDUIT_EDIT_OUTPUT,
         "echo '{\"transactions\": [{\"type\":\"abandon\"": abandon_callback if abandon_callback else AssertFalse,
+        "echo '{\"transactions\": [{\"type\":\"bugzilla.bug-id\"": lambda: CONDUIT_EDIT_OUTPUT,
         "git log -1 --oneline": lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output",
         "git clone https://example.invalid .": lambda: "",
         "git rev-parse --abbrev-ref HEAD": lambda: "master",

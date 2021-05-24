@@ -96,6 +96,10 @@ def DEFAULT_EXPECTED_VALUES(new_library_version_func, get_filed_bug_id_func):
     })
 
 
+def AssertFalse(a=False, b=False, c=False):
+    assert False, "We should not have called this function in this test."
+
+
 def COMMAND_MAPPINGS(expected_values):
     return {
         "git": DO_EXECUTE
@@ -115,7 +119,7 @@ class MockedBugzillaProvider(BaseProvider):
         if config['assert_affected_func']:
             self._assert_affected_func = config['assert_affected_func']
         else:
-            self._assert_affected_func = lambda a, b, c: True
+            self._assert_affected_func = AssertFalse
 
     def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, moco_confidential=False):
         expected_summary_str = str(self._expected_commits_seen_func()) + " new commits"
@@ -625,6 +629,15 @@ class TestFunctionality(SimpleLoggingTest):
                 return []
             return [5]
 
+        global was_marked_affected
+        was_marked_affected = False
+
+        def assert_affected(bug_id, ff_version, affected):
+            global was_marked_affected
+            was_marked_affected = True
+            affected_str = "affected" if affected else "unaffected"
+            assert affected, "Marked %s as %s for %s when we shouldn't have." % (bug_id, affected_str, ff_version)
+
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
             lambda: "0886ba657dedc54fad06018618cc07689198abea",  # current_library_version_func
@@ -633,12 +646,14 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: 5,   # get_filed_bug_id_func,
             filed_bug_ids,
             library_filter,
+            assert_affected_func=assert_affected,
             keep_tmp_db=True)
         u.run(library_filter=library_filter)
 
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
         self._check_job(all_jobs[0], expected_values)
+        self.assertFalse(was_marked_affected)
 
         old_ff_version = u.config_dictionary['General']['ff-version']
 
@@ -656,6 +671,7 @@ class TestFunctionality(SimpleLoggingTest):
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should still have one job.")
         self._check_job(all_jobs[0], expected_values)
         self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the bug")
+        self.assertTrue(was_marked_affected)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testAlertAcrossFFVersions ----------------------------------------
@@ -702,7 +718,12 @@ class TestFunctionality(SimpleLoggingTest):
                 return [50]
             return [50, 51]
 
+        global was_marked_affected
+        was_marked_affected = False
+
         def assert_affected(bug_id, ff_version, affected):
+            global was_marked_affected
+            was_marked_affected = True
             affected_str = "affected" if affected else "unaffected"
             assert affected, "Marked %s as %s for %s when we shouldn't have." % (bug_id, affected_str, ff_version)
 
@@ -724,6 +745,7 @@ class TestFunctionality(SimpleLoggingTest):
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 1, "I should have created a single job.")
         self._check_job(all_jobs[0], expected_values)
+        self.assertFalse(was_marked_affected)
 
         call_counter += 1
 
@@ -734,6 +756,7 @@ class TestFunctionality(SimpleLoggingTest):
         all_jobs = u.dbProvider.get_all_jobs()
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should have created two jobs.")
         self._check_job(all_jobs[0], expected_values)
+        self.assertFalse(was_marked_affected)
 
         # Now bump the Firefox Version
         old_ff_version = u.config_dictionary['General']['ff-version']
@@ -752,6 +775,7 @@ class TestFunctionality(SimpleLoggingTest):
         self.assertEqual(len([j for j in all_jobs if j.library_shortname != "dav1d"]), 2, "I should still have two jobs.")
         self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the second bug")
         self.assertEqual(all_jobs[1].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the first bug")
+        self.assertTrue(was_marked_affected)
 
         TestFunctionality._cleanup(u, library_filter)
         # end testTwoAlertsNewCommitsNoUpdate ----------------------------------------

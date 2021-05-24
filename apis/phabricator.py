@@ -24,7 +24,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def submit_patch(self, bug_id):
-        ret = self.run(["arc", "diff", "--verbatim", "--conduit-uri", self.url])
+        ret = self.run(["arc", "diff", "--verbatim", "--conduit-uri", self.url, "--"])
         output = ret.stdout.decode()
 
         phab_revision = None
@@ -51,7 +51,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     @logEntryExit
     def set_reviewer(self, phab_revision, phab_username):
         # First get the user's phid
-        cmd = """echo '{"constraints": {"usernames":["%s"]}}' | arc call-conduit --conduit-uri='%s' user.search""" \
+        cmd = """echo '{"constraints": {"usernames":["%s"]}}' | arc call-conduit --conduit-uri='%s' user.search --""" \
             % (phab_username, self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
@@ -66,7 +66,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         phid = result['response']['data'][0]['phid']
 
-        cmd = """echo '{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit""" \
+        cmd = """echo '{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit --""" \
             % (phid, phab_revision, self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
@@ -75,7 +75,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def abandon(self, phab_revision):
-        cmd = """echo '{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit """ \
+        cmd = """echo '{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit --""" \
             % (phab_revision, self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())

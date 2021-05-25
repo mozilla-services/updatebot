@@ -87,7 +87,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         #
         #  The second is always a subset of the first. *However* the only way to figure out the second is by asking
         #  Updatebot 'what jobs (for this library) have you run before'? and examining the result. This is what
-        #  Step 4 is about below.
+        #  Step 5 is about below.
         #
         #  We do return both lists, because while we only need the unseen list for filing a new bug, we need the
         #  all-upstream list to mark any open bugs as (potentially) affecting a new FF version.
@@ -161,14 +161,14 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
             unseen_new_upstream_commits = []
             if most_recent_job_newer_than_library_rev:
-                # Step 4: Get the list of commits between the revision for the most recent job
+                # Step 5: Get the list of commits between the revision for the most recent job
                 # and HEAD
                 unseen_new_upstream_commits = self._commits_since(most_recent_job.version)
                 if len(unseen_new_upstream_commits) == 0:
                     self.logger.log("Already processed revision %s in bug %s" % (most_recent_job.version, most_recent_job.bugzilla_id), level=LogLevel.Info)
                     return all_new_upstream_commits, []
 
-                # Step 5: Ensure that the unseen list of a strict ordered subset of the 'all-new' list
+                # Step 6: Ensure that the unseen list of a strict ordered subset of the 'all-new' list
                 # Techinically this is optional; we could have started at Step 3. But this approach is
                 # more conservative and will help us identify unexpected situations that may invalidate
                 # our assumptions about how things should happen.
@@ -187,16 +187,16 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 # list of new upstream commits is the list of the unseen upstream commits.
                 unseen_new_upstream_commits = all_new_upstream_commits
 
-            # Step 6: Populate the lists with additional details about the commits
+            # Step 7: Populate the lists with additional details about the commits
             [c.populate_details(library.repo_url, self.run) for c in unseen_new_upstream_commits]
             [c.populate_details(library.repo_url, self.run) for c in all_new_upstream_commits]
 
         finally:
-            # Step 7 Return us to the origin directory and clean up
+            # Step 8 Return us to the origin directory and clean up
             os.chdir(original_dir)
             shutil.rmtree(tmpdirname)
 
-        # Step 8: Return it
+        # Step 9: Return it
         return all_new_upstream_commits, unseen_new_upstream_commits
 
     def _commits_since(self, revision):

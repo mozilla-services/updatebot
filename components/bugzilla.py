@@ -167,8 +167,8 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
         closeBug(self.config['url'], self.config['apikey'], bug_id, 'WONTFIX', comment)
 
     @logEntryExit
-    def dupe_bug(self, bug_id, comment, dupe_id):
-        closeBug(self.config['url'], self.config['apikey'], bug_id, 'DUPLICATE', comment, dupe_id=dupe_id)
+    def dupe_bug(self, bug_id, comment, dup_id):
+        closeBug(self.config['url'], self.config['apikey'], bug_id, 'DUPLICATE', comment, dup_id=dup_id)
 
     @logEntryExit
     def find_open_bugs(self, bug_ids):

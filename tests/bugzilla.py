@@ -126,8 +126,8 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 assert content['resolution'] == 'DUPLICATE'
                 assert content['comment']['body'] == "Hello Earth"
 
-                assert 'dupe_id' in content
-                assert content['dupe_id'] == 12345
+                assert 'dup_id' in content
+                assert content['dup_id'] == 12345
 
             self.wfile.write(("{'bugs':[{'alias':null,'changes':{},'last_change_time':'2020-07-10T18:58:21Z','id':" + bug_id + "}]}").replace("'", '"').encode())
         else:

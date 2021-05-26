@@ -70,6 +70,7 @@ class Task:
         self.branch = dict['branch']
         self.cc = dict['cc']
         self.needinfo = dict['needinfo']
+        self.frequency = dict['frequency']
 
         if self.type == 'commit-alert':
             self.filter = dict['filter']
@@ -142,7 +143,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'enabled': '',
             'branch': '',
             'cc': '',
-            'needinfo': ''
+            'needinfo': '',
+            'frequency': ''
         }
 
         # We assign this ourselves at import, so no need to check it
@@ -199,6 +201,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         validated_task['branch'] = get_key_or_default('branch', task_dict, None)
         validated_task['cc'] = get_key_or_default('cc', task_dict, [])
         validated_task['needinfo'] = get_key_or_default('needinfo', task_dict, [])
+        validated_task['frequency'] = get_key_or_default('frequency', task_dict, 'every')
 
         if task_dict['type'] == 'commit-alert':
             validated_task['filter'] = get_key_or_default('filter', task_dict, 'none')

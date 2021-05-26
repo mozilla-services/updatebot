@@ -19,7 +19,8 @@ TESTS = [
     "multiple_inheritence",
     "treeherder_api",
     "library",
-    "lambda_capture"
+    "lambda_capture",
+    "frequency"
 ]
 
 modules = []

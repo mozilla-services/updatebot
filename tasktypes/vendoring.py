@@ -8,13 +8,15 @@ import copy
 import functools
 import subprocess
 
+from tasktypes.base import BaseTaskRunner
 from components.bugzilla import CommentTemplates
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
 
 
-class VendorTaskRunner:
+class VendorTaskRunner(BaseTaskRunner):
     def __init__(self, provider_dictionary, config_dictionary):
+        self.jobType = JOBTYPE.VENDORING
         self.__dict__.update(provider_dictionary)
         self.logger = copy.deepcopy(self.loggingProvider)
         self.logger.log = functools.partial(self.logger.log, category=self.__class__.mro()[0].__name__)
@@ -75,6 +77,10 @@ class VendorTaskRunner:
 
     @logEntryExit
     def _process_new_job(self, library, task, new_version, timestamp):
+        if not self._should_process_new_job(library, task):
+            self.logger.log("Because of the task's frequency restrictions (%s) we are not processing this new revision now." % task.frequency, level=LogLevel.Info)
+            return
+
         # We need this really dumb _styleN functions because otherwise flake8 will complain about
         #   redefining functions. (Because I have to use 'def' below because you can't have multi-line lambdas)
         def clean_up_old_job_style1(x, y):

@@ -30,7 +30,8 @@ LIBRARIES = [
                         'enabled': True,
                         'branch': None,
                         'cc': [],
-                        'needinfo': []
+                        'needinfo': [],
+                        'frequency': 'every'
                     }
         ],
         "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml"

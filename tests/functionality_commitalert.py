@@ -147,7 +147,7 @@ class MockedBugzillaProvider(BaseProvider):
     def wontfix_bug(self, bug_id, comment):
         pass
 
-    def dupe_bug(self, bug_id, comment, dupe_id):
+    def dupe_bug(self, bug_id, comment, dup_id):
         pass
 
     def find_open_bugs(self, bug_ids):

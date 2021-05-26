@@ -27,6 +27,10 @@ def task_id_whiteboard():
     return ''
 
 
+def is_prod(url):
+    return "allizom" not in url
+
+
 def fileBug(url, apikey, ff_version, product, component, summary, description, severity, cc_list, needinfo, see_also, depends_on, moco_confidential):
     assert isinstance(cc_list, list)
 
@@ -43,8 +47,10 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, s
         'whiteboard': kw('filed') + task_id_whiteboard(),
         'cc': ['tom@mozilla.com', 'jewilde@mozilla.com'] + cc_list
     }
-    if "allizom" not in url:
+
+    if is_prod(url):
         data['cf_status_firefox' + str(ff_version)] = 'affected'
+
     if see_also:
         data['see_also'] = see_also
     if depends_on:
@@ -153,6 +159,9 @@ def findOpenBugs(url, bugIDs):
 
 
 def markFFVersionAffected(url, apikey, bugID, ff_version, affected):
+    if not is_prod(url):
+        return
+
     data = {
         'id': bugID,
         'cf_status_firefox' + str(ff_version): 'affected' if affected else 'unaffected'

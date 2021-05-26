@@ -7,14 +7,16 @@
 import copy
 import functools
 
+from tasktypes.base import BaseTaskRunner
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit
 from components.bugzilla import CommentTemplates
 from components.scmprovider import _contains_commit
 
 
-class CommitAlertTaskRunner:
+class CommitAlertTaskRunner(BaseTaskRunner):
     def __init__(self, provider_dictionary, config_dictionary):
+        self.jobType = JOBTYPE.COMMITALERT
         self.__dict__.update(provider_dictionary)
         self.logger = copy.deepcopy(self.loggingProvider)
         self.logger.log = functools.partial(self.logger.log, category=self.__class__.mro()[0].__name__)
@@ -23,6 +25,11 @@ class CommitAlertTaskRunner:
     # ====================================================================
     def process_task(self, library, task):
         assert task.type == 'commit-alert'
+
+        if not self._should_process_new_job(library, task):
+            self.logger.log("Because of the task's frequency restrictions (%s) we are not processing this new revision now." % task.frequency, level=LogLevel.Info)
+            return
+
         my_ff_version = self.config_dictionary['General']['ff-version']
 
         all_library_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.COMMITALERT)

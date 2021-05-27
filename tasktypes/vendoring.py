@@ -123,8 +123,9 @@ class VendorTaskRunner(BaseTaskRunner):
         jobs_with_open_bugs = [j for j in existing_jobs if j.bugzilla_id in open_bugs]
 
         assert len(jobs_with_open_bugs) <= 1, "Got more than one completed job with still-open bugs for library %s" % (library.name)
-        assert not old_job or old_job.id == jobs_with_open_bugs[0].id, "We had an active job with id %s and then we found an existing job with id %s" % (old_job.id, existing_jobs[0].id)
-        assert not jobs_with_open_bugs or jobs_with_open_bugs[0].version != new_version, "We have an existing job, but it's the same revision as the revision we thought was New."
+        if jobs_with_open_bugs:
+            assert not old_job or old_job.id == jobs_with_open_bugs[0].id, "We had an active job with id %s and then we found an existing job with id %s" % (old_job.id, existing_jobs[0].id)
+            assert not jobs_with_open_bugs or jobs_with_open_bugs[0].version != new_version, "We have an existing job, but it's the same revision as the revision we thought was New."
 
         if not old_job and jobs_with_open_bugs:
             self.logger.log("Found %s completed jobs with still-open bugs for this library (%s)" % (len(open_bugs), ", ".join(map(str, open_bugs))), level=LogLevel.Info)

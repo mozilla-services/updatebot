@@ -108,7 +108,8 @@ class VendorTaskRunner(BaseTaskRunner):
             def clean_up_old_job_style2(old_job, new_bug_id):
                 self.logger.log("Marking active Job ID %s as superseded by Bug ID %s ." % (old_job.id, new_bug_id), level=LogLevel.Info)
                 self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
-                self.phabricatorProvider.abandon(old_job.phab_revision)
+                if old_job.phab_revision:
+                    self.phabricatorProvider.abandon(old_job.phab_revision)
                 old_job.status = JOBSTATUS.RELINQUISHED
                 old_job.outcome = JOBOUTCOME.ABORTED
                 self.dbProvider.update_job_status(old_job)
@@ -136,7 +137,8 @@ class VendorTaskRunner(BaseTaskRunner):
                 def clean_up_old_job_style3(old_job, new_bug_id):
                     self.logger.log("Marking completed Job ID %s as superseded by Bug ID %s ." % (old_job.id, new_bug_id), level=LogLevel.Info)
                     self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
-                    self.phabricatorProvider.abandon(old_job.phab_revision)
+                    if old_job.phab_revision:
+                        self.phabricatorProvider.abandon(old_job.phab_revision)
                     old_job.status = JOBSTATUS.RELINQUISHED
                     self.dbProvider.update_job_status(old_job)
                 clean_up_old_job = clean_up_old_job_style3

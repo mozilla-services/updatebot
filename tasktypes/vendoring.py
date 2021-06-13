@@ -20,7 +20,7 @@ class VendorTaskRunner(BaseTaskRunner):
         self.__dict__.update(provider_dictionary)
         self.logger = copy.deepcopy(self.loggingProvider)
         self.logger.log = functools.partial(self.logger.log, category=self.__class__.mro()[0].__name__)
-        self.config_dictionary = config_dictionary
+        self.config = config_dictionary
 
     # ====================================================================
     """
@@ -154,7 +154,7 @@ class VendorTaskRunner(BaseTaskRunner):
         bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc)
         clean_up_old_job(old_job, bugzilla_id)
 
-        try_run_type = 'initial platform' if self.config_dictionary['General']['separate-platforms'] else 'all platforms'
+        try_run_type = 'initial platform' if self.config['General']['separate-platforms'] else 'all platforms'
 
         try:
             self.vendorProvider.vendor(library)
@@ -175,8 +175,8 @@ class VendorTaskRunner(BaseTaskRunner):
 
         self.mercurialProvider.commit(library, bugzilla_id, new_version)
 
-        platform_restriction = "linux64" if self.config_dictionary['General']['separate-platforms'] else ""
-        next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config_dictionary['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
+        platform_restriction = "linux64" if self.config['General']['separate-platforms'] else ""
+        next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
         try_revision = self.taskclusterProvider.submit_to_try(library, platform_restriction)
 
         self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
@@ -209,7 +209,7 @@ class VendorTaskRunner(BaseTaskRunner):
             If some of the jobs succeeded, add this note to a comment we will post.
           Post the comment, set assignee, needinfo, set reviewr, and set state to JOB_PROCESSING_DONE
         """
-        my_ff_version = self.config_dictionary['General']['ff-version']
+        my_ff_version = self.config['General']['ff-version']
 
         if existing_job.status == JOBSTATUS.DONE:
             # The job has been completed, but we still need to double check if it has acknowleged our current FF version
@@ -232,18 +232,18 @@ class VendorTaskRunner(BaseTaskRunner):
                 return
             self._process_job_details_for_awaiting_initial_platform_results(library, task, existing_job)
         elif existing_job.status == JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS:
-            if not self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
+            if not self.config['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
                 self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
-            elif self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
+            elif self.config['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
                 self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
             self._process_job_details_for_awaiting_second_platform_results(library, task, existing_job)
         elif existing_job.status == JOBSTATUS.AWAITING_RETRIGGER_RESULTS:
-            if not self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
+            if not self.config['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
                 self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
-            elif self.config_dictionary['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
+            elif self.config['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
                 self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return
             self._process_job_details_for_awaiting_retrigger_results(library, task, existing_job)
@@ -369,7 +369,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
     @logEntryExitNoArgs
     def _process_job_details_for_awaiting_second_platform_results(self, library, task, existing_job):
-        try_run_index = 1 if self.config_dictionary['General']['separate-platforms'] else 0
+        try_run_index = 1 if self.config['General']['separate-platforms'] else 0
         try_revision = existing_job.try_runs[try_run_index].revision
         self.logger.log("Handling try revision number %i (%s) in Awaiting Second Platform Results" % (try_run_index + 1, try_revision), level=LogLevel.Info)
 

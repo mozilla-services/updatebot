@@ -20,7 +20,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
         self.__dict__.update(provider_dictionary)
         self.logger = copy.deepcopy(self.loggingProvider)
         self.logger.log = functools.partial(self.logger.log, category=self.__class__.mro()[0].__name__)
-        self.config_dictionary = config_dictionary
+        self.config = config_dictionary
 
     # ====================================================================
     def process_task(self, library, task):
@@ -30,7 +30,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
             self.logger.log("Because of the task's frequency restrictions (%s) we are not processing this new revision now." % task.frequency, level=LogLevel.Info)
             return
 
-        my_ff_version = self.config_dictionary['General']['ff-version']
+        my_ff_version = self.config['General']['ff-version']
 
         all_library_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.COMMITALERT)
         all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, all_library_jobs)

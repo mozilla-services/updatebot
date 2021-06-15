@@ -17,7 +17,7 @@ from components.logging import SimpleLoggerConfig
 LIBRARIES = [
     Library({
         "name": "glean_parser",
-        "revision": None,
+        "revision": '3.4.0',
         "repo_url": "",
 
         "bugzilla_product": "Toolkit",

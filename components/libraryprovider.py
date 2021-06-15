@@ -8,6 +8,7 @@ import os
 import yaml
 
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
+from components.logging import LogLevel
 
 
 # Library metadata from moz.yaml files that we care about and example values
@@ -116,6 +117,17 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             if os.path.isfile(python_updatebot_path):
                 with open(python_updatebot_path, "r") as python_updatebot:
                     self._libraries = LibraryProvider._validate_python_list(python_updatebot.read(), python_updatebot_path.replace(gecko_path + "/", ""))
+
+                requirements_in_path = os.path.join(gecko_path, "third_party/python/requirements.in")
+                with open(requirements_in_path, "r") as current_versions:
+                    for line in current_versions:
+                        if line and line[0] != "#" and "==" in line:
+                            parts = line.split("==")
+                            for lib in self._libraries:
+                                if lib.name == parts[0]:
+                                    lib.revision = parts[1].strip()
+            else:
+                self.logger.log("Could not find %s" % python_updatebot_path, level=LogLevel.Warning)
 
             # Other libraries
             mozilla_central_yamls = self.run(["find", gecko_path, "-type", "f", "-name", "moz.yaml"]).stdout.decode().strip().split("\n")

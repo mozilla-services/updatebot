@@ -157,7 +157,7 @@ class VendorTaskRunner(BaseTaskRunner):
         try_run_type = 'initial platform' if self.config['General']['separate-platforms'] else 'all platforms'
 
         try:
-            self.vendorProvider.vendor(library)
+            self.vendorProvider.vendor(library, new_version)
         except Exception as e:
             # We're not going to commit these changes; so clean them out.
             self.cmdProvider.run(["hg", "checkout", "-C", "."])
@@ -356,7 +356,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         self.logger.log("All jobs completed, we're going to go to the next set of platforms.", level=LogLevel.Info)
 
-        self.vendorProvider.vendor(library)
+        self.vendorProvider.vendor(library, existing_job.version)
         self.mercurialProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
 
         try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")

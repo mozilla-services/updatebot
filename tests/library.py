@@ -17,6 +17,7 @@ from components.logging import SimpleLoggerConfig
 LIBRARIES = [
     Library({
         "name": "glean_parser",
+        "type": "python",
         "revision": '3.4.0',
         "repo_url": "",
 
@@ -38,6 +39,7 @@ LIBRARIES = [
     }),
     Library({
         "name": "dav1d",
+        "type": "manifest",
         "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e",
         "repo_url": "https://code.videolan.org/videolan/dav1d.git",
 

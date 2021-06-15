@@ -27,6 +27,7 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         return [
             Library({
                 "name": "dav1d",
+                "type": "manifest",
                 "bugzilla_product": "Core",
                 "bugzilla_component": "Audio/Video: Playback",
                 "maintainer_phab": "nobody",
@@ -43,6 +44,7 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             }),
             Library({
                 "name": "aom",
+                "type": "manifest",
                 "bugzilla_product": "Core",
                 "bugzilla_component": "Audio/Video: Playback",
                 "maintainer_phab": "nobody",

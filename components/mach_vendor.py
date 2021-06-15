@@ -13,7 +13,12 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
 
     @logEntryExit
     def check_for_update(self, library):
-        result = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip()
+        if library.type == 'python':
+            cmd = ["./mach", "vendor", "python", "--check-for-update", library.name]
+        else:
+            cmd = ["./mach", "vendor", "--check-for-update", library.yaml_path]
+
+        result = self.run(cmd).stdout.decode().strip()
 
         # ./mach vendor produces no output when no update is available
         if not result:
@@ -23,6 +28,10 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
         return (parts[0], string_date_to_uniform_string_date(parts[1]))
 
     @logEntryExit
-    def vendor(self, library):
-        self.run(
-            ["./mach", "vendor", library.yaml_path, "--ignore-modified"])
+    def vendor(self, library, new_version):
+        if library.type == 'python':
+            cmd = ["./mach", "vendor", "python", "%s==%s" % (library.name, new_version)]
+        else:
+            cmd = ["./mach", "vendor", "--revision=%s" % new_version, library.yaml_path]
+
+        self.run(cmd)

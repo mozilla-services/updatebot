@@ -38,6 +38,7 @@ from components.logging import LogLevel
 class Library:
     def __init__(self, dict):
         self.name = dict['name']
+        self.type = dict['type']
         self.bugzilla_product = dict['bugzilla_product']
         self.bugzilla_component = dict['bugzilla_component']
         self.revision = dict['revision']
@@ -167,6 +168,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         for package in packages.keys():
             validated_library = {
                 'name': '',
+                'type': 'python',
                 'bugzilla_product': '',
                 'bugzilla_component': '',
                 'revision': None,
@@ -193,6 +195,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         validated_library = {
             'name': '',
+            'type': 'manifest',
             'bugzilla_product': '',
             'bugzilla_component': '',
             'revision': None,

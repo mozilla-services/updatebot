@@ -16,6 +16,27 @@ from components.logging import SimpleLoggerConfig
 
 LIBRARIES = [
     Library({
+        "name": "glean_parser",
+        "revision": None,
+        "repo_url": "",
+
+        "bugzilla_product": "Toolkit",
+        "bugzilla_component": "Telemetry",
+        "maintainer_bz": "tom@mozilla.com",
+        "maintainer_phab": "tjr",
+        "tasks": [
+                    {
+                        'type': "vendoring",
+                        'enabled': True,
+                        'branch': None,
+                        'cc': ["chutten@mozilla.com"],
+                        'needinfo': [],
+                        'frequency': 'every'
+                    }
+        ],
+        "yaml_path": "third_party/python/updatebot.txt"
+    }),
+    Library({
         "name": "dav1d",
         "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e",
         "repo_url": "https://code.videolan.org/videolan/dav1d.git",
@@ -34,7 +55,7 @@ LIBRARIES = [
                         'frequency': 'every'
                     }
         ],
-        "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml"
+        "yaml_path": "libdav1d/moz.yaml"
     })
 ]
 
@@ -65,8 +86,31 @@ class TestLibraryProvider(unittest.TestCase):
         })
         cls.libraryprovider.update_config(additional_config)
 
+    def assertLibrariesEqual(self, l1, l2, msg=None):
+        if len(l1) != len(l2):
+            self.fail("Lists have different lengths")
+
+        for i in range(len(l1)):
+            i1 = l1[i]
+            i2 = l2[i]
+
+            # First use the equality operator we defined in the object
+            # to avoid the code getting toooo out of sync
+            if i1 != i2:
+                # And if they differ, copy/paste that implementation to
+                # raise a useful error message.
+                for prop in dir(i1):
+                    if not prop.startswith("__") and prop != "id":
+                        try:
+                            if getattr(i2, prop) != getattr(i1, prop):
+                                self.fail("'%s' differs between the two libraries: '%s' != '%s" % (
+                                    prop, getattr(i2, prop), getattr(i1, prop)))
+                        except AttributeError:
+                            self.fail("'%s' was found on one library, but not the other." % prop)
+
     def testLibraryFindAndImport(self):
-        libs = self.libraryprovider.get_libraries(os.getcwd())
+        self.addTypeEqualityFunc(list, self.assertLibrariesEqual)
+        libs = self.libraryprovider.get_libraries(os.path.join(os.getcwd(), ".circleci", "gecko-test"))
         self.assertEqual(libs, LIBRARIES)
 
     def testLibraryExceptions(self):

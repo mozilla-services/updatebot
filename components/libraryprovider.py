@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import yaml
 
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
@@ -108,22 +109,74 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
     def get_libraries(self, gecko_path):
         if self._libraries is None:
-            libraries = []
+            self._libraries = []
+
+            # Python packages
+            python_updatebot_path = os.path.join(gecko_path, "third_party/python/updatebot.txt")
+            if os.path.isfile(python_updatebot_path):
+                with open(python_updatebot_path, "r") as python_updatebot:
+                    self._libraries = LibraryProvider._validate_python_list(python_updatebot.read(), python_updatebot_path.replace(gecko_path + "/", ""))
+
+            # Other libraries
             mozilla_central_yamls = self.run(["find", gecko_path, "-type", "f", "-name", "moz.yaml"]).stdout.decode().strip().split("\n")
 
             for file in mozilla_central_yamls:
                 with open(file, "r") as mozyaml:
                     # Only return libraries that have enabled tasks
-                    new_library_obj = LibraryProvider.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
+                    new_library_obj = LibraryProvider._validate_moz_yaml(mozyaml.read(), file.replace(gecko_path + "/", ""))
                     if new_library_obj.tasks:
-                        libraries.append(new_library_obj)
-
-            self._libraries = libraries
+                        self._libraries.append(new_library_obj)
 
         return self._libraries
 
     @staticmethod
-    def validate_library(yaml_contents, yaml_path):
+    def _shared_library_validation(yaml, yaml_path, validated_library):
+        validated_library['bugzilla_product'] = get_sub_key_or_raise('bugzilla', 'product', yaml, yaml_path)
+        validated_library['bugzilla_component'] = get_sub_key_or_raise('bugzilla', 'component', yaml, yaml_path)
+
+        # Updatebot keys aren't required by the schema, so if we don't have them
+        # then we just leave it set to disabled
+        if 'updatebot' in yaml:
+            validated_library['maintainer_bz'] = get_sub_key_or_raise('updatebot', 'maintainer-bz', yaml, yaml_path)
+            validated_library['maintainer_phab'] = get_sub_key_or_raise('updatebot', 'maintainer-phab', yaml, yaml_path)
+
+            if 'tasks' in yaml['updatebot']:
+                for t in yaml['updatebot']['tasks']:
+                    validated_task = LibraryProvider.validate_task(t, validated_library['name'])
+
+                    if validated_task['enabled']:
+                        validated_library['tasks'].append(validated_task)
+
+    @staticmethod
+    def _validate_python_list(yaml_contents, yaml_path):
+        packages = yaml.safe_load(yaml_contents)
+
+        libraries = []
+        for package in packages.keys():
+            validated_library = {
+                'name': '',
+                'bugzilla_product': '',
+                'bugzilla_component': '',
+                'revision': None,
+                'repo_url': '',
+                'maintainer_bz': '',
+                'maintainer_phab': '',
+                'tasks': [],
+                'yaml_path': ''
+            }
+
+            # We assign this ourselves at import, so no need to check it
+            validated_library['yaml_path'] = yaml_path
+
+            validated_library['name'] = package
+            LibraryProvider._shared_library_validation(packages[package], yaml_path, validated_library)
+
+            libraries.append(Library(validated_library))
+
+        return libraries
+
+    @staticmethod
+    def _validate_moz_yaml(yaml_contents, yaml_path):
         library = yaml.safe_load(yaml_contents)
 
         validated_library = {
@@ -138,21 +191,10 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'yaml_path': ''
         }
 
-        validated_task = {
-            'type': '',
-            'enabled': '',
-            'branch': '',
-            'cc': '',
-            'needinfo': '',
-            'frequency': ''
-        }
-
         # We assign this ourselves at import, so no need to check it
         validated_library['yaml_path'] = yaml_path
 
         validated_library['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
-        validated_library['bugzilla_product'] = get_sub_key_or_raise('bugzilla', 'product', library, yaml_path)
-        validated_library['bugzilla_component'] = get_sub_key_or_raise('bugzilla', 'component', library, yaml_path)
 
         # Attempt to get the revision (not required by moz.yaml) if present
         if 'origin' in library and 'revision' in library['origin']:
@@ -166,18 +208,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         else:
             validated_library['repo_url'] = None
 
-        # Updatebot keys aren't required by the schema, so if we don't have them
-        # then we just leave it set to disabled
-        if 'updatebot' in library:
-            validated_library['maintainer_bz'] = get_sub_key_or_raise('updatebot', 'maintainer-bz', library, yaml_path)
-            validated_library['maintainer_phab'] = get_sub_key_or_raise('updatebot', 'maintainer-phab', library, yaml_path)
-
-            if 'tasks' in library['updatebot']:
-                for t in library['updatebot']['tasks']:
-                    validated_task = LibraryProvider.validate_task(t, library['origin']['name'])
-
-                    if validated_task['enabled']:
-                        validated_library['tasks'].append(validated_task)
+        LibraryProvider._shared_library_validation(library, yaml_path, validated_library)
 
         if validated_library['tasks']:
             if not validated_library['repo_url']:
@@ -188,7 +219,14 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
     @staticmethod
     def validate_task(task_dict, library_name):
-        validated_task = {}
+        validated_task = {
+            'type': '',
+            'enabled': '',
+            'branch': '',
+            'cc': '',
+            'needinfo': '',
+            'frequency': ''
+        }
 
         if 'type' not in task_dict:
             raise AttributeError('library {0} task is missing type field'.format(library_name))

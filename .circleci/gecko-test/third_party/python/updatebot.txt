@@ -1,0 +1,30 @@
+# Used to enable Updatebot for python packages. The format of the file is:
+#
+# package_name
+#   bugzilla:
+#     product: Bugzilla Product # Required
+#     component: Bugzilla Component # Required
+#   updatebot:
+#     maintainer-bz: assignee's@bugzilla.address # Required
+#     maintainer-phab: assignees_phab_name # Required
+#     tasks # Required
+#       - type: vendoring # Required
+#         cc: ["bob@example.com"] # CC's for filed bugs, Optional
+#         needinfo: ["bob@example.com"] # When a NI is assigned, assign it to maintainer-bz and these addresses, Optional
+#         enabled: True # Required
+#         frequency: 2 weeks # Frequency Updatebot should attempt to vendor and file bugs, Optional
+#                            #   Choices are:  - 'commit' meaning every new upstream version (Default)
+#                                              - 'release' meaning at most once per Firefox release
+#                                              - 'X weeks' meaning at most once every X weeks, X >= 1
+
+glean_parser:
+  bugzilla:
+    product: Toolkit
+    component: Telemetry
+  updatebot:
+    maintainer-bz: tom@mozilla.com
+    maintainer-phab: tjr
+    tasks:
+      - type: vendoring
+        enabled: True
+        cc: ["chutten@mozilla.com"]

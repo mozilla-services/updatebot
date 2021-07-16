@@ -223,40 +223,53 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         list_of_commits = copy.deepcopy(list_of_commits)
         list_of_commits.reverse()
 
-        s = "----------------------------------------\n"
-        for c in list_of_commits:
-            s += "%s by %s\n" % (c.revision, c.author)
-            s += c.revision_link + "\n"
-            s += "Authored: %s\n" % (c.author_date)
-            s += "Committed: %s\n" % (c.commit_date)
-            s += "\n"
-            s += c.summary + "\n"
-            s += "\n"
-            s += c.description + "\n"
+        def _get_details(verbosity):
+            s = "----------------------------------------\n"
+            for c in list_of_commits:
+                s += "%s by %s\n" % (c.revision, c.author)
+                s += c.revision_link + "\n"
 
-            if c.files_added:
-                s += "\n"
-                s += "Files Added:\n"
-                for f in c.files_added:
-                    s += "  - %s\n" % f
+                if verbosity >= 2:
+                    s += "Authored: %s\n" % (c.author_date)
+                    s += "Committed: %s\n" % (c.commit_date)
+                    s += "\n"
+                    s += c.summary + "\n"
 
-            if c.files_deleted:
-                s += "\n"
-                s += "Files Deleted:\n"
-                for f in c.files_deleted:
-                    s += "  - %s\n" % f
+                if verbosity >= 3:
+                    s += "\n"
+                    s += c.description + "\n"
 
-            if c.files_modified:
-                s += "\n"
-                s += "Files Added:\n"
-                for f in c.files_modified:
-                    s += "  - %s\n" % f
+                    if c.files_added:
+                        s += "\n"
+                        s += "Files Added:\n"
+                        for f in c.files_added:
+                            s += "  - %s\n" % f
 
-            if c.files_other:
-                s += "\n"
-                s += "Files Changed:\n"
-                for f in c.files_other:
-                    s += "  - %s\n" % f
-            s += "----------------------------------------\n"
+                    if c.files_deleted:
+                        s += "\n"
+                        s += "Files Deleted:\n"
+                        for f in c.files_deleted:
+                            s += "  - %s\n" % f
 
-        return s
+                    if c.files_modified:
+                        s += "\n"
+                        s += "Files Added:\n"
+                        for f in c.files_modified:
+                            s += "  - %s\n" % f
+
+                    if c.files_other:
+                        s += "\n"
+                        s += "Files Changed:\n"
+                        for f in c.files_other:
+                            s += "  - %s\n" % f
+                s += "----------------------------------------\n"
+
+            return s
+
+        # Bugzilla's limit is 65535
+        details = _get_details(verbosity=3)
+        if len(details) > 64000:
+            details = _get_details(verbosity=2)
+        if len(details) > 64000:
+            details = _get_details(verbosity=1)
+        return details

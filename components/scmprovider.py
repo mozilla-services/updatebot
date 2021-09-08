@@ -194,7 +194,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         finally:
             # Step 8 Return us to the origin directory and clean up
             os.chdir(original_dir)
-            shutil.rmtree(tmpdirname)
+            shutil.rmtree(tmpdirname, ignore_errors=True)
 
         # Step 9: Return it
         return all_new_upstream_commits, unseen_new_upstream_commits

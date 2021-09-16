@@ -50,14 +50,17 @@ class Library:
 
     def __eq__(self, other):
         if not isinstance(other, Library):
+            print("not a library")
             return False
 
         for prop in dir(self):
             if not prop.startswith("__") and prop != "id":
                 try:
                     if getattr(other, prop) != getattr(self, prop):
+                        print(prop, getattr(other, prop), getattr(self, prop))
                         return False
                 except AttributeError:
+                    print(prop, "attributeerror")
                     return False
 
         return True
@@ -78,14 +81,17 @@ class Task:
 
     def __eq__(self, other):
         if not isinstance(other, Task):
+            print("not a task")
             return False
 
         for prop in dir(self):
             if not prop.startswith("__") and prop != "id":
                 try:
                     if getattr(other, prop) != getattr(self, prop):
+                        print(prop, getattr(other, prop), getattr(self, prop))
                         return False
                 except AttributeError:
+                    print(prop, "attributeerror")
                     return False
 
         return True

@@ -19,6 +19,12 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
         if not result:
             return (None, None)
 
+        if "Creating default state directory" in result:
+            # If no ~/.mozbuild directory was present this gets output unfortunately.
+            result_lines = result.split("\n")
+            result_lines = [l.strip() for l in result_lines if l.strip() and "state directory" not in l]
+            result = result_lines[0]
+
         parts = result.split(" ")
         return (parts[0], string_date_to_uniform_string_date(parts[1]))
 

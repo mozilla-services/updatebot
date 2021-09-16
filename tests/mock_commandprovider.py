@@ -30,7 +30,9 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
             self.real_runner = config['real_runner']
 
     def run(self, args, shell=False, clean_return=True):
-        argument_string = " ".join(args)
+        argument_string = args
+        if isinstance(args, list):
+            argument_string = " ".join(args)
         self.logger.log("Mocked Command executed", argument_string, level=LogLevel.Info)
 
         stdout = None

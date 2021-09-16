@@ -4,7 +4,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import yaml
+import platform
 
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -115,12 +117,23 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
     def get_libraries(self, gecko_path):
         if self._libraries is None:
             libraries = []
-            mozilla_central_yamls = self.run(["find", gecko_path, "-type", "f", "-name", "moz.yaml"]).stdout.decode().strip().split("\n")
+            if platform.system() == 'Windows':
+                # dir is not an executable but a built-in of the Windows shell, so we need to run
+                # this with shell=True
+                command = ["dir", "/B", "/S", os.path.join(gecko_path, "moz.yaml")]
+                mozilla_central_yamls = self.run(" ".join(command), shell=True).stdout.decode()
+            else:
+                command = ["find", gecko_path, "-type", "f", "-name", "moz.yaml"]
+                mozilla_central_yamls = self.run(command).stdout.decode()
 
+            mozilla_central_yamls = mozilla_central_yamls.strip().split("\n")
             for file in mozilla_central_yamls:
+                file = file.strip()  # Needed to remove the Windows trailing \r
+                if not file:
+                    continue
                 with open(file, "r") as mozyaml:
                     # Only return libraries that have enabled tasks
-                    new_library_obj = LibraryProvider.validate_library(mozyaml.read(), file.replace(gecko_path + "/", ""))
+                    new_library_obj = LibraryProvider.validate_library(mozyaml.read(), file.replace(gecko_path + os.path.sep, ""))
                     if new_library_obj.tasks:
                         libraries.append(new_library_obj)
 

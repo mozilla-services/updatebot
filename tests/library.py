@@ -34,15 +34,15 @@ LIBRARIES = [
                         'frequency': 'every'
                     }
         ],
-        "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml"
+        "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep)
     })
 ]
 
-LIBRARY_FIND_OUTPUT = """
-{0}/.circleci/gecko-test/libcubeb/moz.yaml
-{0}/.circleci/gecko-test/libaom/moz.yaml
-{0}/.circleci/gecko-test/libdav1d/moz.yaml
-""".format(os.getcwd())
+LIBRARY_FIND_OUTPUT = "\n".join([f.replace("/", os.path.sep) for f in [
+    "{0}/.circleci/gecko-test/libcubeb/moz.yaml",
+    "{0}/.circleci/gecko-test/libaom/moz.yaml",
+    "{0}/.circleci/gecko-test/libdav1d/moz.yaml"
+]]).format(os.getcwd())
 
 
 class TestLibraryProvider(unittest.TestCase):
@@ -51,7 +51,8 @@ class TestLibraryProvider(unittest.TestCase):
         # We will need a CommandProvider, so instatiate that directly
         cls.commandProvider = TestCommandProvider({
             'test_mappings': {
-                "find": lambda x: LIBRARY_FIND_OUTPUT
+                "find": lambda x: LIBRARY_FIND_OUTPUT,
+                "dir": lambda x: LIBRARY_FIND_OUTPUT
             }
         })
         # And provide it with a logger

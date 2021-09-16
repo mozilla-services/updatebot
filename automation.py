@@ -205,7 +205,11 @@ class Updatebot:
                 return
 
             if 'gecko-path' in self.config_dictionary['General']:
+                self.logger.log("Changing to gecko directory '%s'" % (self.config_dictionary['General']['gecko-path']), level=LogLevel.Info)
                 os.chdir(self.config_dictionary['General']['gecko-path'])
+            else:
+                self.logger.log("Staying in current directory '%s'" % (os.getcwd()), level=LogLevel.Info)
+
             if 'separate-platforms' not in self.config_dictionary['General']:
                 self.config_dictionary['General']['separate-platforms'] = False
 

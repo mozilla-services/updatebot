@@ -224,6 +224,12 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         list_of_commits.reverse()
 
         def _get_details(verbosity):
+            if verbosity == 0:
+                s = "----------------------------------------\n"
+                s += "%s commits elided, as they are too long for a bugzilla comment.\n" % len(list_of_commits)
+                s += "----------------------------------------\n"
+                return s
+
             s = "----------------------------------------\n"
             for c in list_of_commits:
                 s += "%s by %s\n" % (c.revision, c.author)
@@ -272,4 +278,6 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             details = _get_details(verbosity=2)
         if len(details) > 64000:
             details = _get_details(verbosity=1)
+        if len(details) > 64000:
+            details = _get_details(verbosity=0)
         return details

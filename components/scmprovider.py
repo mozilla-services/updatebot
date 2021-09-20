@@ -268,7 +268,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                         s += "Files Changed:\n"
                         for f in c.files_other:
                             s += "  - %s\n" % f
-                s += "----------------------------------------\n"
+                s += "\n----------------------------------------\n"
 
             return s
 

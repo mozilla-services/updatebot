@@ -8,6 +8,7 @@ import unittest
 import traceback
 from functools import partial
 
+import sentry_sdk
 from sentry_sdk import init as sentry_init, add_breadcrumb, capture_exception, configure_scope
 
 from components.providerbase import BaseProvider
@@ -105,6 +106,8 @@ class LocalLogger(LoggerInstance):
 
 class SentryLogger(LoggerInstance):
     def __init__(self, config):
+        # See https://stackoverflow.com/q/53699110
+        sentry_sdk.utils.MAX_STRING_LENGTH = 8192
         assert 'sentry' in config and config['sentry']
         assert 'sentry_config' in config, "Sentry logger requires a sentry_config key"
         assert 'url' in config['sentry_config'], "Sentry logger requires a url key in sentry_config"

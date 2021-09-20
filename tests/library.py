@@ -10,6 +10,7 @@ import os
 
 sys.path.append(".")
 sys.path.append("..")
+
 from components.libraryprovider import LibraryProvider, Library
 from tests.mock_commandprovider import TestCommandProvider
 from components.logging import SimpleLoggerConfig
@@ -31,7 +32,8 @@ LIBRARIES = [
                         'branch': None,
                         'cc': [],
                         'needinfo': [],
-                        'frequency': 'every'
+                        'frequency': 'every',
+                        'platform': 'linux',
                     }
         ],
         "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep)
@@ -174,6 +176,27 @@ updatebot:
   maintainer-bz: foo
   tasks:
     - type: vendoring
+    - type: commit-alert
+"""),
+            ("Bad platform",
+             """
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libdav1d
+  description: dav1d, a fast AV1 decoder
+  url: https://code.videolan.org/videolan/dav1d
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+vendoring:
+  url: https://code.videolan.org/videolan/dav1d.git
+updatebot:
+  maintainer-bz: foo
+  maintainer-phab: foo
+  tasks:
+    - type: vendoring
+      platform: mac
     - type: commit-alert
 """),
             ("Bad vendoring task",

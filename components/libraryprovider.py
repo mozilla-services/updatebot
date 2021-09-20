@@ -76,6 +76,7 @@ class Task:
         self.cc = dict['cc']
         self.needinfo = dict['needinfo']
         self.frequency = dict['frequency']
+        self.platform = dict['platform']
 
         if self.type == 'commit-alert':
             self.filter = dict['filter']
@@ -163,7 +164,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'branch': '',
             'cc': '',
             'needinfo': '',
-            'frequency': ''
+            'frequency': '',
+            'platform': ''
         }
 
         # We assign this ourselves at import, so no need to check it
@@ -218,9 +220,13 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         validated_task['enabled'] = get_key_or_default('enabled', task_dict, False)
         validated_task['branch'] = get_key_or_default('branch', task_dict, None)
+        validated_task['platform'] = get_key_or_default('platform', task_dict, 'linux')
         validated_task['cc'] = get_key_or_default('cc', task_dict, [])
         validated_task['needinfo'] = get_key_or_default('needinfo', task_dict, [])
         validated_task['frequency'] = get_key_or_default('frequency', task_dict, 'every')
+
+        if validated_task['platform'] not in ('windows', 'linux'):
+            raise AttributeError('library {0} task has an invalid value for a platform: {1}'.format(library_name, validated_task['platform']))
 
         if task_dict['type'] == 'commit-alert':
             validated_task['filter'] = get_key_or_default('filter', task_dict, 'none')

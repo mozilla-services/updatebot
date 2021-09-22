@@ -8,6 +8,7 @@ import os
 import yaml
 import platform
 
+from components.logging import LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
@@ -133,9 +134,11 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 if not file:
                     continue
                 with open(file, "r") as mozyaml:
+                    self.logger.log("Processing", file, level=LogLevel.Info)
                     # Only return libraries that have enabled tasks
                     new_library_obj = LibraryProvider.validate_library(mozyaml.read(), file.replace(gecko_path + os.path.sep, ""))
                     if new_library_obj.tasks:
+                        self.logger.log("%s had %s Updatebot tasks" % (file, len(new_library_obj.tasks)), level=LogLevel.Info)
                         libraries.append(new_library_obj)
 
             self._libraries = libraries

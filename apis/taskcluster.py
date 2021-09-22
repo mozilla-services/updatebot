@@ -6,6 +6,7 @@
 
 import json
 import jsone
+import platform
 import requests
 from urllib.parse import quote_plus
 
@@ -19,6 +20,7 @@ TRIGGER_TOTAL = 4
 
 class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
+        self._vcs_setup_initialized = False
         self._failure_classifications = None
 
         self.url_treeherder = "https://treeherder.mozilla.org/"
@@ -40,7 +42,14 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     # =================================================================
     # =================================================================
     @logEntryExit
+    def _vcs_setup(self):
+        if platform.system() == 'Windows' and not self._vcs_setup_initialized:
+            self.run(["./mach", "vcs-setup", "--update-only"])
+        self._vcs_setup_initialized = True
+
+    @logEntryExit
     def submit_to_try(self, library, platform_filter):
+        self._vcs_setup()
         if not platform_filter:
             platform_filter = []
         elif platform_filter[0] == "!":

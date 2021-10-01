@@ -5,10 +5,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import re
 import json
+import platform
 
 from components.logging import logEntryExit, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
+
+def _arc():
+    if platform.system() == "Windows":
+        return "arc.bat"
+    return "arc"
 
 class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
@@ -24,7 +30,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def submit_patch(self, bug_id):
-        ret = self.run(["arc", "diff", "--verbatim", "--conduit-uri", self.url, "--"])
+        ret = self.run([_arc(), "diff", "--verbatim", "--conduit-uri", self.url, "--"])
         output = ret.stdout.decode()
 
         phab_revision = None
@@ -38,8 +44,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         if not phab_revision:
             raise Exception("Could not find a phabricator revision in the output of arc diff using regex %s" % r.pattern)
 
-        cmd = """echo '{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit --""" \
-            % (bug_id, phab_revision, self.url)
+        cmd = """echo '{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}' | %s call-conduit --conduit-uri='%s' differential.revision.edit --""" \
+            % (bug_id, phab_revision, _arc(), self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
@@ -51,8 +57,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     @logEntryExit
     def set_reviewer(self, phab_revision, phab_username):
         # First get the user's phid
-        cmd = """echo '{"constraints": {"usernames":["%s"]}}' | arc call-conduit --conduit-uri='%s' user.search --""" \
-            % (phab_username, self.url)
+        cmd = """echo '{"constraints": {"usernames":["%s"]}}' | %s call-conduit --conduit-uri='%s' user.search --""" \
+            % (phab_username, _arc(), self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
@@ -66,8 +72,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         phid = result['response']['data'][0]['phid']
 
-        cmd = """echo '{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit --""" \
-            % (phid, phab_revision, self.url)
+        cmd = """echo '{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}' | %s call-conduit --conduit-uri='%s' differential.revision.edit --""" \
+            % (phid, phab_revision, _arc(), self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
@@ -75,8 +81,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def abandon(self, phab_revision):
-        cmd = """echo '{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}' | arc call-conduit --conduit-uri='%s' differential.revision.edit --""" \
-            % (phab_revision, self.url)
+        cmd = """echo '{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}' | %s call-conduit --conduit-uri='%s' differential.revision.edit --""" \
+            % (phab_revision, _arc(), self.url)
         ret = self.run([cmd], shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:

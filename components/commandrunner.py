@@ -12,7 +12,7 @@ from subprocess import PIPE
 
 
 def do_nothing(*args, **kwargs):
-    pass
+    print("Raw _run call:", *args)
 
 
 """

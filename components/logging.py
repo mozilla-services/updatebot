@@ -116,7 +116,6 @@ class SentryLogger(LoggerInstance):
     def _update_config(self, additional_config):
         version = "updatebot-"
         version += _run(["git", "rev-parse", "HEAD"], shell=False, clean_return=True).stdout.decode().strip()
-        version += "-dirty" if _run(["[[ -z $(git status -s) ]]"], shell=True, clean_return=False).returncode else ""
 
         environment = ""
         if "TASK_ID" in os.environ:

@@ -46,7 +46,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         cmd = """echo '{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}' | %s call-conduit --conduit-uri='%s' differential.revision.edit --""" \
             % (bug_id, phab_revision, _arc(), self.url)
-        ret = self.run([cmd], shell=True)
+        ret = self.run(cmd, shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
             raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (phab_revision))
@@ -59,7 +59,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         # First get the user's phid
         cmd = """echo '{"constraints": {"usernames":["%s"]}}' | %s call-conduit --conduit-uri='%s' user.search --""" \
             % (phab_username, _arc(), self.url)
-        ret = self.run([cmd], shell=True)
+        ret = self.run(cmd, shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
             raise Exception("Got an error from phabricator when trying to search for %s" % (phab_username))
@@ -74,7 +74,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         cmd = """echo '{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}' | %s call-conduit --conduit-uri='%s' differential.revision.edit --""" \
             % (phid, phab_revision, _arc(), self.url)
-        ret = self.run([cmd], shell=True)
+        ret = self.run(cmd, shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
             raise Exception("Got an error from phabricator when trying to set reviewers to %s (%s) for %s: %s" % (phab_username, phid, phab_revision, result))
@@ -83,7 +83,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def abandon(self, phab_revision):
         cmd = """echo '{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}' | %s call-conduit --conduit-uri='%s' differential.revision.edit --""" \
             % (phab_revision, _arc(), self.url)
-        ret = self.run([cmd], shell=True)
+        ret = self.run(cmd, shell=True)
         result = json.loads(ret.stdout.decode())
         if result['error']:
             if "You can not abandon this revision because it has already been closed." in result['errorMessage']:

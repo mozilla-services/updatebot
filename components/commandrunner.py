@@ -29,6 +29,9 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
     stderr = None
     exception = None
 
+    if shell and isinstance(args, list):
+        raise Exception("Only call run() with a string when passing shell=True")
+
     debuglog("----------------------------------------------")
 
     # On Windows we need to call things slightly differently
@@ -76,6 +79,9 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
     if ran_to_completion and clean_return:
         if ret.returncode:
             errorlog("Expected a clean process return but got:", ret.returncode)
-            errorlog("   (", *args, ")")
+            if isinstance(args, list):
+                errorlog("   (", *args, ")")
+            else:
+                errorlog("   (", args, ")")
             ret.check_returncode()
     return ret

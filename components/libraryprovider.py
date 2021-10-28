@@ -200,7 +200,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 for t in library['updatebot']['tasks']:
                     validated_task = LibraryProvider.validate_task(t, library['origin']['name'])
 
-                    if validated_task['enabled']:
+                    if validated_task['enabled'] and validated_task['platform'] == platform.system().lower():
                         validated_library['tasks'].append(validated_task)
 
         if validated_library['tasks']:
@@ -223,7 +223,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         validated_task['enabled'] = get_key_or_default('enabled', task_dict, False)
         validated_task['branch'] = get_key_or_default('branch', task_dict, None)
-        validated_task['platform'] = get_key_or_default('platform', task_dict, 'linux')
+        validated_task['platform'] = get_key_or_default('platform', task_dict, 'linux').lower()
         validated_task['cc'] = get_key_or_default('cc', task_dict, [])
         validated_task['needinfo'] = get_key_or_default('needinfo', task_dict, [])
         validated_task['frequency'] = get_key_or_default('frequency', task_dict, 'every')

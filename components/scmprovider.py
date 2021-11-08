@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import re
 import copy
 import shutil
 import tempfile
@@ -98,6 +99,10 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         tmpdirname = tempfile.mkdtemp()
         os.chdir(tmpdirname)
 
+        # If we are updating to a branch or tag; we need to add the origin/ prefix
+        if not re.match("^[a-zA-Z0-9]{40}$", new_version):
+            new_version = "origin/" + new_version
+
         # This try block is used to ensure we clean up and chdir at the end always. It has no except clause,
         # exceptions raised are sent up the stack.
         try:
@@ -107,30 +112,12 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             if task.branch:
                 self.run(["git", "checkout", task.branch])
 
-            # Step 1: Confirm that the current branch (the one we're tracking) contains
-            # the current revision of the library. If it doesn't, that doesn't make sense.
-            # (When the library revision changes, we must update 'branch' if we have moved to a new branch.)
-            #
-            # Note that git branch -r --contains would also work, and would list all the local
-            # _and remote_ branches that contained the commit; but it is needlessly verbose.
-            # Because we did a git checkout of the branch we care about, it will show up
-            # without -r.
-            current_branch = self.run(["git", "rev-parse", "--abbrev-ref", "HEAD"]).stdout.decode().strip()
-            self.logger.log("Our current branch is %s." % (current_branch), level=LogLevel.Debug)
+            # Step 1: Find the common ancestor between the commit we are and HEAD
+            common_ancestor = self.run(["git", "merge-base", library.revision, "HEAD"]).stdout.decode().strip()
+            self.logger.log("Our common ancestor is %s." % (common_ancestor), level=LogLevel.Debug)
 
-            ret = self.run(["git", "branch", "--contains", library.revision])
-            containing_branches = [line.replace("*", "").strip() for line in ret.stdout.decode().split("\n")]
-            self.logger.log("Containing branches are %s." % (containing_branches), level=LogLevel.Debug)
-
-            if current_branch not in containing_branches:
-                self.logger.log("Current Branch: %s" % current_branch, level=LogLevel.Error)
-                self.logger.log("Branches (%s):" % len(containing_branches), level=LogLevel.Error)
-                for b in containing_branches:
-                    self.logger.log("  - %s" % b, level=LogLevel.Error)
-                raise Exception("The current revision %s is not contained in the current branch %s." % (library.revision, current_branch))
-
-            # Step 2: Get the list of commits between the revision and HEAD
-            all_new_upstream_commits = self._commits_since(library.revision)
+            # Step 2: Get the list of commits between the common ancestor and HEAD
+            all_new_upstream_commits = self._commits_between(common_ancestor, "HEAD")
             if not all_new_upstream_commits:
                 self.logger.log("Checking for updates to %s but no new upstream commits were found from our current in-tree revision %s." % (library.name, library.revision), level=LogLevel.Info)
                 return [], []
@@ -162,8 +149,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             unseen_new_upstream_commits = []
             if most_recent_job_newer_than_library_rev:
                 # Step 5: Get the list of commits between the revision for the most recent job
-                # and HEAD
-                unseen_new_upstream_commits = self._commits_since(most_recent_job.version)
+                # and HEAD. (We previously confirmed that most_recent_job.version is in the sequence
+                # of commits from common_ancestor..HEAD)
+                unseen_new_upstream_commits = self._commits_between(most_recent_job.version, "HEAD")
                 if len(unseen_new_upstream_commits) == 0:
                     self.logger.log("Already processed revision %s in bug %s" % (most_recent_job.version, most_recent_job.bugzilla_id), level=LogLevel.Info)
                     return all_new_upstream_commits, []
@@ -199,8 +187,8 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         # Step 9: Return it
         return all_new_upstream_commits, unseen_new_upstream_commits
 
-    def _commits_since(self, revision):
-        ret = self.run(["git", "log", "--pretty=%H|%ai|%ci", revision + "..HEAD"])
+    def _commits_between(self, revision1, revision2):
+        ret = self.run(["git", "log", "--pretty=%H|%ai|%ci", "%s..%s" % (revision1, revision2) ])
         commits = [line.strip() for line in ret.stdout.decode().split("\n")]
         # Put them in order of oldest to newest
         commits.reverse()

@@ -37,10 +37,10 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
         return (parts[0], string_date_to_uniform_string_date(parts[1]))
 
     @logEntryExit
-    def vendor(self, library):
+    def vendor(self, library, revision):
         try:
             ret = self.run(
-                ["./mach", "vendor", library.yaml_path, "--ignore-modified"], clean_return=False)
+                ["./mach", "vendor", library.yaml_path, "--ignore-modified", "--revision", revision], clean_return=False)
 
             if ret.returncode == 0:
                 return (VendorResult.SUCCESS, "")

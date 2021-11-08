@@ -78,7 +78,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         pass
 
     @logEntryExit
-    def check_for_update(self, library, task, ignore_commits_from_these_jobs):
+    def check_for_update(self, library, task, new_version, ignore_commits_from_these_jobs):
         # This function uses two tricky variable names:
         #  all_upstream_commits - This means the commits that have occured upstream, on the branch we care about,
         #                         between the library's current revision and the tip of the branch.
@@ -112,12 +112,12 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             if task.branch:
                 self.run(["git", "checkout", task.branch])
 
-            # Step 1: Find the common ancestor between the commit we are and HEAD
-            common_ancestor = self.run(["git", "merge-base", library.revision, "HEAD"]).stdout.decode().strip()
+            # Step 1: Find the common ancestor between the commit we are and new_version
+            common_ancestor = self.run(["git", "merge-base", library.revision, new_version]).stdout.decode().strip()
             self.logger.log("Our common ancestor is %s." % (common_ancestor), level=LogLevel.Debug)
 
-            # Step 2: Get the list of commits between the common ancestor and HEAD
-            all_new_upstream_commits = self._commits_between(common_ancestor, "HEAD")
+            # Step 2: Get the list of commits between the common ancestor and new_version
+            all_new_upstream_commits = self._commits_between(common_ancestor, new_version)
             if not all_new_upstream_commits:
                 self.logger.log("Checking for updates to %s but no new upstream commits were found from our current in-tree revision %s." % (library.name, library.revision), level=LogLevel.Info)
                 return [], []
@@ -149,9 +149,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             unseen_new_upstream_commits = []
             if most_recent_job_newer_than_library_rev:
                 # Step 5: Get the list of commits between the revision for the most recent job
-                # and HEAD. (We previously confirmed that most_recent_job.version is in the sequence
-                # of commits from common_ancestor..HEAD)
-                unseen_new_upstream_commits = self._commits_between(most_recent_job.version, "HEAD")
+                # and new_version. (We previously confirmed that most_recent_job.version is in the sequence
+                # of commits from common_ancestor..new_version)
+                unseen_new_upstream_commits = self._commits_between(most_recent_job.version, new_version)
                 if len(unseen_new_upstream_commits) == 0:
                     self.logger.log("Already processed revision %s in bug %s" % (most_recent_job.version, most_recent_job.bugzilla_id), level=LogLevel.Info)
                     return all_new_upstream_commits, []

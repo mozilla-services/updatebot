@@ -148,7 +148,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Get the information we will need to file a bug.
         #  We pass in the most recent job
-        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, existing_jobs)
+        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, existing_jobs)
         commit_details = self.scmProvider.build_bug_description(all_upstream_commits)
 
         bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc)

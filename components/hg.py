@@ -12,6 +12,8 @@ class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvid
 
     @logEntryExit
     def commit(self, library, bug_id, new_release_version):
+        # Note that this commit message format changes, one must also edit the
+        # Updatebot Verify job in mozilla-central ( verify-updatebot.py )
         bug_id = "Bug {0}".format(bug_id)
         self.run(["hg", "commit", "-m", "%s - Update %s to %s" %
                   (bug_id, library.name, new_release_version)])

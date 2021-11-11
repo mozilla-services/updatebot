@@ -123,6 +123,18 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
         return s
 
     @staticmethod
+    def COULD_NOT_VENDOR_ALL_FILES(library, errormessage):
+        s = "`./mach vendor %s` reported an error editing moz.build files:" % library.yaml_path
+        for line in errormessage.split("\n"):
+            s += "> " + line + "\n"
+        s += "\n"
+        s += "We're going to continue processing the update; but we may fail "
+        s += "because we couldn't handle these files.  If we _do_ succeed, you may "
+        s += "want to add these files to the 'exclude' key in the moz.yaml file, so "
+        s += "they are excluded from the source tree and ignored in the future."
+        return s
+
+    @staticmethod
     def TRY_RUN_SUBMITTED(revision, another=False):
         return "I've submitted a" + ("nother" if another else "") + " try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=" + revision
 

@@ -6,10 +6,10 @@
 
 import copy
 import functools
-import subprocess
 
 from tasktypes.base import BaseTaskRunner
 from components.bugzilla import CommentTemplates
+from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
 
@@ -156,22 +156,19 @@ class VendorTaskRunner(BaseTaskRunner):
 
         try_run_type = 'initial platform' if self.config['General']['separate-platforms'] else 'all platforms'
 
-        try:
-            self.vendorProvider.vendor(library)
-        except Exception as e:
+        (result, msg) = self.vendorProvider.vendor(library)
+        if result == VendorResult.GENERAL_ERROR:
             # We're not going to commit these changes; so clean them out.
             self.cmdProvider.run(["hg", "checkout", "-C", "."])
             self.cmdProvider.run(["hg", "purge", "."])
 
             # Handle `./mach vendor` failing
             self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
-            if isinstance(e, subprocess.CalledProcessError):
-                msg = e.stderr.decode().rstrip() + "\n\n" if e.stderr else ""
-                msg += e.stdout.decode().rstrip()
-            else:
-                msg = str(e)
             self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, msg), needinfo=library.maintainer_bz)
             return
+        elif result == VendorResult.MOZBUILD_ERROR:
+            # Add a comment but do not abort
+            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, msg))
 
         self.mercurialProvider.commit(library, bugzilla_id, new_version)
 

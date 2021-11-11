@@ -2,9 +2,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import subprocess
+
 from components.utilities import string_date_to_uniform_string_date
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
+
+
+class VendorResult:
+    SUCCESS = 1
+    MOZBUILD_ERROR = 2
+    GENERAL_ERROR = 3
 
 
 class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
@@ -30,5 +38,24 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
 
     @logEntryExit
     def vendor(self, library):
-        self.run(
-            ["./mach", "vendor", library.yaml_path, "--ignore-modified"])
+        try:
+            ret = self.run(
+                ["./mach", "vendor", library.yaml_path, "--ignore-modified"], clean_return=False)
+
+            if ret.returncode == 0:
+                return (VendorResult.SUCCESS, "")
+
+            msg = ret.stderr.decode().rstrip() + "\n\n" if ret.stderr else ""
+            msg += ret.stdout.decode().rstrip()
+
+            if ret.returncode == -1:
+                return (VendorResult.MOZBUILD_ERROR, msg)
+            else:
+                return (VendorResult.GENERAL_ERROR, msg)
+        except Exception as e:
+            if isinstance(e, subprocess.CalledProcessError):
+                msg = e.stderr.decode().rstrip() + "\n\n" if e.stderr else ""
+                msg += e.stdout.decode().rstrip()
+            else:
+                msg = str(e)
+            return (VendorResult.GENERAL_ERROR, msg)

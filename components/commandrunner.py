@@ -51,7 +51,7 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
     infolog("Running", args)
     try:
         ret = subprocess.run(
-            args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=60 * 10)
+            args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=60 * 20)
     except subprocess.TimeoutExpired as e:
         ran_to_completion = False
         stdout = e.stdout

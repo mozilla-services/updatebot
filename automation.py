@@ -269,19 +269,31 @@ if __name__ == "__main__":
         db.update_config({
             'LoggingProvider': SimpleLogger({'local': True, 'level': 5})
         })
-        db.print()
+        try:
+            db.print()
+        except Exception as e:
+            print("Error printing database:")
+            print(e)
     elif args.delete_database:
         db = DatabaseProvider(localconfig['Database'])
         db.update_config({
             'LoggingProvider': SimpleLogger({'local': True, 'level': 5})
         })
-        db.delete_database()
+        try:
+            db.delete_database()
+        except Exception as e:
+            print("Error deleting database:")
+            print(e)
     elif args.check_database:
         db = DatabaseProvider(localconfig['Database'])
         db.update_config({
             'LoggingProvider': SimpleLogger({'local': True, 'level': 5})
         })
-        db.check_database()
+        try:
+            db.check_database()
+        except Exception as e:
+            print("Error checking database:")
+            print(e)
     elif args.find_libraries:
         # We will need a CommandProvider, so instatiate that directly
         commandProvider = CommandProvider({})

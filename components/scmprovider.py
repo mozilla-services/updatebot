@@ -214,7 +214,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         def _get_details(verbosity):
             if verbosity == 0:
                 s = "----------------------------------------\n"
-                s += "%s commits elided, as they are too long for a bugzilla comment.\n" % len(list_of_commits)
+                s += "%s commits elided, as they are too long for a bugzilla comment.\n\n" % len(list_of_commits)
                 s += "----------------------------------------\n"
                 return s
 

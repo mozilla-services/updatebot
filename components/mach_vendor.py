@@ -48,7 +48,7 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
             msg = ret.stderr.decode().rstrip() + "\n\n" if ret.stderr else ""
             msg += ret.stdout.decode().rstrip()
 
-            if ret.returncode == -1:
+            if ret.returncode == 255:
                 return (VendorResult.MOZBUILD_ERROR, msg)
             else:
                 return (VendorResult.GENERAL_ERROR, msg)

@@ -164,7 +164,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
             # Handle `./mach vendor` failing
             self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
-            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, msg), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, new_version, msg), needinfo=library.maintainer_bz)
             return
         elif result == VendorResult.MOZBUILD_ERROR:
             # Add a comment but do not abort
@@ -331,7 +331,7 @@ class VendorTaskRunner(BaseTaskRunner):
         for j in job_list:
             if j.result not in ["retry", "success"]:
                 if "build" in j.job_type_name:
-                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer_bz)
+                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library, existing_job.version), needinfo=library.maintainer_bz)
                     self.phabricatorProvider.abandon(existing_job.phab_revision)
                     existing_job.status = JOBSTATUS.DONE
                     existing_job.outcome = JOBOUTCOME.BUILD_FAILED
@@ -417,7 +417,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.logger.log(c, level=LogLevel.Debug)
                 comment += c + "\n"
 
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library, existing_job.version), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
             self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
 
         # Everything.... succeeded?
@@ -441,7 +441,7 @@ class VendorTaskRunner(BaseTaskRunner):
             comment += c + "\n"
             self.logger.log(c, level=LogLevel.Debug)
 
-        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz)
+        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library, existing_job.version), needinfo=library.maintainer_bz)
         existing_job.outcome = JOBOUTCOME.UNCLASSIFIED_FAILURES
         existing_job.status = JOBSTATUS.DONE
         self.dbProvider.update_job_status(existing_job)

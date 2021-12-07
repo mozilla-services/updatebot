@@ -66,11 +66,11 @@ security group.
         )
 
     @staticmethod
-    def DONE_BUILD_FAILURE(library):
+    def DONE_BUILD_FAILURE(library, revision):
         return """
 It looks like we experienced one or more build failures when trying to apply this
 update. You will need to apply this update manually; you can replicate the patch
-locally with `./mach vendor %s`.  I'm going to abandon the Phabricator patch and
+locally with `./mach vendor %s --revision %s`.  I'm going to abandon the Phabricator patch and
 let you submit a new one.
 
 If the build failure wasn't caused by a library change, and was instead caused by
@@ -79,29 +79,29 @@ Slack:#secinf.
 
 I do my best to automatically add new files to the build, but some moz.build files
 are complicated and you may need to fix them manually.
-""" % (library.yaml_path)
+""" % (library.yaml_path, revision)
 
     @staticmethod
-    def DONE_CLASSIFIED_FAILURE(prefix, library):
+    def DONE_CLASSIFIED_FAILURE(prefix, library, revision):
         return prefix + "\n" + """
 These failures may mean that the library update succeeded; you'll need to review
 them yourself and decide. If there are lint failures, you will need to fix them in
 a follow-up patch. (Or ignore the patch I made, and recreate it yourself with
-`./mach vendor %s`.)
+`./mach vendor %s --revision %s`.)
 
 In either event, I have done all I can, so you will need to take it from here.
-""" % (library.yaml_path)
+""" % (library.yaml_path, revision)
 
     @staticmethod
-    def DONE_UNCLASSIFIED_FAILURE(prefix, library):
+    def DONE_UNCLASSIFIED_FAILURE(prefix, library, revision):
         return prefix + "\n" + """
 These failures could mean that the library update changed something and caused
 tests to fail. You'll need to review them yourself and decide where to go from here.
 
 In either event, I have done all I can and you will need to take it from here. If you
 don't want to land my patch, you can replicate it locally for editing with
-`./mach vendor %s`
-""" % (library.yaml_path)
+`./mach vendor %s --revision %s`
+""" % (library.yaml_path, revision)
 
     @staticmethod
     def DONE_ALL_SUCCESS():
@@ -114,8 +114,8 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
 """
 
     @staticmethod
-    def COULD_NOT_VENDOR(library, errormessage):
-        s = "`./mach vendor %s` failed" % library.yaml_path
+    def COULD_NOT_VENDOR(library, revision, errormessage):
+        s = "`./mach vendor %s --revision %s` failed" % (library.yaml_path, revision)
         if errormessage:
             s += " with the following message:\n\n"
             for line in errormessage.split("\n"):

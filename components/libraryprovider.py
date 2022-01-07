@@ -7,6 +7,7 @@
 import os
 import yaml
 import platform
+import functools
 
 from components.logging import LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
@@ -46,6 +47,7 @@ class Library:
         self.has_patches = dict['has_patches']
         self.maintainer_bz = dict['maintainer_bz']
         self.maintainer_phab = dict['maintainer_phab']
+        self.fuzzy_query = dict.get('fuzzy_query', None)
         self.yaml_path = dict['yaml_path']
         self.tasks = []
 
@@ -102,11 +104,17 @@ class Task:
         return True
 
 
-def get_sub_key_or_raise(key, subkey, dict, yaml_path):
+def get_sub_key_or_none(key, subkey, dict, yaml_path):
     if key in dict and subkey in dict[key]:
         return dict[key][subkey]
-    else:
+    return None
+
+
+def get_sub_key_or_raise(key, subkey, dict, yaml_path):
+    ret = get_sub_key_or_none(key, subkey, dict, yaml_path)
+    if ret is None:
         raise AttributeError('library imported from {0} is missing {1}: {2} field'.format(yaml_path, key, subkey))
+    return ret
 
 
 def get_key_or_default(key, dict, default):
@@ -159,6 +167,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'has_patches': False,
             'maintainer_bz': '',
             'maintainer_phab': '',
+            'fuzzy_query': '',
             'tasks': [],
             'yaml_path': ''
         }
@@ -173,12 +182,15 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'platform': ''
         }
 
+        get_or_none = functools.partial(get_sub_key_or_none, dict=library, yaml_path=yaml_path)
+        get_or_raise = functools.partial(get_sub_key_or_raise, dict=library, yaml_path=yaml_path)
+
         # We assign this ourselves at import, so no need to check it
         validated_library['yaml_path'] = yaml_path
 
-        validated_library['name'] = get_sub_key_or_raise('origin', 'name', library, yaml_path)
-        validated_library['bugzilla_product'] = get_sub_key_or_raise('bugzilla', 'product', library, yaml_path)
-        validated_library['bugzilla_component'] = get_sub_key_or_raise('bugzilla', 'component', library, yaml_path)
+        validated_library['name'] = get_or_raise('origin', 'name')
+        validated_library['bugzilla_product'] = get_or_raise('bugzilla', 'product')
+        validated_library['bugzilla_component'] = get_or_raise('bugzilla', 'component')
 
         # Attempt to get the revision (not required by moz.yaml) if present
         if 'origin' in library and 'revision' in library['origin']:
@@ -200,8 +212,9 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled
         if 'updatebot' in library:
-            validated_library['maintainer_bz'] = get_sub_key_or_raise('updatebot', 'maintainer-bz', library, yaml_path)
-            validated_library['maintainer_phab'] = get_sub_key_or_raise('updatebot', 'maintainer-phab', library, yaml_path)
+            validated_library['maintainer_bz'] = get_or_raise('updatebot', 'maintainer-bz')
+            validated_library['maintainer_phab'] = get_or_raise('updatebot', 'maintainer-phab')
+            validated_library['fuzzy_query'] = get_or_none('updatebot', 'fuzzy-query')
 
             if 'tasks' in library['updatebot']:
                 for t in library['updatebot']['tasks']:

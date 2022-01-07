@@ -51,14 +51,18 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def submit_to_try(self, library, platform_filter):
         self._vcs_setup()
         if not platform_filter:
-            platform_filter = []
+            platform_filter_args = []
         elif platform_filter[0] == "!":
-            platform_filter = ["--tasks-regex-exclude", platform_filter[1:]]
+            platform_filter_args = ["--tasks-regex-exclude", platform_filter[1:]]
         else:
-            platform_filter = ["--tasks-regex", platform_filter]
+            platform_filter_args = ["--tasks-regex", platform_filter]
 
-        ret = self.run(
-            ["./mach", "try", "auto"] + platform_filter)
+        if library.fuzzy_query:
+            try_arguments = ["./mach", "try", "fuzzy", "--update", "--full", "--query", library.fuzzy_query + " " + (platform_filter or "")]
+        else:
+            try_arguments = ["./mach", "try", "auto"] + platform_filter_args
+
+        ret = self.run(try_arguments)
         output = ret.stdout.decode()
 
         isNext = False

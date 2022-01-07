@@ -17,6 +17,30 @@ from components.logging import SimpleLoggerConfig
 
 LIBRARIES = [
     Library({
+        "name": "cubeb",
+        "revision": "a7e83aa2b1571b842a555158e8f25aeb1419ebd1",
+        "repo_url": "https://github.com/mozilla/cubeb",
+        "has_patches": False,
+
+        "bugzilla_product": "Core",
+        "bugzilla_component": "Audio/Video: cubeb",
+        "maintainer_bz": "nobody@mozilla.com",
+        "maintainer_phab": "nobody",
+        "fuzzy_query": "media",
+        "tasks": [
+                    {
+                        'type': "vendoring",
+                        'enabled': True,
+                        'branch': None,
+                        'cc': [],
+                        'needinfo': [],
+                        'frequency': 'every',
+                        'platform': 'linux',
+                    }
+        ],
+        "yaml_path": ".circleci/gecko-test/libcubeb/moz.yaml".replace("/", os.path.sep)
+    }),
+    Library({
         "name": "dav1d",
         "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e",
         "repo_url": "https://code.videolan.org/videolan/dav1d.git",

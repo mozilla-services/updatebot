@@ -43,6 +43,24 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "yaml_path": "mozilla-central/source/media/libdav1d/moz.yaml"
             }),
             Library({
+                "name": "cubeb",
+                "bugzilla_product": "Core",
+                "bugzilla_component": "Audio/Video: cubeb",
+                "maintainer_phab": "nobody",
+                "maintainer_bz": "nobody@mozilla.com",
+                "fuzzy_query": "media",
+                "revision": self.config.get('vendoring_revision_override', None),
+                "repo_url": "https://example.invalid",
+                "has_patches": False,
+                "tasks": [
+                    LibraryProvider.validate_task({
+                        "type": "vendoring",
+                        "enabled": True
+                    }, "n/a")
+                ],
+                "yaml_path": "mozilla-central/source/media/cubeb/moz.yaml"
+            }),
+            Library({
                 "name": "aom",
                 "bugzilla_product": "Core",
                 "bugzilla_component": "Audio/Video: Playback",

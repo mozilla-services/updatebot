@@ -56,6 +56,7 @@ def COMMAND_MAPPINGS(expected_values, callbacks):
     ret = SHARED_COMMAND_MAPPINGS(expected_values, callbacks)
     ret.update({
         "./mach try auto": callbacks['try_submit'] if 'try_submit' in callbacks else lambda: TRY_OUTPUT(expected_values.try_revision_id()),
+        "./mach try fuzzy": callbacks['try_submit'] if 'try_submit' in callbacks else lambda: TRY_OUTPUT(expected_values.try_revision_id(), False),
     })
     return ret
 
@@ -434,6 +435,31 @@ class TestFunctionality(SimpleLoggingTest):
         self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
         TestFunctionality._cleanup(u, expected_values)
+
+    @logEntryExit
+    def testAllNewJobsWithFuzzyQuery(self):
+        library_filter = 'cubeb'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            library_filter,
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: []  # filed_bug_ids_func
+        )
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs succeeded
+            u.run(library_filter=library_filter)
+            # Should be DONE
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
     @logEntryExit

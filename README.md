@@ -17,14 +17,14 @@ Updatebot is a bot that looks for upstream updates to a third party dependency (
  - Once the retriggers are complete, report a summary of the results (what tests failed, how many times, and if they are known issues or not)
  - Flag the dependency's maintainer for review of the patch or send them a needinfo on the bug
 
-Updatebot can be thought of as two halves: the bot that does the above and the in-tree `./mach vendor` component that makes it easy for a library to be updated locally. *We would be happy to help you set up your library for vendoring in Updatebot.*  
+Updatebot can be thought of as two halves: the bot that does the above and the in-tree `./mach vendor` component that makes it easy for a library to be updated locally. *We would be happy to help you set up your library for vendoring in Updatebot.*
 
 Updatebot **doesn't have to vendor the update** - it can instead just alert you that there were new commits.  This is good for infrequently updated upstreams that are difficult to automatically vendor.  In the future we intend to add some intelligence to this to let us filter by suspected security issues.
 
 Updatebot has several configurable options:
 
 1. It can look for updates:
-   - every run (6 hours) - good for infrequently updated upstreams 
+   - every run (6 hours) - good for infrequently updated upstreams
    - every N weeks
    - only upon a new Firefox release (good for frequently updated libraries we bump once-per-FF release)
 2. It can track a specific upstream branch, or only look for newly tagged releases
@@ -53,7 +53,7 @@ Updatebot is currently in active development with a lot of churn. We welcome pat
   1. Runs in the [Updatebot Docker Image](https://searchfox.org/mozilla-central/source/taskcluster/docker/updatebot)
   - [Searches](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/components/libraryprovider.py#L122-L129) the tree for [moz.yaml files](https://searchfox.org/mozilla-central/search?q=moz.yaml&case=true&path=) that [define an enabled Updatebot task](https://searchfox.org/mozilla-central/rev/83e67336083df9f9a3d1e0c33f2ba19703d57161/media/libdav1d/moz.yaml#40-43)
   - Figures out [which task type we are dealing with](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/automation.py#L134-L137).  For here on out we will assume a [vendoring task](https://github.com/mozilla-services/updatebot/blob/master/tasktypes/vendoring.py) but there is also a [commit alert task](https://github.com/mozilla-services/updatebot/blob/master/tasktypes/commitalert.py).
-  - [Checks](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/base.py#L14) if we should process the library according to its [requested frequency](https://searchfox.org/mozilla-central/rev/83e67336083df9f9a3d1e0c33f2ba19703d57161/python/mozbuild/mozbuild/vendor/moz_yaml.py#392). 
+  - [Checks](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/base.py#L14) if we should process the library according to its [requested frequency](https://searchfox.org/mozilla-central/rev/83e67336083df9f9a3d1e0c33f2ba19703d57161/python/mozbuild/mozbuild/vendor/moz_yaml.py#392).
   - [Compares](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L51-L54) the current upstream revision with the current [in-tree revision](https://searchfox.org/mozilla-central/rev/83e67336083df9f9a3d1e0c33f2ba19703d57161/media/libdav1d/moz.yaml#27) to determine if an update is needed.
   - [Checks](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L57) if this revision has already been processed.  We will assume it has not.
   - [Files a bugzilla bug](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L154)
@@ -66,12 +66,12 @@ Updatebot is currently in active development with a lot of churn. We welcome pat
 - That database lives in Google CloudSQL.  There is a dev and prod database, as well as [dev and prod credentials](https://searchfox.org/mozilla-central/rev/83e67336083df9f9a3d1e0c33f2ba19703d57161/taskcluster/docker/updatebot/run.py#79-84) for those databases, bugzilla, try server, phabricator, sentry, and sql-proxy (which is used to connect to the database).  You can find them in [grants.yml](https://hg.mozilla.org/ci/ci-configuration/file/tip/grants.yml#l644) searching for 'updatebot'.  The dev credentials are granted to holly, which is our reserved development instance because Updatebot can't tested on try safely.  The prod credentials are only available to mozilla-central.
 - The next time the Updatebot job runs it will get to step (6) and see that it has seen the (new) revision before.  It will [process the job from there](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L238).
   1. Will check if all the jobs in the try run are done. If they are not, it will do nothing and check again on the next Updatebot run.
-  2. If they are done, it will look to see if there any test failures. If so it will [retrigger them](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L384) and wait until the next job.   
+  2. If they are done, it will look to see if there any test failures. If so it will [retrigger them](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L384) and wait until the next job.
   3. Once we've [received the retrigger results](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L404) then we [look at failures](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L411-L431), summarize them, and [add a comment to the bug and update the database](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L420-L431).
 
 
-### Architecture 
-Updatebot's architecture is.... not great.  
+### Architecture
+Updatebot's architecture is.... not great.
 
  - In an effort to make mockable classes for testing and stubbing functionality, nearly all the low-to-medium level logic about 'how to do something' is contained in either a [component class](https://github.com/mozilla-services/updatebot/tree/master/components) or an [api class](https://github.com/mozilla-services/updatebot/tree/master/apis) - both called 'Providers'.  The distinction between the two is not very significant, except the API classes were originally separated to indicate an external API we talk to.
   - We describe two types of Providers: Functionality Providers, and Utility Providers.  Functionality Providers may require and use Utility Providers.  And Utility Providers can include Utility Providers.
@@ -82,15 +82,15 @@ Updatebot's architecture is.... not great.
  - For each of our two task types, vendoring and commit-alert, we have a [tasktype class](https://github.com/mozilla-services/updatebot/tree/master/tasktypes) that defines the higher-level logic.  This logic is tested in the `functionality_*` tests.  (Those tests themselves need a README explaining how they work.)
  - The entry point is [automation.py](https://github.com/mozilla-services/updatebot/blob/master/automation.py).
  - We have a [dbc layer](https://github.com/mozilla-services/updatebot/blob/master/components/dbc.py) that's intended to support abstracting away to a different database if we ever switch.
- - We have the [db layer](https://github.com/mozilla-services/updatebot/blob/master/components/db.py) which is the only thing that speaks MySQL. 
+ - We have the [db layer](https://github.com/mozilla-services/updatebot/blob/master/components/db.py) which is the only thing that speaks MySQL.
  - Inside the db layer we define the database structure. It will create the database if one does not exist.  When we need to alter the database structure we bump the database revision and [write migration code](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/components/db.py#L217-L349).
 
 There are a few bits of complexity elided in the overview and architecture details above:
 
  - We support (in theory) doing two try runs: one for linux64 and if that succeeds a follow-up run of everything else. This is to be more mindful of try resources, but presently this doesn't work as intended (on the try side) so we only do one try run.
- - We have the notion of Job States (done or not done) and outcomes (success, failed with known failures, failed with unknown).  
+ - We have the notion of Job States (done or not done) and outcomes (success, failed with known failures, failed with unknown).
  - Presently we only allow one prior job to be in the 'Running ' or 'Done' state, which is confusing because we try to close old bugs we filed as obsolete (dupe them to a newer bug) *but* we don't want to re-close bugs developers re-open because they're working on them...
- - This leads to a state of Job called 'Abandoned' in particular that is [a bit of tech debt we need to refactor](https://github.com/mozilla-services/updatebot/issues/201). And leads to confusing code [dealing with cleaning up older jobs](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L108-L116).  
+ - This leads to a state of Job called 'Abandoned' in particular that is [a bit of tech debt we need to refactor](https://github.com/mozilla-services/updatebot/issues/201). And leads to confusing code [dealing with cleaning up older jobs](https://github.com/mozilla-services/updatebot/blob/c9133c4f2c15b30438fe6721ef7f490472851de4/tasktypes/vendoring.py#L108-L116).
  - We have a bit of complexity in how we compare our current in-tree revision with the upstream revision, and code that looks for the commits in between and adds them to bug comments.
  - We have logic to update bugs tracking flags when they are left open for a long period of time
 

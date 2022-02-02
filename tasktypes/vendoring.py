@@ -172,6 +172,10 @@ class VendorTaskRunner(BaseTaskRunner):
 
         self.mercurialProvider.commit(library, bugzilla_id, new_version)
 
+        if library.has_patches:
+            self.vendorProvider.patch(library, new_version)
+            self.mercurialProvider.commit_patches(library, bugzilla_id, new_version)
+
         platform_restriction = "linux64" if self.config['General']['separate-platforms'] else ""
         next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
         try_revision = self.taskclusterProvider.submit_to_try(library, platform_restriction)

@@ -33,6 +33,7 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "maintainer_bz": "nobody@mozilla.com",
                 "revision": self.config.get('vendoring_revision_override', None),
                 "repo_url": "https://example.invalid",
+                "has_patches": False,
                 "tasks": [
                     LibraryProvider.validate_task({
                         "type": "vendoring",
@@ -49,6 +50,7 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "maintainer_bz": "nobody@mozilla.com",
                 "revision": self.config.get('commitalert_revision_override', lambda: None)(),
                 "repo_url": path_wrapper((self.config.get('commitalert_repo_override', None) or default_repo)()),
+                "has_patches": False,
                 "tasks": [
                     LibraryProvider.validate_task({
                         "type": "commit-alert",
@@ -66,6 +68,7 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "maintainer_bz": "nobody@mozilla.com",
                 "revision": self.config.get('commitalert_revision_override', lambda: None)(),
                 "repo_url": path_wrapper((self.config.get('commitalert_repo_override', None) or default_repo)()),
+                "has_patches": False,
                 "tasks": [
                     LibraryProvider.validate_task({
                         "type": "commit-alert",

@@ -43,6 +43,7 @@ class Library:
         self.bugzilla_component = dict['bugzilla_component']
         self.revision = dict['revision']
         self.repo_url = dict['repo_url']
+        self.has_patches = dict['has_patches']
         self.maintainer_bz = dict['maintainer_bz']
         self.maintainer_phab = dict['maintainer_phab']
         self.yaml_path = dict['yaml_path']
@@ -155,6 +156,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'bugzilla_component': '',
             'revision': None,
             'repo_url': '',
+            'has_patches': False,
             'maintainer_bz': '',
             'maintainer_phab': '',
             'tasks': [],
@@ -189,6 +191,11 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             validated_library['repo_url'] = library['vendoring']['url']
         else:
             validated_library['repo_url'] = None
+
+        if 'vendoring' in library and 'patches' in library['vendoring']:
+            validated_library['has_patches'] = not not library['vendoring']['patches']
+        else:
+            validated_library['has_patches'] = False
 
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled

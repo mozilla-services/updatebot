@@ -57,4 +57,21 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                     }, "n/a")
                 ],
                 "yaml_path": "mozilla-central/source/media/libaom/moz.yaml"
+            }),
+            Library({
+                "name": "aom",
+                "bugzilla_product": "Core",
+                "bugzilla_component": "Audio/Video: Playback",
+                "maintainer_phab": "nobody",
+                "maintainer_bz": "nobody@mozilla.com",
+                "revision": self.config.get('commitalert_revision_override', lambda: None)(),
+                "repo_url": path_wrapper((self.config.get('commitalert_repo_override', None) or default_repo)()),
+                "tasks": [
+                    LibraryProvider.validate_task({
+                        "type": "commit-alert",
+                        "enabled": True,
+                        "branch": self.config.get('commitalert_branch_override', None)
+                    }, "n/a")
+                ],
+                "yaml_path": "mozilla-central/source/media/libaom/moz.yaml"
             })]

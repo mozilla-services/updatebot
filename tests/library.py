@@ -37,13 +37,36 @@ LIBRARIES = [
                     }
         ],
         "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep)
+    }),
+    Library({
+        'name': 'libpng',
+        'revision': 'v1.6.37',
+        'repo_url': 'https://github.com/glennrp/libpng',
+
+        'bugzilla_product': 'Core',
+        'bugzilla_component': 'ImageLib',
+        'maintainer_bz': 'aosmond@mozilla.com',
+        'maintainer_phab': 'aosmond',
+        'tasks': [
+            {
+                'type': 'vendoring',
+                'enabled': True,
+                'branch': None,
+                'platform': 'linux',
+                'cc': [],
+                'needinfo': [],
+                'frequency': 'every'
+            }
+        ],
+        'yaml_path': '.circleci/gecko-test/libpng/moz.yaml'
     })
 ]
 
 LIBRARY_FIND_OUTPUT = "\n".join([f.replace("/", os.path.sep) for f in [
     "{0}/.circleci/gecko-test/libcubeb/moz.yaml",
     "{0}/.circleci/gecko-test/libaom/moz.yaml",
-    "{0}/.circleci/gecko-test/libdav1d/moz.yaml"
+    "{0}/.circleci/gecko-test/libdav1d/moz.yaml",
+    "{0}/.circleci/gecko-test/libpng/moz.yaml"
 ]]).format(os.getcwd())
 
 

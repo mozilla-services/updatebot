@@ -77,4 +77,27 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                     }, "n/a")
                 ],
                 "yaml_path": "mozilla-central/source/media/libaom/moz.yaml"
+            }),
+            Library({
+                'name': 'libpng',
+                "revision": self.config.get('vendoring_revision_override', None),
+                "repo_url": "https://example.invalid",
+                "has_patches": True,
+
+                'bugzilla_product': 'Core',
+                'bugzilla_component': 'ImageLib',
+                'maintainer_bz': 'aosmond@mozilla.com',
+                'maintainer_phab': 'aosmond',
+                'tasks': [
+                    {
+                        'type': 'vendoring',
+                        'enabled': True,
+                        'branch': None,
+                        'platform': 'linux',
+                        'cc': [],
+                        'needinfo': [],
+                        'frequency': 'every'
+                    }
+                ],
+                'yaml_path': 'mozilla-central/source/media/libpng/moz.yaml'
             })]

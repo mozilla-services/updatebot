@@ -39,8 +39,10 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
     @logEntryExit
     def vendor(self, library, revision):
         try:
-            ret = self.run(
-                ["./mach", "vendor", library.yaml_path, "--ignore-modified", "--revision", revision], clean_return=False)
+            cmd = ["./mach", "vendor", library.yaml_path, "--ignore-modified", "--revision", revision]
+            if library.has_patches:
+                cmd += ["--patch-mode", "none"]
+            ret = self.run(cmd, clean_return=False)
 
             if ret.returncode == 0:
                 return (VendorResult.SUCCESS, "")
@@ -59,3 +61,8 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
             else:
                 msg = str(e)
             return (VendorResult.GENERAL_ERROR, msg)
+
+    @logEntryExit
+    def patch(self, library, revision):
+        cmd = ["./mach", "vendor", library.yaml_path, "--ignore-modified", "--patch-mode", "only"]
+        self.run(cmd, clean_return=True)

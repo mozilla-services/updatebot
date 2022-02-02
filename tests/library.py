@@ -20,6 +20,7 @@ LIBRARIES = [
         "name": "dav1d",
         "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e",
         "repo_url": "https://code.videolan.org/videolan/dav1d.git",
+        "has_patches": False,
 
         "bugzilla_product": "Core",
         "bugzilla_component": "Audio/Video: Playback",
@@ -42,6 +43,7 @@ LIBRARIES = [
         'name': 'libpng',
         'revision': 'v1.6.37',
         'repo_url': 'https://github.com/glennrp/libpng',
+        "has_patches": True,
 
         'bugzilla_product': 'Core',
         'bugzilla_component': 'ImageLib',

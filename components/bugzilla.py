@@ -123,6 +123,16 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
         return s
 
     @staticmethod
+    def COULD_NOT_GENERAL_ERROR(library, action, errormessage=None):
+        s = "Updatebot encountered an error while trying to %s" % action
+        if errormessage:
+            s += " with the following message:\n\n"
+            for line in errormessage.split("\n"):
+                s += "> " + line + "\n"
+        s += "\nUpdatebot will be unable to do anything more for this library version."
+        return s
+
+    @staticmethod
     def COULD_NOT_VENDOR_ALL_FILES(library, errormessage):
         s = "`./mach vendor %s` reported an error editing moz.build files:" % library.yaml_path
         for line in errormessage.split("\n"):

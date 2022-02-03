@@ -485,6 +485,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
             query = "INSERT INTO try_runs(revision, job_id, purpose) VALUES(%s, %s, %s)"
             args = (try_run, job_id, try_run_type)
             self._query_execute(query, args)
+        return self.get_job(library, new_version, False)
 
     @logEntryExit
     def update_job_status(self, existing_job):

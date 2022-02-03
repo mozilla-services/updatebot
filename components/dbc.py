@@ -68,6 +68,9 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
             existing_job.outcome = newoutcome
         return self.db.update_job_status(existing_job)
 
+    def update_job_add_phab_revision(self, existing_job, phab_revision):
+        return self.db.update_job_add_phab_revision(existing_job, phab_revision)
+
     def update_job_ff_versions(self, existing_job, ff_version_to_add):
         return self.db.update_job_ff_versions(existing_job, ff_version_to_add)
 

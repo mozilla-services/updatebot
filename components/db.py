@@ -509,8 +509,14 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def update_job_status(self, existing_job):
-        query = "UPDATE jobs SET status=%s, outcome=%s WHERE library = %s AND version = %s"
-        args = (existing_job.status, existing_job.outcome, existing_job.library_shortname, existing_job.version)
+        query = "UPDATE jobs SET status=%s, outcome=%s WHERE id = %s"
+        args = (existing_job.status, existing_job.outcome, existing_job.id)
+        self._query_execute(query, args)
+
+    @logEntryExit
+    def update_job_add_phab_revision(self, existing_job, phab_revision):
+        query = "UPDATE jobs SET phab_revision=%s WHERE id = %s"
+        args = (phab_revision, existing_job.id)
         self._query_execute(query, args)
 
     @logEntryExit

@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 11
+CURRENT_DATABASE_CONFIG_VERSION = 12
 
 CREATION_QUERIES = {
     "config": """
@@ -213,6 +213,17 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
             # This is how we handle database upgrades
             if config_version != CURRENT_DATABASE_CONFIG_VERSION:
                 self.logger.log("Going to try to process a database configuration upgrade from %s to %s" % (config_version, CURRENT_DATABASE_CONFIG_VERSION), level=LogLevel.Warning)
+
+                # We're going to use this function a lot
+                def any_in(needles, haystack):
+                    for needle in needles:
+                        try:
+                            if needle in haystack:
+                                return True
+                        except Exception:
+                            pass
+                    return False
+
                 try:
                     if config_version <= 1 and CURRENT_DATABASE_CONFIG_VERSION >= 2:
                         self.logger.log("Upgrading to database version 2", level=LogLevel.Warning)
@@ -344,8 +355,17 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                         self._query_execute("ALTER TABLE `jobs` DROP COLUMN `ff_version`")
 
                     if config_version <= 10 and CURRENT_DATABASE_CONFIG_VERSION >= 11:
+                        self.logger.log("Upgrading to database version 11", level=LogLevel.Warning)
+
                         for q in INSERTION_QUERIES:
-                            if 'RELINQUISHED' in q.query:
+                            if any_in(['RELINQUISHED'], q.args):
+                                self._query_execute(q.query, q.args)
+
+                    if config_version <= 11 and CURRENT_DATABASE_CONFIG_VERSION >= 12:
+                        self.logger.log("Upgrading to database version 12", level=LogLevel.Warning)
+
+                        for q in INSERTION_QUERIES:
+                            if any_in(['CREATED', 'COULD_NOT_COMMIT', 'COULD_NOT_PATCH', 'COULD_NOT_COMMIT_PATCHES', 'COULD_NOT_SUBMIT_TO_TRY', 'COULD_NOT_SUBMIT_TO_PHAB', 'COULD_NOT_REVENDOR', 'COULD_NOT_SET_PHAB_REVIEWER', 'COULD_NOT_ABANDON'], q.args):
                                 self._query_execute(q.query, q.args)
 
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"

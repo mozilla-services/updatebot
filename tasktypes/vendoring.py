@@ -110,9 +110,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
                 if old_job.phab_revision:
                     self.phabricatorProvider.abandon(old_job.phab_revision)
-                old_job.status = JOBSTATUS.RELINQUISHED
-                old_job.outcome = JOBOUTCOME.ABORTED
-                self.dbProvider.update_job_status(old_job)
+                self.dbProvider.update_job_status(old_job, JOBSTATUS.RELINQUISHED, JOBOUTCOME.ABORTED)
             clean_up_old_job = clean_up_old_job_style2
 
         # Then we need to check if there are any job-completed but still-open bugs for a _different revision_
@@ -139,8 +137,7 @@ class VendorTaskRunner(BaseTaskRunner):
                     self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
                     if old_job.phab_revision:
                         self.phabricatorProvider.abandon(old_job.phab_revision)
-                    old_job.status = JOBSTATUS.RELINQUISHED
-                    self.dbProvider.update_job_status(old_job)
+                    self.dbProvider.update_job_status(old_job, newstatus=JOBSTATUS.RELINQUISHED)
                 clean_up_old_job = clean_up_old_job_style3
 
         # ==========================================================================================
@@ -337,9 +334,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 if "build" in j.job_type_name:
                     self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer_bz)
                     self.phabricatorProvider.abandon(existing_job.phab_revision)
-                    existing_job.status = JOBSTATUS.DONE
-                    existing_job.outcome = JOBOUTCOME.BUILD_FAILED
-                    self.dbProvider.update_job_status(existing_job)
+                    self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
                     return False
 
         return True
@@ -363,8 +358,7 @@ class VendorTaskRunner(BaseTaskRunner):
         try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")
         self.dbProvider.add_try_run(existing_job, try_revision_2, 'more platforms')
         self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision_2, another=True))
-        existing_job.status = JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
-        self.dbProvider.update_job_status(existing_job)
+        self.dbProvider.update_job_status(existing_job, newstatus==JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
 
     # ==================================
 
@@ -386,8 +380,7 @@ class VendorTaskRunner(BaseTaskRunner):
             for j in results['to_retrigger']:
                 self.logger.log(j.job_type_name + " " + j.task_id, level=LogLevel.Debug)
             self.taskclusterProvider.retrigger_jobs(results['to_retrigger'])
-            existing_job.status = JOBSTATUS.AWAITING_RETRIGGER_RESULTS
-            self.dbProvider.update_job_status(existing_job)
+            self.dbProvider.update_job_status(existing_job, newstatus=JOBSTATUS.AWAITING_RETRIGGER_RESULTS)
             return
 
         self._process_job_results(library, task, existing_job, results, comment_lines)
@@ -431,8 +424,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_ALL_SUCCESS(), assignee=library.maintainer_bz)
             self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
 
-        existing_job.status = JOBSTATUS.DONE
-        self.dbProvider.update_job_status(existing_job)
+        self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
 
     # ==================================
 
@@ -446,6 +438,4 @@ class VendorTaskRunner(BaseTaskRunner):
             self.logger.log(c, level=LogLevel.Debug)
 
         self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz)
-        existing_job.outcome = JOBOUTCOME.UNCLASSIFIED_FAILURES
-        existing_job.status = JOBSTATUS.DONE
-        self.dbProvider.update_job_status(existing_job)
+        self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)

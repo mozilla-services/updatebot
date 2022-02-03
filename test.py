@@ -20,6 +20,7 @@ TESTS = [
     "treeherder_api",
     "library",
     "lambda_capture",
+    "class_passing",
     "frequency"
 ]
 

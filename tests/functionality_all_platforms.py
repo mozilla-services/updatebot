@@ -245,6 +245,29 @@ class TestFunctionality(SimpleLoggingTest):
         _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
         TestFunctionality._cleanup(u, expected_values)
 
+    @logEntryExit
+    def testPatchJob(self):
+
+        global was_patched
+        was_patched = False
+
+        def patch_callback(cmd):
+            global was_patched
+            was_patched = True
+
+        library_filter = 'png'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            library_filter,
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [],  # filed_bug_ids_func
+            callbacks={'patch': patch_callback}
+        )
+        u.run(library_filter=library_filter)
+        _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+        self.assertTrue(was_patched, "Did not successfully patch as expected.")
+        TestFunctionality._cleanup(u, expected_values)        
+
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
     @logEntryExit
     def testExistingJobClassifiedFailures(self):

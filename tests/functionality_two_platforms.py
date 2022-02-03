@@ -29,6 +29,7 @@ from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
+from tests.functionality_utilities import TRY_OUTPUT, ARC_OUTPUT, CONDUIT_USERNAME_SEARCH_OUTPUT, CONDUIT_EDIT_OUTPUT, GIT_DIFF_FILES_CHANGES, GIT_COMMIT_BODY
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServer, reset_seen_counters
@@ -39,95 +40,6 @@ try:
 except ImportError:
     log("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
-
-
-def TRY_OUTPUT(revision):
-    return """
-warning: 'mach try auto' is experimental, results may vary!
-Test configuration changed. Regenerating backend.
-Creating temporary commit for remote...
-A try_task_config.json
-pushing to ssh://hg.mozilla.org/try
-searching for changes
-remote: adding changesets
-remote: adding manifests
-remote: adding file changes
-remote: recorded push in pushlog
-remote: added 2 changesets with 1 changes to 6 files (+1 heads)
-remote:
-remote: View your changes here:
-remote:   https://hg.mozilla.org/try/rev/a8adec7d117968b8f0006a9e54393dba7c444717
-remote:   https://hg.mozilla.org/try/rev/%s
-remote:
-remote: Follow the progress of your build on Treeherder:
-remote:   https://treeherder.mozilla.org/#/jobs?repo=try&revision=%s
-remote: recorded changegroup in replication log in 0.011s
-push complete
-temporary commit removed, repository restored
-""" % (revision, revision)
-
-
-ARC_OUTPUT = """
-Submitting 1 commit for review:
-(New) 539627:dc5f73bea33e Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
-dc5f73bea33e is based off non-public commit 76fbb2477f01
-Warning: found 2 untracked files (will not be submitted):
-  sshkey.patch
-  taskcluster/ci/fetch/toolchains.yml.orig
-Automatically submitting (as per submit.auto_submit in ~/.moz-phab-config)
-
-Creating new revision:
-539627:dc5f73bea33e Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
-1 new orphan changesets
-rebasing 539628:2f4625139f7e "Bug 1652037 - Wire up build_clang_tidy_external in build-clang.py r?#build" (civet)
-1 files updated, 0 files merged, 0 files removed, 0 files unresolved
-(activating bookmark civet)
-
-Completed
-(D%s) 539629:94adaadd8131 Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
--> https://phabricator-dev.allizom.org/D%s
-"""
-
-CONDUIT_USERNAME_SEARCH_OUTPUT = """
-{"error":null,"errorMessage":null,"response":{"data":[{"id":154,"type":"USER","phid":"PHID-USER-dd6rge2k2csia46r2wcw","fields":{"username":"tjr","realName":"Tom Ritter","roles":["verified","approved","activated"],"dateCreated":1519415695,"dateModified":1519416233,"policy":{"view":"public","edit":"no-one"}},"attachments":[]}],"maps":[],"query":{"queryKey":null},"cursor":{"limit":100,"after":null,"before":null,"order":null}}}
-"""
-
-CONDUIT_EDIT_OUTPUT = """
-{"error":null,"errorMessage":null,"response":{"object":{"id":3643,"phid":"PHID-DREV-4pi6s6fwd57bktfzvfns"},"transactions":[{"phid":"PHID-XACT-DREV-om5mlg2ib34yaoi"},{"phid":"PHID-XACT-DREV-2pzq4qktezb7qqc"}]}}
-"""
-
-GIT_PRETTY_OUTPUT = """
-c8011782e13d5c1c402b07b7a02efa2f8d400efa|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000
-f9e59ad078552424ca165644f4da3b4e2687c3dc|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000
-62c10c170bb33f1ad6c9eb13d0cbdf13f95fb27e|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000
-"""
-
-GIT_DIFF_FILES_CHANGES = """
-M	src/libANGLE/renderer/vulkan/VertexArrayVk.cpp
-M	src/tests/gl_tests/StateChangeTest1.cpp
-A	src/tests/gl_tests/StateChangeTest2.cpp
-D	src/tests/gl_tests/StateChangeTest3.cpp
-R	src/tests/gl_tests/StateChangeTest4.cpp
-Q	src/tests/gl_tests/StateChangeTest5.cpp
-"""
-
-GIT_COMMIT_BODY = """
-If glBufferSubData results in a new vk::BufferHelper allocation,
-VertexArrayVk::mCurrentElementArrayBuffer needs to be updated.
-VertexArrayVk::syncState was working under the assumption that
-DIRTY_BIT_ELEMENT_ARRAY_BUFFER_DATA cannot result in a vk::BufferHelper
-pointer change.
-
-This assumption was broken in
-https://chromium-review.googlesource.com/c/angle/angle/+/2204655.
-
-Bug: b/178231226
-Change-Id: I969549c5ffec3456bdc08ac3e03a0fa0e7b4593f
-(cherry picked from commit bb062070cb5257098f0e2d775fa66b74d6d32468)
-Reviewed-on: https://chromium-review.googlesource.com/c/angle/angle/+/2693346
-Reviewed-by: Jamie Madill <jmadill@chromium.org>
-Commit-Queue: Jamie Madill <jmadill@chromium.org>
-"""
 
 
 def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, try_revisions_func, get_filed_bug_id_func):

@@ -11,7 +11,7 @@ def AssertFalse(a=False, b=False, c=False):
     assert False, "We should not have called this function in this test."
 
 
-def SHARED_COMMAND_MAPPINGS(expected_values, abandon_callback):
+def SHARED_COMMAND_MAPPINGS(expected_values, callbacks):
     def echo_str(s):
         if platform.system() != "Windows":
             return s.replace("echo {", "echo '{")
@@ -25,7 +25,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, abandon_callback):
         "arc diff --verbatim": lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func()),
         echo_str("echo {\"constraints\""): lambda: CONDUIT_USERNAME_SEARCH_OUTPUT,
         echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""): lambda: CONDUIT_EDIT_OUTPUT,
-        echo_str("echo {\"transactions\": [{\"type\":\"abandon\""): abandon_callback if abandon_callback else AssertFalse,
+        echo_str("echo {\"transactions\": [{\"type\":\"abandon\""): callbacks['abandon'] if 'abandon' in callbacks else AssertFalse,
         echo_str("echo {\"transactions\": [{\"type\":\"bugzilla.bug-id\""): lambda: CONDUIT_EDIT_OUTPUT,
         "git log -1 --oneline": lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output",
         "git clone https://example.invalid .": lambda: "",

@@ -51,8 +51,8 @@ def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func):
     })
 
 
-def COMMAND_MAPPINGS(expected_values, abandon_callback):
-    ret = SHARED_COMMAND_MAPPINGS(expected_values, abandon_callback)
+def COMMAND_MAPPINGS(expected_values, callbacks):
+    ret = SHARED_COMMAND_MAPPINGS(expected_values, callbacks)
     ret.update({
         "./mach try auto": lambda: TRY_OUTPUT(expected_values.try_revision_id()),
     })
@@ -148,7 +148,7 @@ class TestFunctionality(SimpleLoggingTest):
                get_filed_bug_id_func,
                filed_bug_ids_func,
                assert_affected_func=None,
-               abandon_callback=None,
+               callbacks={},
                keep_tmp_db=False):
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         db_config['keep_tmp_db'] = keep_tmp_db
@@ -181,7 +181,7 @@ class TestFunctionality(SimpleLoggingTest):
         }
 
         expected_values = DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func)
-        configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values, abandon_callback)
+        configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values, callbacks)
 
         u = Updatebot(configs, PROVIDERS)
         _check_jobs = functools.partial(TestFunctionality._check_jobs, u, library_filter, expected_values)
@@ -290,7 +290,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            abandon_callback=abandon_callback
+            callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -439,7 +439,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             get_filed_bug_id,
             get_filed_bugs,
-            abandon_callback=abandon_callback
+            callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -520,7 +520,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             get_filed_bug_id,
             get_filed_bugs,
-            abandon_callback=abandon_callback
+            callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -607,7 +607,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             get_filed_bug_id,
             get_filed_bugs,
-            abandon_callback=abandon_callback
+            callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -716,7 +716,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             get_filed_bug_id,
             get_filed_bugs,
-            abandon_callback=abandon_callback
+            callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -879,7 +879,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             get_filed_bug_id,
             get_filed_bugs,
-            abandon_callback=abandon_callback
+            callbacks={'abandon': abandon_callback}
         )
 
         try:

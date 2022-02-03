@@ -291,6 +291,29 @@ class TestFunctionality(SimpleLoggingTest):
 
         TestFunctionality._cleanup(u, expected_values)
 
+    # Create -> ./mach vendor -> Fails during committing
+    @logEntryExit
+    def testFailsDuringCommit(self):
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            library_filter,
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [],  # filed_bug_ids_func
+            callbacks={'commit': lambda: raise_(Exception("No commiting!"))}
+        )
+        u.run(library_filter=library_filter)
+
+        # Cannot use the provided _check_jobs
+        lib = u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path'])[0]
+        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+        self.assertEqual(expected_values.library_new_version_id(), j.version)
+        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+        self.assertEqual(JOBOUTCOME.COULD_NOT_COMMIT, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_COMMIT, got outcome %s" % (j.outcome.name))
+        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+
+        TestFunctionality._cleanup(u, expected_values)
+
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
     @logEntryExit
     def testExistingJobClassifiedFailures(self):

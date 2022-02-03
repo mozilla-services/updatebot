@@ -108,9 +108,15 @@ class VendorTaskRunner(BaseTaskRunner):
             def clean_up_old_job_style2(old_job, new_bug_id):
                 self.logger.log("Marking active Job ID %s as superseded by Bug ID %s ." % (old_job.id, new_bug_id), level=LogLevel.Info)
                 self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
-                if old_job.phab_revision:
-                    self.phabricatorProvider.abandon(old_job.phab_revision)
-                self.dbProvider.update_job_status(old_job, JOBSTATUS.RELINQUISHED, JOBOUTCOME.ABORTED)
+                try:
+                    if old_job.phab_revision:
+                        self.phabricatorProvider.abandon(old_job.phab_revision)
+                except Exception as e:
+                    self.dbProvider.update_job_status(old_job, JOBSTATUS.RELINQUISHED, JOBOUTCOME.COULD_NOT_ABANDON)
+                    # We're going to log this exception, but not stop processing the new job
+                    self.logger.log_exception(e)
+                else:
+                    self.dbProvider.update_job_status(old_job, JOBSTATUS.RELINQUISHED, JOBOUTCOME.ABORTED)
             clean_up_old_job = clean_up_old_job_style2
 
         # Then we need to check if there are any job-completed but still-open bugs for a _different revision_
@@ -135,9 +141,15 @@ class VendorTaskRunner(BaseTaskRunner):
                 def clean_up_old_job_style3(old_job, new_bug_id):
                     self.logger.log("Marking completed Job ID %s as superseded by Bug ID %s ." % (old_job.id, new_bug_id), level=LogLevel.Info)
                     self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
-                    if old_job.phab_revision:
-                        self.phabricatorProvider.abandon(old_job.phab_revision)
+                    try:
+                        if old_job.phab_revision:
+                            self.phabricatorProvider.abandon(old_job.phab_revision)
+                    except Exception as e:
+                        # We're going to log this exception, but not stop processing the new job
+                        self.logger.log_exception(e)
+                    # The job is done, so we're not going to change its outcome to COULD_NOT_ABANDON
                     self.dbProvider.update_job_status(old_job, newstatus=JOBSTATUS.RELINQUISHED)
+
                 clean_up_old_job = clean_up_old_job_style3
 
         # ==========================================================================================
@@ -148,11 +160,13 @@ class VendorTaskRunner(BaseTaskRunner):
         all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, existing_jobs)
         commit_details = self.scmProvider.build_bug_description(all_upstream_commits)
 
+        # File the bug ----------------
         bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc)
-        clean_up_old_job(old_job, bugzilla_id)
+        # Create a job in the db immediately after we file a bug so we don't file a million bugs if we fail below.
+        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING, bugzilla_id, phab_revision=None)
+        clean_up_old_job(old_job, created_job.bugzilla_id)
 
-        try_run_type = 'initial platform' if self.config['General']['separate-platforms'] else 'all platforms'
-
+        # Vendor ----------------------
         (result, msg) = self.vendorProvider.vendor(library, new_version)
         if result == VendorResult.GENERAL_ERROR:
             # We're not going to commit these changes; so clean them out.
@@ -160,26 +174,59 @@ class VendorTaskRunner(BaseTaskRunner):
             self.cmdProvider.run(["hg", "purge", "."])
 
             # Handle `./mach vendor` failing
-            self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR, bugzilla_id, phab_revision=None)
-            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, msg), needinfo=library.maintainer_bz)
+            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, msg), needinfo=library.maintainer_bz)
             return
         elif result == VendorResult.MOZBUILD_ERROR:
             # Add a comment but do not abort
-            self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, msg))
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, msg))
 
-        self.mercurialProvider.commit(library, bugzilla_id, new_version)
+        # Commit ----------------------
+        try:
+            self.mercurialProvider.commit(library, created_job.bugzilla_id, new_version)
+        except Exception as e:
+            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit the updated library."), needinfo=library.maintainer_bz)
+            raise e
 
         if library.has_patches:
-            self.vendorProvider.patch(library, new_version)
-            self.mercurialProvider.commit_patches(library, bugzilla_id, new_version)
+            # Apply Patches -----------
+            try:
+                self.vendorProvider.patch(library, new_version)
+            except Exception as e:
+                self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "apply the mozilla patches."), needinfo=library.maintainer_bz)
+                raise e
+            # Commit Patches ----------
+            try:
+                self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)
+            except Exception as e:
+                self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES)
+                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit after applying mozilla patches."), needinfo=library.maintainer_bz)
+                raise e
 
-        platform_restriction = "linux64" if self.config['General']['separate-platforms'] else ""
-        next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
-        try_revision = self.taskclusterProvider.submit_to_try(library, platform_restriction)
+        # Submit to Try --------------
+        try:
+            platform_restriction = "linux64" if self.config['General']['separate-platforms'] else ""
+            next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
+            try_run_type = 'initial platform' if self.config['General']['separate-platforms'] else 'all platforms'
+            try_revision = self.taskclusterProvider.submit_to_try(library, platform_restriction)
+            self.dbProvider.add_try_run(created_job, try_revision, try_run_type)
+            self.dbProvider.update_job_status(created_job, newstatus=next_status)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
+        except Exception as e:
+            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try."), needinfo=library.maintainer_bz)
+            raise e
 
-        self.bugzillaProvider.comment_on_bug(bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
-        phab_revision = self.phabricatorProvider.submit_patch(bugzilla_id)
-        self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, next_status, JOBOUTCOME.PENDING, bugzilla_id, phab_revision, try_revision, try_run_type)
+        # Submit Phab Revision --------
+        try:
+            phab_revision = self.phabricatorProvider.submit_patch(created_job.bugzilla_id)
+            self.dbProvider.update_job_add_phab_revision(created_job, phab_revision)
+        except Exception as e:
+            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to phabricator."), needinfo=library.maintainer_bz)
+            raise e
 
     # ====================================================================
     # ====================================================================
@@ -352,13 +399,32 @@ class VendorTaskRunner(BaseTaskRunner):
 
         self.logger.log("All jobs completed, we're going to go to the next set of platforms.", level=LogLevel.Info)
 
-        self.vendorProvider.vendor(library, existing_job.version)
-        self.mercurialProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
+        # Re-Vendor -------------------
+        try:
+            self.vendorProvider.vendor(library, existing_job.version)
+        except Exception as e:
+            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_REVENDOR)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "re-vendor the library."), needinfo=library.maintainer_bz)
+            raise e
 
-        try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")
-        self.dbProvider.add_try_run(existing_job, try_revision_2, 'more platforms')
-        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision_2, another=True))
-        self.dbProvider.update_job_status(existing_job, newstatus==JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
+        # Re-Commit -------------------
+        try:
+            self.mercurialProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
+        except Exception as e:
+            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit the updated library."), needinfo=library.maintainer_bz)
+            raise e
+
+        # Submit to Try -------------------
+        try:
+            try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")
+            self.dbProvider.add_try_run(existing_job, try_revision_2, 'more platforms')
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision_2, another=True))
+            self.dbProvider.update_job_status(existing_job, newstatus=JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
+        except Exception as e:
+            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try."), needinfo=library.maintainer_bz)
+            raise e
 
     # ==================================
 
@@ -415,14 +481,25 @@ class VendorTaskRunner(BaseTaskRunner):
                 comment += c + "\n"
 
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
-            self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+            try:
+                self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+            except Exception as e:
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."), needinfo=library.maintainer_bz)
+                raise e
 
         # Everything.... succeeded?
         else:
             self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
             existing_job.outcome = JOBOUTCOME.ALL_SUCCESS
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_ALL_SUCCESS(), assignee=library.maintainer_bz)
-            self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+
+            try:
+                self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+            except Exception as e:
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."), needinfo=library.maintainer_bz)
+                raise e
 
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
 

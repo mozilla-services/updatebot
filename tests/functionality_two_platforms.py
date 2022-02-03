@@ -265,19 +265,26 @@ class TestFunctionality(SimpleLoggingTest):
 
     @logEntryExitHeaderLine
     def testPatchJob(self):
-        # XXX TODO(#223): Need to add an abandon_callback-type thing so we can ensure the
-        #           patching actually took place. But make the mechanism generic so we can
-        #           specify callbacks for any command...
+
+        global was_patched
+        was_patched = False
+
+        def patch_callback(cmd):
+            global was_patched
+            was_patched = True
+
         library_filter = 'png'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [],  # filed_bug_ids_func
+            callbacks={'patch': patch_callback}
         )
         u.run(library_filter=library_filter)
         _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+        self.assertTrue(was_patched, "Did not successfully patch as expected.")
         TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures

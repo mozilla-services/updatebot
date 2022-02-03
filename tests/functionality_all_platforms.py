@@ -17,7 +17,7 @@ sys.path.append(".")
 sys.path.append("..")
 from automation import Updatebot
 
-from components.utilities import Struct
+from components.utilities import Struct, raise_
 from components.providerbase import BaseProvider
 from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExit
 from components.dbc import DatabaseProvider
@@ -266,7 +266,30 @@ class TestFunctionality(SimpleLoggingTest):
         u.run(library_filter=library_filter)
         _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
         self.assertTrue(was_patched, "Did not successfully patch as expected.")
-        TestFunctionality._cleanup(u, expected_values)        
+        TestFunctionality._cleanup(u, expected_values)
+
+    # Create -> Fails during ./mach vendor
+    @logEntryExit
+    def testFailsDuringVendor(self):
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            library_filter,
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [],  # filed_bug_ids_func
+            callbacks={'vendor': lambda: raise_(Exception("No vendoring!"))}
+        )
+        u.run(library_filter=library_filter)
+
+        # Cannot use the provided _check_jobs
+        lib = u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path'])[0]
+        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+        self.assertEqual(expected_values.library_new_version_id(), j.version)
+        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+        self.assertEqual(JOBOUTCOME.COULD_NOT_VENDOR, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_VENDOR, got outcome %s" % (j.outcome.name))
+        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+
+        TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
     @logEntryExit

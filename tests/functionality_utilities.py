@@ -18,7 +18,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, callbacks):
     return {
         "./mach vendor --patch-mode only": callbacks['patch'] if 'patch' in callbacks else AssertFalse,
         "./mach vendor --check-for-update": lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00",
-        "./mach vendor --ignore-modified": lambda: "",
+        "./mach vendor --ignore-modified": callbacks['vendor'] if 'vendor' in callbacks else lambda: "",
         "hg commit": lambda: "",
         "hg checkout -C .": lambda: "",
         "hg purge .": lambda: "",

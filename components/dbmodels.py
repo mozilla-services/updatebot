@@ -7,6 +7,27 @@
 from enum import unique, IntEnum
 
 
+# If not separate-platforms,
+#     goes straight to
+#     SECOND_PLATFORMS
+#      ┌──────────────── CREATED ────────────────────┐ Skips to DONE on error
+#      │                    │                        │
+#      │                    ▼                        │
+#      │   AWAITING_INITIAL_PLATFORM_TRY_RESULTS ────┼───┐
+#      │                    │                        │   │
+#      │                    ▼                        │   │
+#      └─► AWAITING_SECOND_PLATFORMS_TRY_RESULTS ────┼───┤
+#                           │                        │   │ Moves to Relinquished if
+#                           │                        │   │ a new job pre-empts it
+#                           ▼                        │   │
+#               AWAITING_RETRIGGER_RESULTS ──────────┼───┤
+#                           │                        │   │
+#                           ▼                        │   │
+#                          DONE ◄────────────────────┘   │
+#                           │                            │
+#                           ▼                            │
+#                      RELINQUISHED ◄────────────────────┘
+#
 @unique
 class JOBSTATUS(IntEnum):
     AWAITING_INITIAL_PLATFORM_TRY_RESULTS = 1
@@ -14,6 +35,7 @@ class JOBSTATUS(IntEnum):
     AWAITING_RETRIGGER_RESULTS = 3
     DONE = 4
     RELINQUISHED = 5
+    CREATED = 6
 
 
 @unique
@@ -26,6 +48,14 @@ class JOBOUTCOME(IntEnum):
     ALL_SUCCESS = 6
     ABORTED = 7
     CROSS_VERSION_STUB = 8
+    COULD_NOT_COMMIT = 9
+    COULD_NOT_PATCH = 10
+    COULD_NOT_COMMIT_PATCHES = 11
+    COULD_NOT_SUBMIT_TO_TRY = 12
+    COULD_NOT_SUBMIT_TO_PHAB = 13
+    COULD_NOT_REVENDOR = 14
+    COULD_NOT_SET_PHAB_REVIEWER = 15
+    COULD_NOT_ABANDON = 16
 
 
 @unique

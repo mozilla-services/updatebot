@@ -61,14 +61,12 @@ class TestDatabaeQueries(unittest.TestCase):
         })
         version = "test_new_version"
         bugid = 50
-        phab_revision = 30
-        try_link = "test_try_link"
 
         try:
             self.assertEqual(None, self.db.get_job(library, version))
 
             self.db.create_job(JOBTYPE.VENDORING, library, version,
-                               JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugid, phab_revision, try_link, 'db test')
+                               JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugid)
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
@@ -78,11 +76,6 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(newJob.status, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS)
             self.assertEqual(newJob.outcome, JOBOUTCOME.PENDING)
             self.assertEqual(newJob.bugzilla_id, bugid)
-            self.assertEqual(newJob.phab_revision, phab_revision)
-            self.assertEqual(len(newJob.try_runs), 1)
-            self.assertEqual(newJob.try_runs[0].revision, try_link)
-            self.assertEqual(newJob.try_runs[0].job_id, newJob.id)
-            self.assertEqual(newJob.try_runs[0].purpose, 'db test')
         finally:
             self.db.delete_job(job_id=newJob.id)
 

@@ -24,7 +24,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, callbacks):
         "hg purge .": lambda: "",
         "hg status": lambda: "",
         "hg strip": lambda: "",
-        "arc diff --verbatim": lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func()),
+        "arc diff --verbatim": callbacks['phab_submit'] if 'phab_submit' in callbacks else lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func()),
         echo_str("echo {\"constraints\""): lambda: CONDUIT_USERNAME_SEARCH_OUTPUT,
         echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""): lambda: CONDUIT_EDIT_OUTPUT,
         echo_str("echo {\"transactions\": [{\"type\":\"abandon\""): callbacks['abandon'] if 'abandon' in callbacks else AssertFalse,

@@ -163,7 +163,7 @@ class VendorTaskRunner(BaseTaskRunner):
         # File the bug ----------------
         bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc)
         # Create a job in the db immediately after we file a bug so we don't file a million bugs if we fail below.
-        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING, bugzilla_id, phab_revision=None)
+        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING, bugzilla_id)
         clean_up_old_job(old_job, created_job.bugzilla_id)
 
         # Vendor ----------------------

@@ -57,9 +57,9 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def delete_job(self, library=None, version=None, job_id=None):
         return self.db.delete_job(library=library, version=version, job_id=job_id)
 
-    def create_job(self, jobtype, library, new_version, status, outcome, bug_id, phab_revision=None, try_run=None, try_run_type=None):
+    def create_job(self, jobtype, library, new_version, status, outcome, bug_id):
         assert self.config['General']['ff-version'], "Called create_job but self.config['General']['ff-version'] was not provided"
-        return self.db.create_job(jobtype, library, new_version, self.config['General']['ff-version'], status, outcome, bug_id, phab_revision, try_run, try_run_type)
+        return self.db.create_job(jobtype, library, new_version, self.config['General']['ff-version'], status, outcome, bug_id)
 
     def update_job_status(self, existing_job, newstatus=None, newoutcome=None):
         if newstatus:

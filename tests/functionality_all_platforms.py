@@ -243,9 +243,11 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
         )
-        u.run(library_filter=library_filter)
-        _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
-        TestFunctionality._cleanup(u, expected_values)
+        try:
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     @logEntryExit
     def testPatchJob(self):
@@ -265,10 +267,12 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: [],  # filed_bug_ids_func
             callbacks={'patch': patch_callback}
         )
-        u.run(library_filter=library_filter)
-        _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
-        self.assertTrue(was_patched, "Did not successfully patch as expected.")
-        TestFunctionality._cleanup(u, expected_values)
+        try:
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            self.assertTrue(was_patched, "Did not successfully patch as expected.")
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> Fails during ./mach vendor
     @logEntryExit
@@ -281,17 +285,19 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: [],  # filed_bug_ids_func
             callbacks={'vendor': lambda: raise_(Exception("No vendoring!"))}
         )
-        u.run(library_filter=library_filter)
+        try:
+            u.run(library_filter=library_filter)
 
-        # Cannot use the provided _check_jobs
-        lib = u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path'])[0]
-        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
-        self.assertEqual(expected_values.library_new_version_id(), j.version)
-        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
-        self.assertEqual(JOBOUTCOME.COULD_NOT_VENDOR, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_VENDOR, got outcome %s" % (j.outcome.name))
-        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+            # Cannot use the provided _check_jobs
+            lib = u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path'])[0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_VENDOR, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_VENDOR, got outcome %s" % (j.outcome.name))
+            self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
-        TestFunctionality._cleanup(u, expected_values)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> Fails during committing
     @logEntryExit
@@ -304,17 +310,19 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: [],  # filed_bug_ids_func
             callbacks={'commit': lambda: raise_(Exception("No commiting!"))}
         )
-        u.run(library_filter=library_filter)
+        try:
+            u.run(library_filter=library_filter)
 
-        # Cannot use the provided _check_jobs
-        lib = u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path'])[0]
-        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
-        self.assertEqual(expected_values.library_new_version_id(), j.version)
-        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
-        self.assertEqual(JOBOUTCOME.COULD_NOT_COMMIT, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_COMMIT, got outcome %s" % (j.outcome.name))
-        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+            # Cannot use the provided _check_jobs
+            lib = u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path'])[0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_COMMIT, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_COMMIT, got outcome %s" % (j.outcome.name))
+            self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
-        TestFunctionality._cleanup(u, expected_values)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during mach vendor patch
     @logEntryExit
@@ -327,17 +335,19 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: [],  # filed_bug_ids_func
             callbacks={'patch': lambda: raise_(Exception("No patching!"))}
         )
-        u.run(library_filter=library_filter)
+        try:
+            u.run(library_filter=library_filter)
 
-        # Cannot use the provided _check_jobs
-        lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
-        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
-        self.assertEqual(expected_values.library_new_version_id(), j.version)
-        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
-        self.assertEqual(JOBOUTCOME.COULD_NOT_PATCH, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_PATCH, got outcome %s" % (j.outcome.name))
-        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+            # Cannot use the provided _check_jobs
+            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_PATCH, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_PATCH, got outcome %s" % (j.outcome.name))
+            self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
-        TestFunctionality._cleanup(u, expected_values)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> mach vendor patch -> Fails during committing
     @logEntryExit
@@ -352,17 +362,19 @@ class TestFunctionality(SimpleLoggingTest):
             callbacks={'patch': lambda: "",
                        'commit': lambda: "" if next(commit_calls) < 1 else raise_(Exception("No commiting the patching!"))}
         )
-        u.run(library_filter=library_filter)
+        try:
+            u.run(library_filter=library_filter)
 
-        # Cannot use the provided _check_jobs
-        lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
-        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
-        self.assertEqual(expected_values.library_new_version_id(), j.version)
-        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
-        self.assertEqual(JOBOUTCOME.COULD_NOT_COMMIT_PATCHES, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_COMMIT_PATCHES, got outcome %s" % (j.outcome.name))
-        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+            # Cannot use the provided _check_jobs
+            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_COMMIT_PATCHES, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_COMMIT_PATCHES, got outcome %s" % (j.outcome.name))
+            self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
-        TestFunctionality._cleanup(u, expected_values)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during try submit
     @logEntryExit
@@ -375,17 +387,19 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: [],  # filed_bug_ids_func
             callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
-        u.run(library_filter=library_filter)
+        try:
+            u.run(library_filter=library_filter)
 
-        # Cannot use the provided _check_jobs
-        lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
-        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
-        self.assertEqual(expected_values.library_new_version_id(), j.version)
-        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
-        self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, got outcome %s" % (j.outcome.name))
-        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+            # Cannot use the provided _check_jobs
+            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, got outcome %s" % (j.outcome.name))
+            self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
-        TestFunctionality._cleanup(u, expected_values)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during try submit -> make sure we don't make a new job
     @logEntryExit
@@ -398,20 +412,22 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: [],  # filed_bug_ids_func
             callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
-        u.run(library_filter=library_filter)
+        try:
+            u.run(library_filter=library_filter)
 
-        # Cannot use the provided _check_jobs
-        lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
-        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
-        self.assertEqual(expected_values.library_new_version_id(), j.version)
-        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
-        self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, got outcome %s" % (j.outcome.name))
-        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+            # Cannot use the provided _check_jobs
+            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, got outcome %s" % (j.outcome.name))
+            self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
-        u.run(library_filter=library_filter)
-        self.assertEqual(len(u.dbProvider.get_all_jobs()), 1, "Created a job when we shouldn't")
+            u.run(library_filter=library_filter)
+            self.assertEqual(len(u.dbProvider.get_all_jobs()), 1, "Created a job when we shouldn't")
 
-        TestFunctionality._cleanup(u, expected_values)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> try run -> Fails during phab submit
     @logEntryExit
@@ -424,17 +440,18 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: [],  # filed_bug_ids_func
             callbacks={'phab_submit': lambda: raise_(Exception("No submitting to phabricator!"))}
         )
-        u.run(library_filter=library_filter)
+        try:
+            u.run(library_filter=library_filter)
 
-        # Cannot use the provided _check_jobs
-        lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
-        j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
-        self.assertEqual(expected_values.library_new_version_id(), j.version)
-        self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
-        self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, got outcome %s" % (j.outcome.name))
-        self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
-
-        TestFunctionality._cleanup(u, expected_values)
+            # Cannot use the provided _check_jobs
+            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, got outcome %s" % (j.outcome.name))
+            self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
 
     @logEntryExit
     def testAllNewJobsWithFuzzyQuery(self):

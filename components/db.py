@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 12
+CURRENT_DATABASE_CONFIG_VERSION = 13
 
 CREATION_QUERIES = {
     "config": """
@@ -368,6 +368,13 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                             if any_in(['CREATED', 'COULD_NOT_COMMIT', 'COULD_NOT_PATCH', 'COULD_NOT_COMMIT_PATCHES', 'COULD_NOT_SUBMIT_TO_TRY', 'COULD_NOT_SUBMIT_TO_PHAB', 'COULD_NOT_REVENDOR', 'COULD_NOT_SET_PHAB_REVIEWER', 'COULD_NOT_ABANDON'], q.args):
                                 self._query_execute(q.query, q.args)
 
+                    if config_version <= 12 and CURRENT_DATABASE_CONFIG_VERSION >= 13:
+                        self.logger.log("Upgrading to database version 13", level=LogLevel.Warning)
+
+                        for q in INSERTION_QUERIES:
+                            if any_in(['SPURIOUS_UPDATE'], q.args):
+                                self._query_execute(q.query, q.args)
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -507,6 +514,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     def update_job_status(self, existing_job):
         query = "UPDATE jobs SET status=%s, outcome=%s WHERE id = %s"
         args = (existing_job.status, existing_job.outcome, existing_job.id)
+        self._query_execute(query, args)
+
+    @logEntryExit
+    def update_job_add_bug_id(self, existing_job, bug_id):
+        query = "UPDATE jobs SET bugzilla_id=%s WHERE id = %s"
+        args = (bug_id, existing_job.id)
         self._query_execute(query, args)
 
     @logEntryExit

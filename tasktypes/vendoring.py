@@ -166,14 +166,24 @@ class VendorTaskRunner(BaseTaskRunner):
         all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, existing_jobs)
         commit_details = self.scmProvider.build_bug_description(all_upstream_commits)
 
-        # File the bug ----------------
-        bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc)
-        # Create a job in the db immediately after we file a bug so we don't file a million bugs if we fail below.
-        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING, bugzilla_id)
-        clean_up_old_job(old_job, created_job.bugzilla_id)
+        # Create the job ----------------
+        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING)
 
         # Vendor ----------------------
         (result, msg) = self.vendorProvider.vendor(library, new_version)
+
+        # If it's a spurious update, finish up here
+        if result == VendorResult.SPURIOUS_UPDATE:
+            self.logger.log("Version %s was a spruious update." % new_version)
+            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.SPURIOUS_UPDATE)
+            return
+
+        # File the bug ----------------
+        bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc)
+        self.dbProvider.update_job_add_bug_id(created_job, bugzilla_id)
+        clean_up_old_job(old_job, bugzilla_id)
+
+        # Handle the other vendoring outcomes
         if result == VendorResult.GENERAL_ERROR:
             # We're not going to commit these changes; so clean them out.
             self.cmdProvider.run(["hg", "checkout", "-C", "."])

@@ -12,7 +12,8 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 class VendorResult:
     SUCCESS = 1
     MOZBUILD_ERROR = 2
-    GENERAL_ERROR = 3
+    SPURIOUS_UPDATE = 3
+    GENERAL_ERROR = 4
 
 
 class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
@@ -52,6 +53,8 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
 
             if ret.returncode == 255:
                 return (VendorResult.MOZBUILD_ERROR, msg)
+            elif ret.returncode == 254:
+                return (VendorResult.SPURIOUS_UPDATE, msg)
             else:
                 return (VendorResult.GENERAL_ERROR, msg)
         except Exception as e:

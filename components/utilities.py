@@ -5,6 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import copy
+import pickle
+import functools
+
 from dateutil.parser import parse
 
 
@@ -80,3 +83,38 @@ def merge_dictionaries(a, b, ignored_dicts=[], ignored_keys=[]):
                 c[key] = value
 
     return c
+
+
+# MemoizeImpl is a class that can memoize complex arguments using pickle
+# It is meant to be used on Class members and excludes the first (self) argument
+class MemoizeImpl:
+    misses = 0
+    hits = 0
+
+    def __init__(self, fn):
+        self.fn = fn
+        self.memo = {}
+
+    def __call__(self, *args, **kwds):
+        str = pickle.dumps(args[1:], 1) + pickle.dumps(kwds, 1)
+        if str not in self.memo:
+            MemoizeImpl.misses += 1
+            self.memo[str] = self.fn(*args, **kwds)
+        else:
+            MemoizeImpl.hits += 1
+
+        return self.memo[str]
+
+
+# Memoize is a decorator that allows you to use functools.wraps
+# with a class-based decorator (MemoizeImpl)
+# This is needed so that the @logEntryExit decorator will work
+# and find e.g. __qualname__ (because @wraps populated it)
+def Memoize(func):
+    memoized = MemoizeImpl(func)
+
+    @functools.wraps(func)
+    def helper(*args, **kwargs):
+        return memoized(*args, **kwargs)
+
+    return helper

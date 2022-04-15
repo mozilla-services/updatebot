@@ -6,7 +6,7 @@ import os
 from enum import unique, IntEnum
 import unittest
 import traceback
-from functools import partial
+from functools import partial, wraps
 
 import sentry_sdk
 from sentry_sdk import init as sentry_init, add_breadcrumb, capture_exception, configure_scope
@@ -26,6 +26,7 @@ class LogLevel(IntEnum):
 
 
 def logEntryExit(func, print_arg_list=True, header_line=False):
+    @wraps(func)
     def func_wrapper(*args, **kwargs):
         obj = args[0]
         assert 'logger' in dir(obj), "If @logEntryExit is applied to a class method, it must inherit INeedsLoggingProvider"

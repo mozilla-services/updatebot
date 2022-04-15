@@ -20,6 +20,12 @@ class NeverUseMeClass:
     def update_config(self, config):
         pass
 
+    def initialize(self):
+        pass
+
+    def reset(self):
+        pass
+
     def __getattr__(self, *args, **kwargs):
         raise Exception("No methods on this class should be called")
 

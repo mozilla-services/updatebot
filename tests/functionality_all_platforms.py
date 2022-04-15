@@ -478,6 +478,46 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             TestFunctionality._cleanup(u, expected_values)
 
+    @logEntryExit
+    def testFrequencyCommits(self):
+        library_filter = 'cube-2commits'
+
+        call_counter = 0
+
+        def git_pretty_output(since_last_job):
+            lines = [
+                "56082fc4acfacba40993e47ef8302993c59e264f|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264e|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000",
+                "62c10c170bb33f1ad6c9eb13d0cbdf13f95fb27e|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000",
+            ]
+            if call_counter == 0:
+                return [lines[-1]]
+            else:
+                return lines
+
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            git_pretty_output,
+            library_filter,
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: []  # filed_bug_ids_func
+        )
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+
+            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
+            self.assertEqual(len([j for j in all_jobs if j.library_shortname == "cube-2commits"]), 0, "I should not have created any jobs.")
+
+            call_counter += 1
+
+            # Run it again
+            u.run(library_filter=library_filter)
+
+            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
+            self.assertEqual(len([j for j in all_jobs if j.library_shortname == "cube-2commits"]), 1, "I should have created a job.")
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
+
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
     @logEntryExit
     def testExistingJobClassifiedFailures(self):

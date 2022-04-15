@@ -95,7 +95,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
         elif task.filter == 'none':
             pass
         else:
-            raise Exception("In a commit-altert task for library %s I got a filter '%s' I don't know how to handle." % (library.name, task.filter))
+            raise Exception("In a commit-alert task for library %s I got a filter '%s' I don't know how to handle." % (library.name, task.filter))
 
         depends_on = all_library_jobs[0].bugzilla_id if all_library_jobs else None
         open_dependencies = self.bugzillaProvider.find_open_bugs([j.bugzilla_id for j in all_library_jobs])

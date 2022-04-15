@@ -188,7 +188,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         return all_new_upstream_commits, unseen_new_upstream_commits
 
     def _commits_between(self, revision1, revision2):
-        ret = self.run(["git", "log", "--pretty=%H|%ai|%ci", "%s..%s" % (revision1, revision2)])
+        ret = self.run(["git", "log", "--pretty=%H|%ai|%ci", "--no-merges", "%s..%s" % (revision1, revision2)])
         commits = [line.strip() for line in ret.stdout.decode().split("\n")]
         # Put them in order of oldest to newest
         commits.reverse()

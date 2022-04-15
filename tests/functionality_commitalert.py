@@ -42,7 +42,7 @@ For this file, we have test-repo.bundle which contains the below commits.
 We also have bundles that culminate in each of the revisions, for use when
 the library 'updates upstream'.
 
-Note: if you are create a test repo bundle, if all you do is
+Note: if you are creating a test repo bundle, if all you do is
    git bundle create repo-file.bundle master
 When you clone it, it will fail with the error
    remote HEAD refers to nonexistent ref, unable to checkout

@@ -77,6 +77,30 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
 
+    def _initialize(self):
+        self.tmpdirname = tempfile.mkdtemp()
+        self.previous_dir_stack = list()  # We use this as a Stack with append/pop
+        self._has_checkedout = False
+
+    def _reset(self):
+        shutil.rmtree(self.tmpdirname, ignore_errors=True)
+
+    def _ensure_checkout(self, repo_url, specific_revision=None):
+        self.previous_dir_stack.append(os.getcwd())
+
+        os.chdir(self.tmpdirname)
+
+        if not self._has_checkedout:
+            if not repo_url:
+                raise Exception("Wound up in _ensure_checkout but missing a repo_url")
+
+            self.run(["git", "clone", repo_url, "."])
+
+            if specific_revision:
+                self.run(["git", "checkout", specific_revision])
+
+            self._has_checkedout = True
+
     @logEntryExit
     def check_for_update(self, library, task, new_version, ignore_commits_from_these_jobs):
         # This function uses two tricky variable names:
@@ -93,12 +117,6 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         #  We do return both lists, because while we only need the unseen list for filing a new bug, we need the
         #  all-upstream list to mark any open bugs as (potentially) affecting a new FF version.
 
-        # Step 0: Get the repo and update to the correct branch.
-        # If no branch is specified, the default branch we clone is assumed to be correct
-        original_dir = os.getcwd()
-        tmpdirname = tempfile.mkdtemp()
-        os.chdir(tmpdirname)
-
         # If we are updating to a branch or tag; we need to add the origin/ prefix
         if not re.match("^[a-zA-Z0-9]{40}$", new_version):
             new_version = "origin/" + new_version
@@ -106,11 +124,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         # This try block is used to ensure we clean up and chdir at the end always. It has no except clause,
         # exceptions raised are sent up the stack.
         try:
-
-            self.run(["git", "clone", library.repo_url, "."])
-
-            if task.branch:
-                self.run(["git", "checkout", task.branch])
+            # Step 0: Get the repo and update to the correct branch.
+            # If no branch is specified, the default branch we clone is assumed to be correct
+            self._ensure_checkout(library.repo_url, task.branch)
 
             # Step 1: Find the common ancestor between the commit we are and new_version
             common_ancestor = self.run(["git", "merge-base", library.revision, new_version]).stdout.decode().strip()
@@ -180,9 +196,8 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             [c.populate_details(library.repo_url, self.run) for c in all_new_upstream_commits]
 
         finally:
-            # Step 8 Return us to the origin directory and clean up
-            os.chdir(original_dir)
-            shutil.rmtree(tmpdirname, ignore_errors=True)
+            # Step 8 Return us to the origin directory
+            os.chdir(self.previous_dir_stack.pop())
 
         # Step 9: Return it
         return all_new_upstream_commits, unseen_new_upstream_commits

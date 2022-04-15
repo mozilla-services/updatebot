@@ -222,7 +222,10 @@ class Updatebot:
                 for task in lib.tasks:
                     try:
                         taskRunner = self.taskRunners[task.type]
+
+                        self.runOnProviders(lambda x: x.initialize())
                         taskRunner.process_task(lib, task)
+                        self.runOnProviders(lambda x: x.reset())
                     except Exception as e:
                         # Clean up any changes to the repo we may have made
                         self.cmdProvider.run(["hg", "checkout", "-C", "."])

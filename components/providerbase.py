@@ -19,12 +19,27 @@ class BaseProvider:
     be present on a derived class also.
     """
 
+    def _call_on_subclasses(self, method, *args):
+        """
+        _call_on_subclasses iterates through all the classes in the inheritence chain
+        and looks for a method on that class. If it is present it is called.
+
+        One wrinkle here is that if the derived class (the class of the variable;
+        i.e. not any superclasses) inherits from any class with _update_config,
+        and doesn't define its own, then one of the _update_config functions on
+        the base classes will be called twice. This shouldn't matter.
+        """
+
+        classes = self.__class__.mro()
+        classes.reverse()
+        for c in classes:
+            methods = inspect.getmembers(c, predicate=inspect.isfunction)
+            for m in methods:
+                if m[0] == method:
+                    m[1](self, *args)
+
     def update_config(self, config):
         """
-        update_config iterates through all the classes in the inheritence chain
-        and looks for an _update_config method on that class. If it is present,
-        it is called.
-
         A provider may implement its own _update_config to perform actions for
         itself.  Those actions are typically:
           1. Calling update_config on a member provider or a collection of member
@@ -33,22 +48,15 @@ class BaseProvider:
              the update_config call to succeed even if they have no INeeds
              super-class or _update_config method.
           2. Using its _update_config as a final init() method where all its
-             utility providers are available. (This is why we do the below in
-             reverse order.)
-
-
-        One wrinkle here is that if the derived class (the class of the variable;
-        i.e. not any superclasses) inherits from any class with _update_config,
-        and doesn't define its own, then one of the _update_config functions on
-        the base classes will be called twice. This shouldn't matter.
+             utility providers are available. (This is why we use a reverse order.)
         """
-        classes = self.__class__.mro()
-        classes.reverse()
-        for c in classes:
-            methods = inspect.getmembers(c, predicate=inspect.isfunction)
-            for m in methods:
-                if m[0] == '_update_config':
-                    m[1](self, config)
+        self._call_on_subclasses('_update_config', config)
+
+    def initialize(self):
+        self._call_on_subclasses('_initialize')
+
+    def reset(self):
+        self._call_on_subclasses('_reset')
 
 
 class INeedsCommandProvider:

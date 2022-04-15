@@ -83,7 +83,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
     @logEntryExit
     def _process_new_job(self, library, task, new_version, timestamp):
-        if not self._should_process_new_job(library, task):
+        if not self._should_process_new_job(library, task, new_version):
             self.logger.log("Because of the task's frequency restrictions (%s) we are not processing this new revision now." % task.frequency, level=LogLevel.Info)
             return
 

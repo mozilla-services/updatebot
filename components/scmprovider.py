@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import functools
 
+from components.utilities import Memoize
 from components.logging import LogLevel, logEntryExit
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -102,6 +103,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             self._has_checkedout = True
 
     @logEntryExit
+    @Memoize
     def check_for_update(self, library, task, new_version, ignore_commits_from_these_jobs):
         # This function uses two tricky variable names:
         #  all_upstream_commits - This means the commits that have occured upstream, on the branch we care about,

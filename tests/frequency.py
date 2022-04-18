@@ -26,6 +26,8 @@ class TestTaskFrequency(unittest.TestCase):
         bt.jobType = JOBTYPE.VENDORING
         bt.dbProvider = Struct(**{
             "get_all_jobs_for_library": lambda a, b, include_relinquished: []})
+        bt.scmProvider = Struct(**{
+            "check_for_update": lambda a, b, c, d: (['a', 'b'], ['a', 'b'])})
 
         mlp = MockLibraryProvider({})
         tcp = TestCommandProvider({})
@@ -69,6 +71,18 @@ class TestTaskFrequency(unittest.TestCase):
         task.frequency = '21 weeks'
         bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=20)})]
         self.assertFalse(bt._should_process_new_job(library, task))
+
+        task.frequency = '1 week, 3 commits'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
+        self.assertFalse(bt._should_process_new_job(library, task))
+
+        task.frequency = '2 weeks, 2 commits'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
+        self.assertFalse(bt._should_process_new_job(library, task))
+
+        task.frequency = '1 week, 2 commits'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
+        self.assertTrue(bt._should_process_new_job(library, task))
 
 
 if __name__ == '__main__':

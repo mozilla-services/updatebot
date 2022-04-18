@@ -37,18 +37,32 @@ class BaseTaskRunner:
                 return True
             return False
 
+        # Check week/commit requirement, but more complicated because you can specify both
+        week_count = 0
+        commit_count = 0
+        if 'week' in task.frequency and 'commit' in task.frequency:
+            assert "," in task.frequency
+            week_half, commit_half = task.frequency.split(",")
+        else:
+            week_half = task.frequency if 'week' in task.frequency else ""
+            commit_half = task.frequency if 'commit' in task.frequency else ""
+
         try:
-            count = int(task.frequency.split(" ")[0])
+            if week_half:
+                week_count = int(week_half.strip().split(" ")[0])
+            if commit_half:
+                commit_count = int(commit_half.strip().split(" ")[0])
         except Exception as e:
-            raise Exception("Could not parse %s as a commit or week frequency" % task.frequency, e)
+            raise Exception("Could not parse '%s' or '%s' as a frequency" % (week_half, commit_half), e)
 
-        if 'week' in task.frequency:
-            if most_recent_job.created + timedelta(weeks=count) < datetime.now():
-                self.logger.log("The most recent job was processed %s and %s weeks have passed, so processing the new job." % (
-                    most_recent_job.created, count), level=LogLevel.Info)
-                return True
+        if week_count > 0:
+            do_not_process_job = most_recent_job.created + timedelta(weeks=week_count) > datetime.now()
+            self.logger.log("The most recent job was processed %s and %s weeks have passed, so %sprocessing the new job." % (
+                most_recent_job.created, week_count, "not " if do_not_process_job else ""), level=LogLevel.Info)
+            if do_not_process_job:
+                return False
 
-        if 'commit' in task.frequency:
+        if commit_count > 0:
             all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, existing_jobs)
             commits_since_in_tree = len(all_upstream_commits)
             commits_since_new_job = len(unseen_upstream_commits)
@@ -61,10 +75,10 @@ class BaseTaskRunner:
                 new_commits = commits_since_new_job
                 explanation = "the last job (and %s since the version in tree)" % commits_since_in_tree
 
-            self.logger.log("There have been %s commits since %s, so %sprocessing the new job." % (
-                new_commits, explanation, "not " if count > new_commits else ""), level=LogLevel.Info)
+            self.logger.log("There have been %s commits since %s, and we need at least %s, so %sprocessing the new job." % (
+                new_commits, explanation, commit_count, "not " if commit_count > new_commits else ""), level=LogLevel.Info)
 
-            if count <= new_commits:
-                return True
+            if commit_count > new_commits:
+                return False
 
-        return False
+        return True

@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 13
+CURRENT_DATABASE_CONFIG_VERSION = 14
 
 CREATION_QUERIES = {
     "config": """
@@ -373,6 +373,13 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                         for q in INSERTION_QUERIES:
                             if any_in(['SPURIOUS_UPDATE'], q.args):
+                                self._query_execute(q.query, q.args)
+
+                    if config_version <= 13 and CURRENT_DATABASE_CONFIG_VERSION >= 14:
+                        self.logger.log("Upgrading to database version 14", level=LogLevel.Warning)
+
+                        for q in INSERTION_QUERIES:
+                            if any_in(['UNEXPECTED_CREATED_STATUS'], q.args):
                                 self._query_execute(q.query, q.args)
 
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"

@@ -272,6 +272,16 @@ class VendorTaskRunner(BaseTaskRunner):
         """
         my_ff_version = self.config['General']['ff-version']
 
+        if existing_job.status == JOBSTATUS.CREATED:
+            # The job has been created; but for some reason was never set to a final status
+            # (This has been observed when the worker the cronjob was running on shut down in the middle)
+            self.logger.log("On job id %s for library %s revision %s we encountered an unexpected state." % (
+                existing_job.id, existing_job.library_shortname, existing_job.version), level=LogLevel.Warning)
+            if existing_job.bugzilla_id:
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.UNEXPECTED_JOB_STATE())
+            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNEXPECTED_CREATED_STATUS)
+            raise Exception("Handled a Job with unexpected CREATED status in _process_existing_job")
+
         if existing_job.status == JOBSTATUS.DONE:
             # The job has been completed, but we still need to double check if it has acknowleged our current FF version
             if my_ff_version in existing_job.ff_versions:

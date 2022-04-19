@@ -66,6 +66,16 @@ security group.
         )
 
     @staticmethod
+    def UNEXPECTED_JOB_STATE():
+        return """
+Updatebot has encountered an unknown error and does not know how to further
+process this library update. Please review and take manual action for this update.
+
+The Updatebot maintainers have been notified and Updatebot will no longer process
+this update.
+"""
+
+    @staticmethod
     def DONE_BUILD_FAILURE(library):
         return """
 It looks like we experienced one or more build failures when trying to apply this

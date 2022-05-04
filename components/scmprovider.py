@@ -66,6 +66,9 @@ class Commit:
     def __str__(self):
         return "Commit: " + self.revision
 
+    def __hash__(self):
+        return int(self.revision, 16)
+
 
 def _contains_commit(list_of_commits, revision):
     for c in list_of_commits:
@@ -174,19 +177,20 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                     self.logger.log("Already processed revision %s in bug %s" % (most_recent_job.version, most_recent_job.bugzilla_id), level=LogLevel.Info)
                     return all_new_upstream_commits, []
 
-                # Step 6: Ensure that the unseen list of a strict ordered subset of the 'all-new' list
+                # Step 6: Ensure that the unseen list of a subset of the 'all-new' list
                 # Techinically this is optional; we could have started at Step 3. But this approach is
                 # more conservative and will help us identify unexpected situations that may invalidate
                 # our assumptions about how things should happen.
-                offsetIndex = len(all_new_upstream_commits) - len(unseen_new_upstream_commits)
-                self.logger.log("The first unseen upstream commit is offset %s entries into the %s upstream commits." % (offsetIndex, len(all_new_upstream_commits)), level=LogLevel.Debug)
-                assert offsetIndex != len(all_new_upstream_commits), "Somehow the offset index is the length of the array even though we checked the length already"
+                # Indeed, originally we verified that the unseen list was an ordered subset of the all-new list
+                # but this assertion triggered because it may not be.  We may have 1 -> 2 -> 3 with a most recent job
+                # of 3.  And then we have a commit added that, when sorted by date, goes 1 -> 2 -> 4 -> 3 -> 5
+                # where 5 is a merge commit.  This is perfectly legal and it screws up the assumption that
+                # we'll have an ordered subset.
+                assert len(all_new_upstream_commits) > len(unseen_new_upstream_commits), "Somehow the all-new list is not greater than the unseen list?"
 
                 error_func = functools.partial(self._print_differing_commit_lists, all_new_upstream_commits, "all_new_upstream_commits", unseen_new_upstream_commits, "unseen_new_upstream_commits")
-                if offsetIndex < 0:
-                    error_func("There are more unseen upstream commits than new upstream commits??")
-                if all_new_upstream_commits[offsetIndex:] != unseen_new_upstream_commits:
-                    error_func("unseen_new_upstream_commits is not a strict ordered subset of all_new_upstream_commits")
+                if not set(unseen_new_upstream_commits).issubset(set(all_new_upstream_commits)):
+                    error_func("unseen_new_upstream_commits is not a subset of all_new_upstream_commits")
 
             else:  # not most_recent_job_newer_than_library_rev
                 # If the most recent job isn't in the list of all new upstream commits; then the entire

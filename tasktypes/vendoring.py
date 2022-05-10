@@ -221,7 +221,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit after applying mozilla patches."), needinfo=library.maintainer_bz)
                 raise e
 
-        # Submit to Try --------------
+        # Submit to Try ---------------
         try:
             platform_restriction = "linux64" if self.config['General']['separate-platforms'] else ""
             next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS

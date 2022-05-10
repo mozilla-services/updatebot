@@ -7,6 +7,7 @@
 import os
 import copy
 import functools
+import subprocess
 
 from tasktypes.base import BaseTaskRunner
 from components.bugzilla import CommentTemplates
@@ -210,8 +211,13 @@ class VendorTaskRunner(BaseTaskRunner):
             try:
                 self.vendorProvider.patch(library, new_version)
             except Exception as e:
+                if isinstance(e, subprocess.CalledProcessError):
+                    msg = ("stderr:\n" + e.stderr.decode().rstrip() + "\n\n") if e.stderr else ""
+                    msg += ("stdout:\n" + e.stdout.decode().rstrip()) if e.stdout else ""
+                else:
+                    msg = str(e)
                 self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "apply the mozilla patches."), needinfo=library.maintainer_bz)
+                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
                 raise e
             # Commit Patches ----------
             try:

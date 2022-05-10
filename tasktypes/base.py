@@ -57,7 +57,7 @@ class BaseTaskRunner:
 
         if week_count > 0:
             do_not_process_job = most_recent_job.created + timedelta(weeks=week_count) > datetime.now()
-            self.logger.log("The most recent job was processed %s and %s weeks have passed, so %sprocessing the new job." % (
+            self.logger.log("The most recent job was processed %s and we process jobs every %s weeks, so %sprocessing the new job." % (
                 most_recent_job.created, week_count, "not " if do_not_process_job else ""), level=LogLevel.Info)
             if do_not_process_job:
                 return False

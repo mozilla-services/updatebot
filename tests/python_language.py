@@ -39,6 +39,10 @@ class TestCommandRunner(unittest.TestCase):
         self.assertEqual(alice.run, tcp.run, "Did not populate alice.run correctly")
         self.assertNotEqual(alice.logger, None, "Did not populate alice.logger correctly")
 
+    def testString(self):
+        should_be_string = ("hello" + "world") if True else ""
+        self.assertEqual(type(should_be_string), type("string"), "Adding a string inside a paren isn't a string anymore.")
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

@@ -16,7 +16,7 @@ TESTS = [
     "functionality_commitalert",
     "functionality_all_platforms",
     "functionality_two_platforms",
-    "multiple_inheritence",
+    "python_language",
     "treeherder_api",
     "library",
     "lambda_capture",

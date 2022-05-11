@@ -144,7 +144,7 @@ Anyway, I've done all I can, so I'm passing to you to review and land the patch.
 
     @staticmethod
     def COULD_NOT_VENDOR_ALL_FILES(library, errormessage):
-        s = "`./mach vendor %s` reported an error editing moz.build files:" % library.yaml_path
+        s = "`./mach vendor %s` reported an error editing moz.build files:\n" % library.yaml_path
         for line in errormessage.split("\n"):
             s += "> " + line + "\n"
         s += "\n"

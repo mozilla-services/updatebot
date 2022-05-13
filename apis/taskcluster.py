@@ -57,8 +57,14 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         else:
             platform_filter_args = ["--tasks-regex", platform_filter]
 
-        if library.fuzzy_query:
-            try_arguments = ["./mach", "try", "fuzzy", "--update", "--full", "--query", library.fuzzy_query + " " + (platform_filter or "")]
+        if library.fuzzy_query or library.fuzzy_paths:
+            try_arguments = ["./mach", "try", "fuzzy", "--update"]
+            if library.fuzzy_query:
+                try_arguments += ["--query", library.fuzzy_query + " " + (platform_filter or "")]
+            else:  # If you don't give a --query it goes into interactive mode
+                try_arguments += ["--query", " " + (platform_filter or "")]
+            if library.fuzzy_paths:
+                try_arguments += library.fuzzy_paths
         else:
             try_arguments = ["./mach", "try", "auto"] + platform_filter_args
 

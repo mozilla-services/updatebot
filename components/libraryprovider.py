@@ -48,6 +48,7 @@ class Library:
         self.maintainer_bz = dict['maintainer_bz']
         self.maintainer_phab = dict['maintainer_phab']
         self.fuzzy_query = dict.get('fuzzy_query', None)
+        self.fuzzy_paths = dict.get('fuzzy_paths', None)
         self.yaml_path = dict['yaml_path']
         self.tasks = []
 
@@ -63,7 +64,7 @@ class Library:
             if not prop.startswith("__") and prop != "id":
                 try:
                     if getattr(other, prop) != getattr(self, prop):
-                        print(prop, getattr(other, prop), getattr(self, prop))
+                        print(self.name, prop, "other:", getattr(other, prop), "self:", getattr(self, prop))
                         return False
                 except AttributeError:
                     print(prop, "attributeerror")
@@ -168,6 +169,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'maintainer_bz': '',
             'maintainer_phab': '',
             'fuzzy_query': '',
+            'fuzzy_paths': [],
             'tasks': [],
             'yaml_path': ''
         }
@@ -215,6 +217,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             validated_library['maintainer_bz'] = get_or_raise('updatebot', 'maintainer-bz')
             validated_library['maintainer_phab'] = get_or_raise('updatebot', 'maintainer-phab')
             validated_library['fuzzy_query'] = get_or_none('updatebot', 'fuzzy-query')
+            validated_library['fuzzy_paths'] = get_or_none('updatebot', 'fuzzy-paths')
 
             if 'tasks' in library['updatebot']:
                 for t in library['updatebot']['tasks']:

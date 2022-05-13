@@ -43,7 +43,7 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "yaml_path": "mozilla-central/source/media/libdav1d/moz.yaml"
             }),
             Library({
-                "name": "cubeb",
+                "name": "cubeb-query",
                 "bugzilla_product": "Core",
                 "bugzilla_component": "Audio/Video: cubeb",
                 "maintainer_phab": "nobody",
@@ -58,7 +58,25 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                         "enabled": True
                     }, "n/a")
                 ],
-                "yaml_path": "mozilla-central/source/media/cubeb/moz.yaml"
+                "yaml_path": "mozilla-central/source/media/cubeb-query/moz.yaml"
+            }),
+            Library({
+                "name": "cubeb-path",
+                "bugzilla_product": "Core",
+                "bugzilla_component": "Audio/Video: cubeb",
+                "maintainer_phab": "nobody",
+                "maintainer_bz": "nobody@mozilla.com",
+                "fuzzy_paths": ["media/"],
+                "revision": self.config.get('vendoring_revision_override', None),
+                "repo_url": "https://example.invalid",
+                "has_patches": False,
+                "tasks": [
+                    LibraryProvider.validate_task({
+                        "type": "vendoring",
+                        "enabled": True
+                    }, "n/a")
+                ],
+                "yaml_path": "mozilla-central/source/media/cubeb-path/moz.yaml"
             }),
             Library({
                 "name": "cube-2commits",

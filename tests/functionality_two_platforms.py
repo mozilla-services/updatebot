@@ -495,7 +495,45 @@ class TestFunctionality(SimpleLoggingTest):
             num_calls += 1
             return TRY_OUTPUT(expected_values.try_revisions_func()[num_calls - 1], False)
 
-        library_filter = 'cubeb'
+        library_filter = 'cubeb-query'
+        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+            library_filter,
+            lambda b: ["48f23619ddb818d8b32571e1e673bc2239e791af|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [],  # filed_bug_ids_func
+            callbacks={'try_submit': try_output}
+        )
+        try:
+            # Run it, then check that we created the job successfully
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are done
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it a final time, and we should see that the failures are classified
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+        finally:
+            TestFunctionality._cleanup(u, expected_values)
+
+    @logEntryExitHeaderLine
+    def testAllNewJobsWithFuzzyPath(self):
+        # We use a custom try_output callback to let us change the return value based on the number
+        # of times it's been called.
+        global num_calls
+        num_calls = 0
+
+        def try_output(cmd):
+            global num_calls
+            num_calls += 1
+            self.assertTrue("media/" in cmd, "Did not pass the fuzzy query path in the try command")
+            return TRY_OUTPUT(expected_values.try_revisions_func()[num_calls - 1], False)
+
+        library_filter = 'cubeb-path'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
             library_filter,
             lambda b: ["48f23619ddb818d8b32571e1e673bc2239e791af|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],

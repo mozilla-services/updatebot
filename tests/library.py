@@ -17,7 +17,7 @@ from components.logging import SimpleLoggerConfig
 
 LIBRARIES = [
     Library({
-        "name": "cubeb",
+        "name": "cubeb-query",
         "revision": "a7e83aa2b1571b842a555158e8f25aeb1419ebd1",
         "repo_url": "https://github.com/mozilla/cubeb",
         "has_patches": False,
@@ -38,7 +38,31 @@ LIBRARIES = [
                         'platform': 'linux',
                     }
         ],
-        "yaml_path": ".circleci/gecko-test/libcubeb/moz.yaml".replace("/", os.path.sep)
+        "yaml_path": ".circleci/gecko-test/libcubeb-query/moz.yaml".replace("/", os.path.sep)
+    }),
+    Library({
+        "name": "cubeb-path",
+        "revision": "a7e83aa2b1571b842a555158e8f25aeb1419ebd1",
+        "repo_url": "https://github.com/mozilla/cubeb",
+        "has_patches": False,
+
+        "bugzilla_product": "Core",
+        "bugzilla_component": "Audio/Video: cubeb",
+        "maintainer_bz": "nobody@mozilla.com",
+        "maintainer_phab": "nobody",
+        "fuzzy_paths": ["media/"],
+        "tasks": [
+                    {
+                        'type': "vendoring",
+                        'enabled': True,
+                        'branch': None,
+                        'cc': [],
+                        'needinfo': [],
+                        'frequency': 'every',
+                        'platform': 'linux',
+                    }
+        ],
+        "yaml_path": ".circleci/gecko-test/libcubeb-path/moz.yaml".replace("/", os.path.sep)
     }),
     Library({
         "name": "dav1d",
@@ -89,7 +113,8 @@ LIBRARIES = [
 ]
 
 LIBRARY_FIND_OUTPUT = "\n".join([f.replace("/", os.path.sep) for f in [
-    "{0}/.circleci/gecko-test/libcubeb/moz.yaml",
+    "{0}/.circleci/gecko-test/libcubeb-query/moz.yaml",
+    "{0}/.circleci/gecko-test/libcubeb-path/moz.yaml",
     "{0}/.circleci/gecko-test/libaom/moz.yaml",
     "{0}/.circleci/gecko-test/libdav1d/moz.yaml",
     "{0}/.circleci/gecko-test/libpng/moz.yaml"

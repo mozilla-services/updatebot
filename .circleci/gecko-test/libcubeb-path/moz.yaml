@@ -1,0 +1,36 @@
+# this is a snapshot of the libcubeb moz.yaml from dbced93f1c57942501c23d4633d01ce59d9087a1
+# Version of this schema
+schema: 1
+
+bugzilla:
+  # Bugzilla product and component for this directory and subdirectories
+  product: "Core"
+  component: "Audio/Video: cubeb"
+
+# The source from this directory was copied from the cubeb
+# git repository using the update.sh script.  The only changes
+# made were those applied by update.sh and the addition of
+# Makefile.in build files for the Mozilla build system.S
+
+origin:
+  name: "cubeb-path"
+  description: "Cross platform audio library"
+
+  url: "https://github.com/kinetiknz/cubeb"
+  license: "ISC"
+
+  # update.sh will update this value
+  release: "a7e83aa2b1571b842a555158e8f25aeb1419ebd1 (2020-10-13 12:05:17 +0100)"
+  revision: a7e83aa2b1571b842a555158e8f25aeb1419ebd1
+
+vendoring:
+  url: https://github.com/mozilla/cubeb
+  source-hosting: github
+
+updatebot:
+  maintainer-bz: nobody@mozilla.com
+  maintainer-phab: nobody
+  fuzzy-paths: ['media/']
+  tasks:
+    - type: vendoring
+      enabled: True

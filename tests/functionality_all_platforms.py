@@ -212,6 +212,7 @@ class TestFunctionality(SimpleLoggingTest):
     def _check_jobs(u, library_filter, expected_values, status, outcome):
         tc = unittest.TestCase()
 
+        jobs_checked = 0
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
             if library_filter not in lib.name:
                 continue
@@ -233,6 +234,8 @@ class TestFunctionality(SimpleLoggingTest):
                 tc.assertEqual(
                     expected_values.try_revision_id(), j.try_runs[0].revision)
                 tc.assertEqual('all platforms', j.try_runs[0].purpose)
+                jobs_checked += 1
+        tc.assertEqual(jobs_checked, 1, "We did not find a single job to check.")
 
     @logEntryExit
     def testAllNewJobs(self):

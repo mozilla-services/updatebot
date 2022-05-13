@@ -13,7 +13,7 @@ bugzilla:
 # Makefile.in build files for the Mozilla build system.S
 
 origin:
-  name: "cubeb"
+  name: "cubeb-query"
   description: "Cross platform audio library"
 
   url: "https://github.com/kinetiknz/cubeb"

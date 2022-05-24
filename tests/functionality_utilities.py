@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import platform
+from collections import OrderedDict
 
 
 def AssertFalse(a=False, b=False, c=False):
@@ -15,29 +16,29 @@ def SHARED_COMMAND_MAPPINGS(expected_values, callbacks):
     def echo_str(s):
         if platform.system() != "Windows":
             return s.replace("echo {", "echo '{")
-    return {
-        "./mach vendor --patch-mode only": callbacks['patch'] if 'patch' in callbacks else AssertFalse,
-        "./mach vendor --check-for-update": lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00",
-        "./mach vendor ": callbacks['vendor'] if 'vendor' in callbacks else lambda: "",
-        "hg commit": callbacks['commit'] if 'commit' in callbacks else lambda: "",
-        "hg checkout -C .": lambda: "",
-        "hg purge .": lambda: "",
-        "hg status": lambda: "",
-        "hg strip": lambda: "",
-        "arc diff --verbatim": callbacks['phab_submit'] if 'phab_submit' in callbacks else lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func()),
-        echo_str("echo {\"constraints\""): lambda: CONDUIT_USERNAME_SEARCH_OUTPUT,
-        echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""): lambda: CONDUIT_EDIT_OUTPUT,
-        echo_str("echo {\"transactions\": [{\"type\":\"abandon\""): callbacks['abandon'] if 'abandon' in callbacks else AssertFalse,
-        echo_str("echo {\"transactions\": [{\"type\":\"bugzilla.bug-id\""): lambda: CONDUIT_EDIT_OUTPUT,
-        "git log -1 --oneline": lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output",
-        "git clone https://example.invalid .": lambda: "",
-        "git merge-base": lambda: "_current",
-        "git log --pretty=%H|%ai|%ci": lambda cmd: "\n".join(expected_values.git_pretty_output_func("_current" not in cmd)),
-        "git diff --name-status": lambda: GIT_DIFF_FILES_CHANGES,
-        "git log --pretty=%s": lambda: "Roll SPIRV-Tools from a61d07a72763 to 1cda495274bb (1 revision)",
-        "git log --pretty=%an": lambda: "Tom Ritter",
-        "git log --pretty=%b": lambda: GIT_COMMIT_BODY,
-    }
+    return OrderedDict([
+        ("./mach vendor --patch-mode only", callbacks['patch'] if 'patch' in callbacks else AssertFalse),
+        ("./mach vendor --check-for-update", lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00"),
+        ("./mach vendor ", callbacks['vendor'] if 'vendor' in callbacks else lambda: ""),
+        ("hg commit", callbacks['commit'] if 'commit' in callbacks else lambda: ""),
+        ("hg checkout -C .", lambda: ""),
+        ("hg purge .", lambda: ""),
+        ("hg status", lambda: ""),
+        ("hg strip", lambda: ""),
+        ("arc diff --verbatim", callbacks['phab_submit'] if 'phab_submit' in callbacks else lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func())),
+        (echo_str("echo {\"constraints\""), lambda: CONDUIT_USERNAME_SEARCH_OUTPUT),
+        (echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""), lambda: CONDUIT_EDIT_OUTPUT),
+        (echo_str("echo {\"transactions\": [{\"type\":\"abandon\""), callbacks['abandon'] if 'abandon' in callbacks else AssertFalse),
+        (echo_str("echo {\"transactions\": [{\"type\":\"bugzilla.bug-id\""), lambda: CONDUIT_EDIT_OUTPUT),
+        ("git log -1 --oneline", lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output"),
+        ("git clone https://example.invalid .", lambda: ""),
+        ("git merge-base", lambda: "_current"),
+        ("git log --pretty=%H|%ai|%ci", lambda cmd: "\n".join(expected_values.git_pretty_output_func("_current" not in cmd))),
+        ("git diff --name-status", lambda: GIT_DIFF_FILES_CHANGES),
+        ("git log --pretty=%s", lambda: "Roll SPIRV-Tools from a61d07a72763 to 1cda495274bb (1 revision)"),
+        ("git log --pretty=%an", lambda: "Tom Ritter"),
+        ("git log --pretty=%b", lambda: GIT_COMMIT_BODY),
+    ])
 
 
 def TRY_OUTPUT(revision, include_auto_line=True):

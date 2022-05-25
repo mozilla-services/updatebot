@@ -145,15 +145,10 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 'maintainer_bz': 'aosmond@mozilla.com',
                 'maintainer_phab': 'aosmond',
                 'tasks': [
-                    {
+                    LibraryProvider.validate_task({
                         'type': 'vendoring',
                         'enabled': True,
-                        'branch': None,
-                        'platform': 'linux',
-                        'cc': [],
-                        'needinfo': [],
-                        'frequency': 'every'
-                    }
+                    }, "n/a")
                 ],
                 'yaml_path': 'mozilla-central/source/media/libpng/moz.yaml'
             })]

@@ -180,11 +180,9 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, blocks=None, moco_confidential=False):
-        severity = "normal" if self.config['General']['env'] == "dev" else "S3"
-
         bugID = fileBug(self.config['url'], self.config['apikey'], self.config['General']['ff-version'],
                         library.bugzilla_product, library.bugzilla_component,
-                        summary, description, severity, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential)
+                        summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential)
         self.logger.log("Filed Bug with ID", bugID, level=LogLevel.Info)
         return bugID
 

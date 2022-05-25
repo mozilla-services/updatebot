@@ -31,7 +31,7 @@ def is_prod(url):
     return "allizom" not in url
 
 
-def fileBug(url, apikey, ff_version, product, component, summary, description, severity, cc_list, needinfo, see_also, depends_on, moco_confidential):
+def fileBug(url, apikey, ff_version, product, component, summary, description, severity, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential):
     assert isinstance(cc_list, list)
 
     data = {
@@ -55,6 +55,8 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, s
         data['see_also'] = see_also
     if depends_on:
         data['depends_on'] = depends_on
+    if blocks:
+        data['blocks'] = blocks
     if moco_confidential:
         data['groups'] = ['mozilla-employee-confidential']
     if needinfo:

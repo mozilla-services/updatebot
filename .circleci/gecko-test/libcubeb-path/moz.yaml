@@ -34,3 +34,4 @@ updatebot:
   tasks:
     - type: vendoring
       enabled: True
+      blocking: 1234

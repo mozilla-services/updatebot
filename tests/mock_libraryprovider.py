@@ -73,7 +73,8 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "tasks": [
                     LibraryProvider.validate_task({
                         "type": "vendoring",
-                        "enabled": True
+                        "enabled": True,
+                        "blocking": 1234
                     }, "n/a")
                 ],
                 "yaml_path": "mozilla-central/source/media/cubeb-path/moz.yaml"

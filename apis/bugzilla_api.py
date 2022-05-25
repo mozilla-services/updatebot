@@ -31,7 +31,7 @@ def is_prod(url):
     return "allizom" not in url
 
 
-def fileBug(url, apikey, ff_version, product, component, summary, description, severity, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential):
+def fileBug(url, apikey, ff_version, product, component, summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential):
     assert isinstance(cc_list, list)
 
     data = {
@@ -41,7 +41,6 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, s
         'product': product,
         'component': component,
         'type': "enhancement",
-        'severity': severity,
         'summary': summary,
         'description': description,
         'whiteboard': kw('filed') + task_id_whiteboard(),

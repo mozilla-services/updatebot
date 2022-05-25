@@ -41,13 +41,13 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'product': 'Core',
                 'component': 'ImageLib',
                 'type': "enhancement",
-                'severity': "normal",
                 'summary': 'Update dav1d to new version V1 from 2020-08-21 15:13:49',
                 'description': '',
                 'whiteboard': '[3pl-filed]' + task_id_whiteboard(),
                 'cc': ['tom@mozilla.com', 'jewilde@mozilla.com', 'additional@example.com'],
                 'flags': [{'name': 'needinfo', 'status': '?', 'requestee': 'needinfo@example.com'}],
                 'depends_on': 110,
+                'blocks': 120,
                 'see_also': 210,
                 'cf_status_firefox88': 'affected',
                 'groups': ['mozilla-employee-confidential']
@@ -164,7 +164,7 @@ class TestBugzillaProvider(unittest.TestCase):
             'bugzilla_product': 'Core',
             'bugzilla_component': 'ImageLib',
         })
-        self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, 'V1', string_date_to_uniform_string_date('2020-08-21T15:13:49.000+02:00')), "", ['additional@example.com'], ['needinfo@example.com'], 210, 110, moco_confidential=True)
+        self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, 'V1', string_date_to_uniform_string_date('2020-08-21T15:13:49.000+02:00')), "", ['additional@example.com'], ['needinfo@example.com'], 210, 110, 120, moco_confidential=True)
 
     def testComment(self):
         self.bugzillaProvider.comment_on_bug(

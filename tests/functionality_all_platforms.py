@@ -73,7 +73,7 @@ class MockedBugzillaProvider(BaseProvider):
         else:
             self._assert_affected_func = AssertFalse
 
-    def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None):
+    def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None, blocks=None):
         references_prior_bug = "I've never filed a bug on before." in description
         if len(self._filed_bug_ids_func(False)) > 0:
             assert references_prior_bug, "We did not reference a prior bug when we should have"

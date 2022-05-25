@@ -121,7 +121,7 @@ class MockedBugzillaProvider(BaseProvider):
         else:
             self._assert_affected_func = AssertFalse
 
-    def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, moco_confidential=False):
+    def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, blocks=None, moco_confidential=False):
         expected_summary_str = str(self._expected_commits_seen_func()) + " new commits"
         assert expected_summary_str in summary, \
             "We did not see the expected number of commits in the bug we filed. Expected '%s', summary is '%s'" % (expected_summary_str, summary)

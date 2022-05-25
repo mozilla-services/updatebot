@@ -180,7 +180,7 @@ class VendorTaskRunner(BaseTaskRunner):
             return
 
         # File the bug ----------------
-        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc)
+        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc, blocks=task.blocking)
         self.dbProvider.update_job_add_bug_id(created_job, created_job.bugzilla_id)
         clean_up_old_job(old_job, created_job.bugzilla_id)
 

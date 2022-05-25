@@ -19,7 +19,6 @@ sys.path.append("..")
 from automation import Updatebot
 
 from components.utilities import Struct, raise_
-from components.providerbase import BaseProvider
 from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExitHeaderLine
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
@@ -29,7 +28,7 @@ from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
-from tests.functionality_utilities import AssertFalse, SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, CONDUIT_EDIT_OUTPUT
+from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServer, reset_seen_counters
@@ -63,49 +62,6 @@ def COMMAND_MAPPINGS(expected_values, callbacks):
 
 ALL_BUGS = False
 ONLY_OPEN = True
-
-
-class MockedBugzillaProvider(BaseProvider):
-    def __init__(self, config):
-        self.config = config
-        self._get_filed_bug_id_func = config['get_filed_bug_id_func']
-        self._filed_bug_ids_func = config['filed_bug_ids_func']
-        if config['assert_affected_func']:
-            self._assert_affected_func = config['assert_affected_func']
-        else:
-            self._assert_affected_func = AssertFalse
-
-    def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None, blocks=None):
-        references_prior_bug = "I've never filed a bug on before." in description
-        if len(self._filed_bug_ids_func(False)) > 0:
-            assert references_prior_bug, "We did not reference a prior bug when we should have"
-            self.config['expect_a_dupe'] = True
-        else:
-            assert not references_prior_bug, "We should not have referenced a prior bug but we did"
-            self.config['expect_a_dupe'] = False
-
-        return self._get_filed_bug_id_func()
-
-    def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
-        pass
-
-    def wontfix_bug(self, bug_id, comment):
-        pass
-
-    def dupe_bug(self, bug_id, comment, dup_id):
-        assert self.config['expect_a_dupe'], "We marked a bug as a duplicate when we weren't execting to."
-        assert bug_id == self._filed_bug_ids_func(ALL_BUGS)[-1], \
-            "We expected to close %s as a dupe, but it was actually %s" % (
-                self._filed_bug_ids_func(ALL_BUGS)[-1], bug_id)
-        assert dup_id == self._get_filed_bug_id_func(), \
-            "We expected to mark %s as a dupe of %s as a dupe, but we actually marked it a dupe of %s" % (
-                bug_id, self._get_filed_bug_id_func(), dup_id)
-
-    def find_open_bugs(self, bug_ids):
-        return self._filed_bug_ids_func(ONLY_OPEN)
-
-    def mark_ff_version_affected(self, bug_id, ff_version, affected):
-        self._assert_affected_func(bug_id, ff_version, affected)
 
 
 PROVIDERS = {

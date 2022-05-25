@@ -28,15 +28,10 @@ LIBRARIES = [
         "maintainer_phab": "nobody",
         "fuzzy_query": "media",
         "tasks": [
-                    {
+                    LibraryProvider.validate_task({
                         'type': "vendoring",
-                        'enabled': True,
-                        'branch': None,
-                        'cc': [],
-                        'needinfo': [],
-                        'frequency': 'every',
-                        'platform': 'linux',
-                    }
+                        'enabled': True
+                    }, "n/a")
         ],
         "yaml_path": ".circleci/gecko-test/libcubeb-query/moz.yaml".replace("/", os.path.sep)
     }),
@@ -52,15 +47,11 @@ LIBRARIES = [
         "maintainer_phab": "nobody",
         "fuzzy_paths": ["media/"],
         "tasks": [
-                    {
+                    LibraryProvider.validate_task({
                         'type': "vendoring",
                         'enabled': True,
-                        'branch': None,
-                        'cc': [],
-                        'needinfo': [],
-                        'frequency': 'every',
-                        'platform': 'linux',
-                    }
+                        'blocking': '1234'
+                    }, "n/a")
         ],
         "yaml_path": ".circleci/gecko-test/libcubeb-path/moz.yaml".replace("/", os.path.sep)
     }),
@@ -75,15 +66,10 @@ LIBRARIES = [
         "maintainer_bz": "nobody@mozilla.com",
         "maintainer_phab": "nobody",
         "tasks": [
-                    {
+                    LibraryProvider.validate_task({
                         'type': "vendoring",
                         'enabled': True,
-                        'branch': None,
-                        'cc': [],
-                        'needinfo': [],
-                        'frequency': 'every',
-                        'platform': 'linux',
-                    }
+                    }, "n/a")
         ],
         "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep)
     }),
@@ -98,15 +84,10 @@ LIBRARIES = [
         'maintainer_bz': 'aosmond@mozilla.com',
         'maintainer_phab': 'aosmond',
         'tasks': [
-            {
+            LibraryProvider.validate_task({
                 'type': 'vendoring',
                 'enabled': True,
-                'branch': None,
-                'platform': 'linux',
-                'cc': [],
-                'needinfo': [],
-                'frequency': 'every'
-            }
+            }, "n/a")
         ],
         'yaml_path': '.circleci/gecko-test/libpng/moz.yaml'
     })

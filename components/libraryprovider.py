@@ -82,6 +82,7 @@ class Task:
         self.needinfo = dict['needinfo']
         self.frequency = dict['frequency']
         self.platform = dict['platform']
+        self.blocking = str(dict['blocking'])
 
         if self.type == 'commit-alert':
             self.filter = dict['filter']
@@ -181,7 +182,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'cc': '',
             'needinfo': '',
             'frequency': '',
-            'platform': ''
+            'platform': '',
+            'blocking': ''
         }
 
         get_or_none = functools.partial(get_sub_key_or_none, dict=library, yaml_path=yaml_path)
@@ -250,6 +252,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         validated_task['cc'] = get_key_or_default('cc', task_dict, [])
         validated_task['needinfo'] = get_key_or_default('needinfo', task_dict, [])
         validated_task['frequency'] = get_key_or_default('frequency', task_dict, 'every')
+        validated_task['blocking'] = get_key_or_default('blocking', task_dict, None)
 
         if validated_task['platform'] not in ('windows', 'linux'):
             raise AttributeError('library {0} task has an invalid value for a platform: {1}'.format(library_name, validated_task['platform']))

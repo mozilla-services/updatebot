@@ -158,7 +158,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
     @staticmethod
     def validate_library(yaml_contents, yaml_path):
-        library = yaml.safe_load(yaml_contents)
+        library = yaml.load(yaml_contents, Loader=yaml.BaseLoader)
 
         validated_library = {
             'name': '',

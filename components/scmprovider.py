@@ -268,7 +268,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
                     if c.files_modified:
                         s += "\n"
-                        s += "Files Added:\n"
+                        s += "Files Modified:\n"
                         for f in c.files_modified:
                             s += "  - %s\n" % f
 

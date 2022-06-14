@@ -34,7 +34,12 @@ class Commit:
         self.files_deleted = []
         self.files_other = []
 
+        self.populated = False
+
     def populate_details(self, repo, run):
+        if self.populated:
+            return
+
         rev_range = [self.revision + "^", self.revision]
 
         files_changed = run(["git", "diff", "--name-status"] + rev_range).stdout.decode().split("\n")
@@ -57,6 +62,7 @@ class Commit:
         self.author = run(["git", "log", "--pretty=%an", "-1", self.revision]).stdout.decode()
         self.description = run(["git", "log", "--pretty=%b", "-1", self.revision]).stdout.decode()
         self.revision_link = repo_and_commit_to_url(repo, self.revision)
+        self.populated = True
 
     def __eq__(self, other):
         if isinstance(other, Commit):

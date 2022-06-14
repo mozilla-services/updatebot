@@ -14,7 +14,8 @@
 
 sudo apt-get install jq git
 cp localconfig.py.example localconfig.py
-if $(eval "poetry run $1 > test_output.txt 2>&1"); then
+echo "Job Run for $CIRCLE_SHA1" > test_output.txt
+if $(eval "poetry run $1 >> test_output.txt 2>&1"); then
   cat test_output.txt
 else
   cat test_output.txt

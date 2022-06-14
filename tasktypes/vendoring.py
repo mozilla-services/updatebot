@@ -512,12 +512,12 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.logger.log(c, level=LogLevel.Debug)
                 comment += c + "\n"
 
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library), assignee=library.maintainer_bz)
             try:
                 self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
             except Exception as e:
                 self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
-                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."), needinfo=library.maintainer_bz)
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
                 raise e
 
         # Everything.... succeeded?
@@ -530,7 +530,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
             except Exception as e:
                 self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
-                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."), needinfo=library.maintainer_bz)
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
                 raise e
 
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
@@ -546,5 +546,5 @@ class VendorTaskRunner(BaseTaskRunner):
             comment += c + "\n"
             self.logger.log(c, level=LogLevel.Debug)
 
-        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz)
+        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)

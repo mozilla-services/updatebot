@@ -218,7 +218,7 @@ class VendorTaskRunner(BaseTaskRunner):
                     msg = str(e)
                 self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
                 self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
-                raise e
+                return
             # Commit Patches ----------
             try:
                 self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)

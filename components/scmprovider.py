@@ -18,8 +18,11 @@ def repo_and_commit_to_url(repo, commit):
     if "https://chromium.googlesource.com" in repo:
         return repo + "/+/" + commit
 
-    # Works for libdavid, which is on gitlab, although there's no way to tell
-    return repo.replace(".git", "") + "-/commit/" + commit
+    # gitlab wants https://domain.com/org/project/-/commit/sha
+    # github wants https://domain.com/org/project/commit/sha
+    # _But_ github won't redirect from gitlab's format and gitlab will redirect from github's format
+    # So we use github's.  Sorry gitlab.
+    return repo.replace(".git", "") + "commit/" + commit
 
 
 class Commit:

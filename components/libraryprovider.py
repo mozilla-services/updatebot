@@ -278,7 +278,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         validated_task['type'] = task_dict['type']
 
-        validated_task['enabled'] = get_key_or_default('enabled', task_dict, False)
+        validated_task['enabled'] = not not get_key_or_default('enabled', task_dict, False)
         validated_task['branch'] = get_key_or_default('branch', task_dict, None)
         validated_task['platform'] = get_key_or_default('platform', task_dict, 'linux').lower()
         validated_task['cc'] = get_key_or_default('cc', task_dict, [])

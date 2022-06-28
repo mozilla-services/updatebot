@@ -64,13 +64,28 @@ class Library:
             if not prop.startswith("__") and prop != "id":
                 try:
                     if getattr(other, prop) != getattr(self, prop):
-                        print(self.name, prop, "other:", getattr(other, prop), "self:", getattr(self, prop))
+                        print("Library differing element:", self.name, prop, type(getattr(other, prop)), getattr(other, prop), type(getattr(self, prop)), getattr(self, prop))
                         return False
                 except AttributeError:
                     print(prop, "attributeerror")
                     return False
 
         return True
+
+    def __repr__(self):
+        components = (self.name,
+                      self.bugzilla_product,
+                      self.bugzilla_component,
+                      self.revision,
+                      self.repo_url,
+                      self.has_patches,
+                      self.maintainer_bz,
+                      self.maintainer_phab,
+                      self.fuzzy_query,
+                      self.fuzzy_paths,
+                      self.yaml_path,
+                      self.tasks)
+        return "{{" + (" %s " * len(components) % components) + "}}"
 
 
 class Task:
@@ -87,6 +102,9 @@ class Task:
         if self.type == 'commit-alert':
             self.filter = dict['filter']
             self.source_extensions = dict['source-extensions']
+        else:
+            self.filter = None
+            self.source_extensions = None
 
     def __eq__(self, other):
         if not isinstance(other, Task):
@@ -97,13 +115,27 @@ class Task:
             if not prop.startswith("__") and prop != "id":
                 try:
                     if getattr(other, prop) != getattr(self, prop):
-                        print(prop, getattr(other, prop), getattr(self, prop))
+                        print("Task differing element:", prop, type(getattr(other, prop)), getattr(other, prop), type(getattr(self, prop)), getattr(self, prop))
                         return False
                 except AttributeError:
                     print(prop, "attributeerror")
                     return False
 
         return True
+
+    def __repr__(self):
+        components = (self.type,
+                      self.enabled,
+                      self.branch,
+                      self.cc,
+                      self.needinfo,
+                      self.frequency,
+                      self.platform,
+                      self.blocking,
+                      self.filter,
+                      self.source_extensions)
+
+        return "{" + ("%s " * len(components) % components) + "}"
 
 
 def get_sub_key_or_none(key, subkey, dict, yaml_path):

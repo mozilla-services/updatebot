@@ -97,7 +97,7 @@ class Task:
         self.needinfo = dict['needinfo']
         self.frequency = dict['frequency']
         self.platform = dict['platform']
-        self.blocking = str(dict['blocking'])
+        self.blocking = dict['blocking']
 
         if self.type == 'commit-alert':
             self.filter = dict['filter']

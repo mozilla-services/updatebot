@@ -100,6 +100,8 @@ a follow-up patch. (Or ignore the patch I made, and recreate it yourself with
 `./mach vendor %s`.)
 
 In either event, I have done all I can, so you will need to take it from here.
+When reviewing, please note that this is external code, which needs a full and
+careful inspection - *not* a rubberstamp.
 """ % (library.yaml_path)
 
     @staticmethod
@@ -111,6 +113,9 @@ tests to fail. You'll need to review them yourself and decide where to go from h
 In either event, I have done all I can and you will need to take it from here. If you
 don't want to land my patch, you can replicate it locally for editing with
 `./mach vendor %s`
+
+When reviewing, please note that this is external code, which needs a full and
+careful inspection - *not* a rubberstamp.
 """ % (library.yaml_path)
 
     @staticmethod
@@ -121,6 +126,8 @@ even any intermittents. That is pretty surprising to me, so maybe you should dou
 check to make sure I didn't misinterpret things and that the correct tests ran...
 
 Anyway, I've done all I can, so I'm passing to you to review and land the patch.
+When reviewing, please note that this is external code, which needs a full and
+careful inspection - *not* a rubberstamp.
 """
 
     @staticmethod

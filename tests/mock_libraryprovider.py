@@ -19,7 +19,7 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     def get_libraries(self, gecko_path):
         def path_wrapper(p):
-            return os.path.join(os.getcwd(), "tests/" if not os.getcwd().endswith("tests") else "", p)
+            return os.path.join(os.getcwd(), "tests/" if not os.getcwd().endswith("tests") else "", "test-repo", p)
 
         def default_repo():
             return "test-repo.bundle"

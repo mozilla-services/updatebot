@@ -42,51 +42,61 @@ For this file, we have test-repo.bundle which contains the below commits.
 We also have bundles that culminate in each of the revisions, for use when
 the library 'updates upstream'.
 
-Note: if you are creating a test repo bundle, if all you do is
-   git bundle create repo-file.bundle master
-When you clone it, it will fail with the error
-   remote HEAD refers to nonexistent ref, unable to checkout
-To resolve this, you need to create it this way:
-    git bundle create repo-file.bundle HEAD master
+* 870617305a0d3441eab0828965d138be7c99d1bc - Change our message  (HEAD -> anotherbranch)
+| * 504e1236e462f8f6c265d61d1fcb9d8f6f943eac - Add functionality  (somebranch)
+| * d7e508c874ce09bd18604bbf811e0f695ee9d143 - Skeleton for some functionality 
+|/  
+* ed0a50224caf390bb56a6e14fdeb8f21c6655c22 - Maybe just remove this function completely  (master)
+* 916683659e77a0f7c9b0cefece3da481737c4026 - Update readme for CVE-2021-1  (tag: v0.0.3)
+* 882bdfe3a66a3b8146998c5e443e5d63e4a9b7fd - Rename file 
+* d8075f3fdda87c1d1fa1972051c242ef54cf7395 - Fix a potential bufer overflow  (tag: v0.0.2)
+* f3a8ab9f06708869691e4951b5b48ebddb3f7fad - Utility function for printing strings 
+* 6fc8909aa69765ac2eee8ad235b603718f80f32c - main() should ahve arguments  (tag: v0.0.1)
+* 160b522f2860768935f132fb68050cedbc619e38 - Add main.c 
+* 0bec03444917e0df10a812131843aae7df7e980c - Add README file 
 
-HOWEVER that is only when you are creating a bundle with one branch. If you
-are creating a bundle with multiple branches; then you should do
-    git bundle create test-repo.bundle HEAD --all
-If you specify both -all and master you will get the error
-    fatal: multiple updates for ref 'refs/remotes/origin/master' not allowed
-
-edc676dbd57fd75c6e37dfb8ce616a792fffa8a9  (HEAD -> somebranch) Add functionality
-b6972c67b63be20a4b28ed246fd06f6173265bb5  Skeleton for some functionality
-11c85fb14571c822e5f7f8b92a7e87749430b696  (origin/master, origin/HEAD, master) Maybe just remove this function completely
-0886ba657dedc54fad06018618cc07689198abea  Update readme for CVE-2021-1
-fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830  Rename file
-f80c792e9a279cab9abedf7f3a8f4e41deaef649  Fix a potential bufer overflow
-b321ea35eb25874e1531c87ed53e03bb81f7693b  Utility function for printing strings
-7c9e119ef8d30f4c938f6337ad1715732ac1b023  main() should ahve arguments
-3b0c38accbfc542f3f75ab21227c18ad554570c4  Add main.c
-9dd7270d76d9e63a4ada40d358dd0e4505d16ab3  Add README file
 """
 
 # We use this to determine how many commits we expect to find, which lets us validate
 # we saw the correct number (in the bugzillaprovider)
-REPO_COMMITS = [
-    "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",
-    "b6972c67b63be20a4b28ed246fd06f6173265bb5",
-    "11c85fb14571c822e5f7f8b92a7e87749430b696",
-    "0886ba657dedc54fad06018618cc07689198abea",
-    "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830",
-    "f80c792e9a279cab9abedf7f3a8f4e41deaef649",
-    "b321ea35eb25874e1531c87ed53e03bb81f7693b",
-    "7c9e119ef8d30f4c938f6337ad1715732ac1b023",
-    "3b0c38accbfc542f3f75ab21227c18ad554570c4",
-    "9dd7270d76d9e63a4ada40d358dd0e4505d16ab3",
+COMMITS_BRANCH1 = [
+    "504e1236e462f8f6c265d61d1fcb9d8f6f943eac",
+    "d7e508c874ce09bd18604bbf811e0f695ee9d143",
+    "ed0a50224caf390bb56a6e14fdeb8f21c6655c22",
+    "916683659e77a0f7c9b0cefece3da481737c4026",
+    "882bdfe3a66a3b8146998c5e443e5d63e4a9b7fd",
+    "d8075f3fdda87c1d1fa1972051c242ef54cf7395",
+    "f3a8ab9f06708869691e4951b5b48ebddb3f7fad",
+    "6fc8909aa69765ac2eee8ad235b603718f80f32c",
+    "160b522f2860768935f132fb68050cedbc619e38",
+    "0bec03444917e0df10a812131843aae7df7e980c",
+]
+COMMITS_BRANCH2 = [
+    "870617305a0d3441eab0828965d138be7c99d1bc",
+    "ed0a50224caf390bb56a6e14fdeb8f21c6655c22",
+    "916683659e77a0f7c9b0cefece3da481737c4026",
+    "882bdfe3a66a3b8146998c5e443e5d63e4a9b7fd",
+    "d8075f3fdda87c1d1fa1972051c242ef54cf7395",
+    "f3a8ab9f06708869691e4951b5b48ebddb3f7fad",
+    "6fc8909aa69765ac2eee8ad235b603718f80f32c",
+    "160b522f2860768935f132fb68050cedbc619e38",
+    "0bec03444917e0df10a812131843aae7df7e980c",
+]
+COMMITS_MAIN = [
+    "ed0a50224caf390bb56a6e14fdeb8f21c6655c22",
+    "916683659e77a0f7c9b0cefece3da481737c4026",
+    "882bdfe3a66a3b8146998c5e443e5d63e4a9b7fd",
+    "d8075f3fdda87c1d1fa1972051c242ef54cf7395",
+    "f3a8ab9f06708869691e4951b5b48ebddb3f7fad",
+    "6fc8909aa69765ac2eee8ad235b603718f80f32c",
+    "160b522f2860768935f132fb68050cedbc619e38",
+    "0bec03444917e0df10a812131843aae7df7e980c",
 ]
 
 # They are ordered newest to oldest, so we need to invert the number
 
-
 def GENERIC_EXPECTED_COMMITS_SEEN(get_next_lib_revision, get_current_lib_revision):
-    return - (REPO_COMMITS.index(get_next_lib_revision()) - REPO_COMMITS.index(get_current_lib_revision())) if get_next_lib_revision() else 0
+    return - (COMMITS_BRANCH1.index(get_next_lib_revision()) - COMMITS_BRANCH1.index(get_current_lib_revision())) if get_next_lib_revision() else 0
 
 
 def DEFAULT_EXPECTED_VALUES(new_library_version_func, get_filed_bug_id_func):
@@ -273,7 +283,7 @@ class TestFunctionality(SimpleLoggingTest):
     def testNoAlert(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",  # current_library_version_func
+            lambda: COMMITS_MAIN[0],  # current_library_version_func
             lambda: "",  # new_library_version_func
             lambda: 0,   # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
@@ -291,8 +301,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testSimpleAlert(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "0886ba657dedc54fad06018618cc07689198abea",  # current_library_version_func
-            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",  # new_library_version_func
+            lambda: COMMITS_MAIN[1],  # current_library_version_func
+            lambda: COMMITS_MAIN[0],  # new_library_version_func
             lambda: 1,  # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
             lambda x: [],  # filed_bug_ids_func
@@ -310,8 +320,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testSimpleAlertOnBranch(self):
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "b6972c67b63be20a4b28ed246fd06f6173265bb5",  # current_library_version_func
-            lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",  # new_library_version_func
+            lambda: COMMITS_BRANCH1[1],  # current_library_version_func
+            lambda: COMMITS_BRANCH1[0],  # new_library_version_func
             lambda: 1,   # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
             lambda x: [],  # filed_bug_ids_func
@@ -333,8 +343,8 @@ class TestFunctionality(SimpleLoggingTest):
         """
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",  # current_library_version_func
-            lambda: "edc676dbd57fd75c6e37dfb8ce616a792fffa8a9",  # new_library_version_func
+            lambda: COMMITS_MAIN[0],  # current_library_version_func
+            lambda: COMMITS_BRANCH1[0],  # new_library_version_func
             lambda: 2,   # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
             lambda x: [],  # filed_bug_ids_func
@@ -355,18 +365,18 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_current_lib_revision():
             if call_counter == 0:
-                return "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830"
-            return "0886ba657dedc54fad06018618cc07689198abea"
+                return COMMITS_MAIN[2]
+            return COMMITS_MAIN[1]
 
         def get_next_lib_revision():
             if call_counter == 0:
-                return "0886ba657dedc54fad06018618cc07689198abea"
-            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+                return COMMITS_MAIN[1]
+            return COMMITS_MAIN[0]
 
         def get_lib_repo():
             if call_counter == 0:
-                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
-            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+                return "test-repo-%s.bundle" % COMMITS_MAIN[1]
+            return "test-repo-%s.bundle" % COMMITS_MAIN[0]
 
         expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
 
@@ -419,18 +429,18 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_current_lib_revision():
             if call_counter == 0:
-                return "b321ea35eb25874e1531c87ed53e03bb81f7693b"
-            return "0886ba657dedc54fad06018618cc07689198abea"
+                return COMMITS_MAIN[4]
+            return COMMITS_MAIN[1]
 
         def get_next_lib_revision():
             if call_counter == 0:
-                return "0886ba657dedc54fad06018618cc07689198abea"
-            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+                return COMMITS_MAIN[1]
+            return COMMITS_MAIN[0]
 
         def get_lib_repo():
             if call_counter == 0:
-                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
-            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+                return "test-repo-%s.bundle" % COMMITS_MAIN[1]
+            return "test-repo-%s.bundle" % COMMITS_MAIN[0]
 
         expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
 
@@ -482,18 +492,18 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_current_lib_revision():
             if call_counter < 2:
-                return "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830"
-            return "0886ba657dedc54fad06018618cc07689198abea"
+                return COMMITS_MAIN[2]
+            return COMMITS_MAIN[1]
 
         def get_next_lib_revision():
             if call_counter < 2:
-                return "0886ba657dedc54fad06018618cc07689198abea"
-            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+                return COMMITS_MAIN[1]
+            return COMMITS_MAIN[0]
 
         def get_lib_repo():
             if call_counter < 2:
-                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
-            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+                return "test-repo-%s.bundle" % COMMITS_MAIN[1]
+            return "test-repo-%s.bundle" % COMMITS_MAIN[0]
 
         expected_commits_seen = functools.partial(GENERIC_EXPECTED_COMMITS_SEEN, get_next_lib_revision, get_current_lib_revision)
 
@@ -552,17 +562,17 @@ class TestFunctionality(SimpleLoggingTest):
         call_counter = 0
 
         def get_current_lib_revision():
-            return "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830"
+            return COMMITS_MAIN[2]
 
         def get_next_lib_revision():
             if call_counter < 2:
-                return "0886ba657dedc54fad06018618cc07689198abea"
-            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+                return COMMITS_MAIN[1]
+            return COMMITS_MAIN[0]
 
         def get_lib_repo():
             if call_counter < 2:
-                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
-            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+                return "test-repo-%s.bundle" % COMMITS_MAIN[1]
+            return "test-repo-%s.bundle" % COMMITS_MAIN[0]
 
         # They are ordered newest to oldest, so we need to invert the number
         def expected_commits_seen():
@@ -640,8 +650,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = "aom"
         (u, expected_values) = TestFunctionality._setup(
-            lambda: "0886ba657dedc54fad06018618cc07689198abea",  # current_library_version_func
-            lambda: "11c85fb14571c822e5f7f8b92a7e87749430b696",  # new_library_version_func
+            lambda: COMMITS_MAIN[1],  # current_library_version_func
+            lambda: COMMITS_MAIN[0],  # new_library_version_func
             lambda: 1,   # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
             filed_bug_ids,
@@ -685,17 +695,17 @@ class TestFunctionality(SimpleLoggingTest):
         call_counter = 0
 
         def get_current_lib_revision():
-            return "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830"
+            return COMMITS_MAIN[2]
 
         def get_next_lib_revision():
             if call_counter < 1:
-                return "0886ba657dedc54fad06018618cc07689198abea"
-            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+                return COMMITS_MAIN[1]
+            return COMMITS_MAIN[0]
 
         def get_lib_repo():
             if call_counter < 1:
-                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
-            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+                return "test-repo-%s.bundle" % COMMITS_MAIN[1]
+            return "test-repo-%s.bundle" % COMMITS_MAIN[0]
 
         # They are ordered newest to oldest, so we need to invert the number
         def expected_commits_seen():
@@ -789,17 +799,17 @@ class TestFunctionality(SimpleLoggingTest):
         call_counter = 0
 
         def get_current_lib_revision():
-            return "fb4216ff88bdfbe73617b8c5ebeb9da07a3cf830"
+            return COMMITS_MAIN[2]
 
         def get_next_lib_revision():
             if call_counter < 1:
-                return "0886ba657dedc54fad06018618cc07689198abea"
-            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+                return COMMITS_MAIN[1]
+            return COMMITS_MAIN[0]
 
         def get_lib_repo():
             if call_counter < 1:
-                return "test-repo-0886ba657dedc54fad06018618cc07689198abea.bundle"
-            return "test-repo-11c85fb14571c822e5f7f8b92a7e87749430b696.bundle"
+                return "test-repo-%s.bundle" % COMMITS_MAIN[1]
+            return "test-repo-%s.bundle" % COMMITS_MAIN[0]
 
         # They are ordered newest to oldest, so we need to invert the number
         def expected_commits_seen():
@@ -898,11 +908,11 @@ class TestFunctionality(SimpleLoggingTest):
 
         def current_library_version():
             if call_counter == 0:
-                return "0886ba657dedc54fad06018618cc07689198abea"
-            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+                return COMMITS_MAIN[1]
+            return COMMITS_MAIN[0]
 
         def new_library_version():
-            return "11c85fb14571c822e5f7f8b92a7e87749430b696"
+            return COMMITS_MAIN[0]
 
         def filed_bug_ids(only_open):
             if call_counter == 0:

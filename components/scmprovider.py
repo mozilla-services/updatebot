@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
-import re
 import copy
 import shutil
 import tempfile
@@ -130,10 +129,6 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         #
         #  We do return both lists, because while we only need the unseen list for filing a new bug, we need the
         #  all-upstream list to mark any open bugs as (potentially) affecting a new FF version.
-
-        # If we are updating to a branch or tag; we need to add the origin/ prefix
-        if not re.match("^[a-zA-Z0-9]{40}$", new_version):
-            new_version = "origin/" + new_version
 
         # This try block is used to ensure we clean up and chdir at the end always. It has no except clause,
         # exceptions raised are sent up the stack.

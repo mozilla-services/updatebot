@@ -100,6 +100,15 @@ class TestCommandRunner(unittest.TestCase):
         for i in range(len(unseen_new_upstream_commits) - 1):
             self.assertEqual(unseen_new_upstream_commits[i].revision, COMMITS_MAIN_R[i + len(COMMITS_MAIN_R) - 3])
 
+    def testCheckForUpdatesOnTag(self):
+        library, task = self._get_library()
+
+        new_version = 'v0.0.2'
+        library.revision = 'v0.0.1'
+        all_new_upstream_commits, unseen_new_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, [])
+        self.assertEqual(len(all_new_upstream_commits), 2)
+        self.assertEqual(len(unseen_new_upstream_commits), 2)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

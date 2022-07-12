@@ -28,7 +28,8 @@ COMMITS_MAIN_R.reverse()
 
 
 class TestCommandRunner(unittest.TestCase):
-    def test(self):
+    @classmethod
+    def setUpClass(cls):
         loggingProvider = SimpleLogger(localconfig['Logging'])
 
         real_command_runner = CommandProvider({})
@@ -36,31 +37,34 @@ class TestCommandRunner(unittest.TestCase):
             'LoggingProvider': loggingProvider
         })
 
-        scmProvider = SCMProvider({})
-        scmProvider.update_config({
+        cls.scmProvider = SCMProvider({})
+        cls.scmProvider.update_config({
             'CommandProvider': real_command_runner,
             'LoggingProvider': loggingProvider
         })
 
         repo_url = test_repo_path_wrapper(default_test_repo())
 
-        scmProvider.initialize()
-        scmProvider._ensure_checkout(repo_url)
+        cls.scmProvider.initialize()
+        cls.scmProvider._ensure_checkout(repo_url)
 
+    @classmethod
+    def tearDownClass(cls):
+        cls.scmProvider.reset()
+
+    def testCommitsBetween(self):
         # Test a full commits between test
-        commits = scmProvider._commits_between(COMMITS_MAIN[-1], COMMITS_MAIN[0])
+        commits = self.scmProvider._commits_between(COMMITS_MAIN[-1], COMMITS_MAIN[0])
         for i in range(len(commits)):
             self.assertEqual(commits[i].revision, COMMITS_MAIN_R[i + 1])
 
         # Test rev1 == rev2
-        commits = scmProvider._commits_between(COMMITS_MAIN[0], COMMITS_MAIN[0])
+        commits = self.scmProvider._commits_between(COMMITS_MAIN[0], COMMITS_MAIN[0])
         self.assertEqual(len(commits), 0)
 
         # Test rev1 = rev2^
-        commits = scmProvider._commits_between(COMMITS_MAIN[1], COMMITS_MAIN[0])
+        commits = self.scmProvider._commits_between(COMMITS_MAIN[1], COMMITS_MAIN[0])
         self.assertEqual(commits[0].revision, COMMITS_MAIN[0])
-
-        scmProvider.reset()
 
 
 if __name__ == '__main__':

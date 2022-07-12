@@ -153,7 +153,7 @@ make_final_bundle
 echo ""
 echo "Here is the comment for functionality_commitalert.py"
 echo ""
-git log --all --graph --format="%H - %s %d" | cat
+git log --all --graph --format="%H - %s%d" | cat
 
 echo ""
 echo "Here are the arrays of commits for functionality_commitalert.py"

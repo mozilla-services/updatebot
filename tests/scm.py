@@ -15,7 +15,7 @@ from components.logging import SimpleLogger, log
 from components.commandprovider import CommandProvider
 from components.utilities import Struct
 
-from tests.mock_repository import default_test_repo, test_repo_path_wrapper, COMMITS_MAIN
+from tests.mock_repository import default_test_repo, test_repo_path_wrapper, COMMITS_MAIN, COMMITS_BRANCH2, COMMITS_BRANCH1
 
 try:
     from localconfig import localconfig
@@ -108,6 +108,28 @@ class TestCommandRunner(unittest.TestCase):
         all_new_upstream_commits, unseen_new_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, [])
         self.assertEqual(len(all_new_upstream_commits), 2)
         self.assertEqual(len(unseen_new_upstream_commits), 2)
+
+    def testCheckForUpdatesOnTagSkipOne(self):
+        library, task = self._get_library()
+
+        new_version = 'v0.0.2'
+        library.revision = 'v0.0.1'
+        ignoreme = [Struct(**{'version': COMMITS_MAIN[-4]})]
+        all_new_upstream_commits, unseen_new_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, ignoreme)
+        self.assertEqual(len(all_new_upstream_commits), 2)
+        self.assertEqual(len(unseen_new_upstream_commits), 1)
+
+    def testCheckForUpdatesSwitchBranch(self):
+        library, task = self._get_library()
+
+        new_version = COMMITS_BRANCH2[0]
+        library.revision = COMMITS_BRANCH1[0]
+        ignoreme = []
+        all_new_upstream_commits, unseen_new_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, ignoreme)
+        self.assertEqual(len(all_new_upstream_commits), 1)
+        self.assertEqual(all_new_upstream_commits[0].revision, COMMITS_BRANCH2[0])
+        self.assertEqual(len(unseen_new_upstream_commits), 1)
+        self.assertEqual(unseen_new_upstream_commits[0].revision, COMMITS_BRANCH2[0])
 
 
 if __name__ == '__main__':

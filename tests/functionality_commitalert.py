@@ -27,6 +27,7 @@ from components.commandprovider import CommandProvider
 
 from tests.mock_commandprovider import TestCommandProvider, DO_EXECUTE
 from tests.mock_libraryprovider import MockLibraryProvider
+from tests.mock_repository import COMMITS_BRANCH1, COMMITS_MAIN
 from tests.mock_treeherder_server import MockTreeherderServer
 from tests.database import transform_db_config_to_tmp_db
 
@@ -36,64 +37,8 @@ except ImportError:
     log("Unit tests require a local database configuration to be defined.")
     sys.exit(1)
 
-"""
-For this file, we have test-repo.bundle which contains the below commits.
-
-We also have bundles that culminate in each of the revisions, for use when
-the library 'updates upstream'.
-
-* 870617305a0d3441eab0828965d138be7c99d1bc - Change our message  (HEAD -> anotherbranch)
-| * 504e1236e462f8f6c265d61d1fcb9d8f6f943eac - Add functionality  (somebranch)
-| * d7e508c874ce09bd18604bbf811e0f695ee9d143 - Skeleton for some functionality 
-|/  
-* ed0a50224caf390bb56a6e14fdeb8f21c6655c22 - Maybe just remove this function completely  (master)
-* 916683659e77a0f7c9b0cefece3da481737c4026 - Update readme for CVE-2021-1  (tag: v0.0.3)
-* 882bdfe3a66a3b8146998c5e443e5d63e4a9b7fd - Rename file 
-* d8075f3fdda87c1d1fa1972051c242ef54cf7395 - Fix a potential bufer overflow  (tag: v0.0.2)
-* f3a8ab9f06708869691e4951b5b48ebddb3f7fad - Utility function for printing strings 
-* 6fc8909aa69765ac2eee8ad235b603718f80f32c - main() should ahve arguments  (tag: v0.0.1)
-* 160b522f2860768935f132fb68050cedbc619e38 - Add main.c 
-* 0bec03444917e0df10a812131843aae7df7e980c - Add README file 
-
-"""
-
-# We use this to determine how many commits we expect to find, which lets us validate
-# we saw the correct number (in the bugzillaprovider)
-COMMITS_BRANCH1 = [
-    "504e1236e462f8f6c265d61d1fcb9d8f6f943eac",
-    "d7e508c874ce09bd18604bbf811e0f695ee9d143",
-    "ed0a50224caf390bb56a6e14fdeb8f21c6655c22",
-    "916683659e77a0f7c9b0cefece3da481737c4026",
-    "882bdfe3a66a3b8146998c5e443e5d63e4a9b7fd",
-    "d8075f3fdda87c1d1fa1972051c242ef54cf7395",
-    "f3a8ab9f06708869691e4951b5b48ebddb3f7fad",
-    "6fc8909aa69765ac2eee8ad235b603718f80f32c",
-    "160b522f2860768935f132fb68050cedbc619e38",
-    "0bec03444917e0df10a812131843aae7df7e980c",
-]
-COMMITS_BRANCH2 = [
-    "870617305a0d3441eab0828965d138be7c99d1bc",
-    "ed0a50224caf390bb56a6e14fdeb8f21c6655c22",
-    "916683659e77a0f7c9b0cefece3da481737c4026",
-    "882bdfe3a66a3b8146998c5e443e5d63e4a9b7fd",
-    "d8075f3fdda87c1d1fa1972051c242ef54cf7395",
-    "f3a8ab9f06708869691e4951b5b48ebddb3f7fad",
-    "6fc8909aa69765ac2eee8ad235b603718f80f32c",
-    "160b522f2860768935f132fb68050cedbc619e38",
-    "0bec03444917e0df10a812131843aae7df7e980c",
-]
-COMMITS_MAIN = [
-    "ed0a50224caf390bb56a6e14fdeb8f21c6655c22",
-    "916683659e77a0f7c9b0cefece3da481737c4026",
-    "882bdfe3a66a3b8146998c5e443e5d63e4a9b7fd",
-    "d8075f3fdda87c1d1fa1972051c242ef54cf7395",
-    "f3a8ab9f06708869691e4951b5b48ebddb3f7fad",
-    "6fc8909aa69765ac2eee8ad235b603718f80f32c",
-    "160b522f2860768935f132fb68050cedbc619e38",
-    "0bec03444917e0df10a812131843aae7df7e980c",
-]
-
 # They are ordered newest to oldest, so we need to invert the number
+
 
 def GENERIC_EXPECTED_COMMITS_SEEN(get_next_lib_revision, get_current_lib_revision):
     return - (COMMITS_BRANCH1.index(get_next_lib_revision()) - COMMITS_BRANCH1.index(get_current_lib_revision())) if get_next_lib_revision() else 0

@@ -50,20 +50,42 @@ class VendorTaskRunner(BaseTaskRunner):
     def process_task(self, library, task):
         assert task.type == 'vendoring'
 
+        # Collect all the existing jobs, and figure out which have open bugs
+        all_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.VENDORING)
+        open_bugs = self.bugzillaProvider.find_open_bugs([j.bugzilla_id for j in all_jobs])
+        for j in all_jobs:
+            j.bugzilla_is_open = j.bugzilla_id in open_bugs
+
+        # Get the list of all jobs we want to do something about
+        all_jobs_not_done = [j for j in all_jobs if j.status != JOBSTATUS.DONE or j.bugzilla_is_open]
+
+        # Then process all of them
+        for j in all_jobs_not_done:
+            self.logger.log("Processing job id %s for %s which is currently %s and has a %s bug" % (j.id, library.name, j.status, "open" if j.bugzilla_is_open else "closed"))
+            self._process_existing_job(library, task, j)
+            self._reset_for_new_job()
+
+        # See if we have a new upstream commit to process
         new_version, timestamp = self.vendorProvider.check_for_update(library)
         if not new_version:
-            self.logger.log("Processing %s but no new version was found." % library.name, level=LogLevel.Info)
+            self.logger.log("No new version for %s was found." % library.name, level=LogLevel.Info)
             return
 
-        self.logger.log("Processing %s for an upstream revision %s." % (library.name, new_version), level=LogLevel.Info)
-        existing_job = self.dbProvider.get_job(library, new_version)
-        if existing_job:
-            self.logger.log("%s has an existing job with %s try revisions (%s) and status %s" % (new_version, len(existing_job.try_runs), existing_job.get_try_run_ids(), existing_job.status), level=LogLevel.Info)
-            self._process_existing_job(library, task, existing_job)
-        else:
-            self.logger.log("%s is a brand new revision to updatebot." % (new_version), level=LogLevel.Info)
-            self._process_new_job(library, task, new_version, timestamp)
+        # Then see if we already made a job for it.
+        existing_job = [j for j in all_jobs if j.version == new_version]
+        assert len(existing_job) < 2, "We found more than two jobs for version %s" % new_version
+        if any(existing_job):
+            existing_job = existing_job[0]
+            self.logger.log("Job id %s was already created for the latest upstream revision %s" % (existing_job.id, new_version), level=LogLevel.Info)
+            return
 
+        self.logger.log("Processing %s for a new upstream revision %s." % (library.name, new_version), level=LogLevel.Info)
+        self._process_new_job(library, task, new_version, timestamp)
+        self._reset_for_new_job()
+
+    # ====================================================================
+    @logEntryExit
+    def _reset_for_new_job(self):
         # remove commits generated from processing this library, will return success
         # regardless of if outgoing commits exist or not.
         self.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)

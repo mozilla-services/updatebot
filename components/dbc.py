@@ -130,7 +130,7 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         print_objects("OUTCOMES", self.get_all_outcomes(), status_columns)
 
         job_columns = ['id', 'type', 'created', 'library_shortname', 'version',
-                       'status', 'outcome', 'bugzilla_id', 'phab_revision', 'ff_versions']
+                       'status', 'outcome', 'relinquished', 'bugzilla_id', 'phab_revision', 'ff_versions']
         print_objects("JOBS", self.get_all_jobs(), job_columns)
 
         try_run_columns = ['id', 'revision', 'job_id', 'purpose']

@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 14
+CURRENT_DATABASE_CONFIG_VERSION = 15
 
 CREATION_QUERIES = {
     "config": """
@@ -56,6 +56,7 @@ CREATION_QUERIES = {
         `version` VARCHAR(64) NOT NULL ,
         `status` TINYINT NOT NULL,
         `outcome` TINYINT NOT NULL,
+        `relinquished` TINYINT NOT NULL,
         `bugzilla_id` INT NULL,
         `phab_revision` INT NULL,
         `try_revision` VARCHAR(40) NULL,
@@ -382,6 +383,13 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                             if any_in(['UNEXPECTED_CREATED_STATUS'], q.args):
                                 self._query_execute(q.query, q.args)
 
+                    if config_version <= 14 and CURRENT_DATABASE_CONFIG_VERSION >= 15:
+                        self.logger.log("Upgrading to database version 15", level=LogLevel.Warning)
+
+                        # Add the column with no default (making the default zero)
+                        self._query_execute("ALTER TABLE `jobs` ADD COLUMN `relinquished` TINYINT NOT NULL AFTER `outcome`")
+                        self._query_execute("UPDATE jobs SET relinquished=1 WHERE status = 5")
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -507,7 +515,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     @logEntryExit
     def create_job(self, jobtype, library, new_version, ff_version, status, outcome, bug_id):
         # Omitting the created column initializes it to current timestamp
-        query = "INSERT INTO jobs(job_type, library, version, status, outcome, bugzilla_id) VALUES(%s, %s, %s, %s, %s, %s)"
+        query = "INSERT INTO jobs(job_type, library, version, status, outcome, relinquished, bugzilla_id) VALUES(%s, %s, %s, %s, %s, 0, %s)"
         args = (jobtype, library.name, new_version, status, outcome, bug_id)
         job_id = self._query_execute(query, args)
 

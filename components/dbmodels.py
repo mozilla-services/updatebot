@@ -108,6 +108,7 @@ class Job:
             self.version = row['version']
             self.status = JOBSTATUS(row['status'])
             self.outcome = JOBOUTCOME(row['outcome'])
+            self.relinquished = not not row['relinquished']
             self.bugzilla_id = row['bugzilla_id']
             self.phab_revision = row['phab_revision']
             self.ff_versions = set()

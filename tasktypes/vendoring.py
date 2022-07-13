@@ -313,28 +313,20 @@ class VendorTaskRunner(BaseTaskRunner):
             return
 
         elif existing_job.status == JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS:
-            if len(existing_job.try_runs) != 1:
-                self.logger.log("State is AWAITING_INITIAL_PLATFORM_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
-                return
+            assert len(existing_job.try_runs) == 1, "State is AWAITING_INITIAL_PLATFORM_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids())
             self._process_job_details_for_awaiting_initial_platform_results(library, task, existing_job)
-        elif existing_job.status == JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS:
-            if not self.config['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
-                self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
-                return
-            elif self.config['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
-                self.logger.log("State is AWAITING_SECOND_PLATFORMS_TRY_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
-                return
-            self._process_job_details_for_awaiting_second_platform_results(library, task, existing_job)
-        elif existing_job.status == JOBSTATUS.AWAITING_RETRIGGER_RESULTS:
-            if not self.config['General']['separate-platforms'] and len(existing_job.try_runs) != 1:
-                self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
-                return
-            elif self.config['General']['separate-platforms'] and len(existing_job.try_runs) != 2:
-                self.logger.log("State is AWAITING_RETRIGGER_RESULTS, but we have %s try runs, not 2 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
-                return
-            self._process_job_details_for_awaiting_retrigger_results(library, task, existing_job)
         else:
-            raise Exception("In _process_job_details for job with try revisions %s got a status %s I don't know how to handle." % (existing_job.get_try_run_ids(), existing_job.status))
+            if not self.config['General']['separate-platforms']:
+                assert len(existing_job.try_runs) == 1, "Status is %s, but we have %s try runs, not 1 (%s)." % (existing_job.status, len(existing_job.try_runs), existing_job.get_try_run_ids())
+            else:
+                assert len(existing_job.try_runs) == 2, "Status is %s, but we have %s try runs, not 2 (%s)." % (existing_job.status, len(existing_job.try_runs), existing_job.get_try_run_ids())
+
+            if existing_job.status == JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS:
+                self._process_job_details_for_awaiting_second_platform_results(library, task, existing_job)
+            elif existing_job.status == JOBSTATUS.AWAITING_RETRIGGER_RESULTS:
+                self._process_job_details_for_awaiting_retrigger_results(library, task, existing_job)
+            else:
+                raise Exception("In _process_job_details for job with try revisions %s got a status %s I don't know how to handle." % (existing_job.get_try_run_ids(), existing_job.status))
 
     # ==================================
 

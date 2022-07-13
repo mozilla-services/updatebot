@@ -311,7 +311,9 @@ class VendorTaskRunner(BaseTaskRunner):
             raise Exception("Handled a Job with unexpected CREATED status in _process_existing_job")
 
         elif existing_job.status == JOBSTATUS.DONE:
-            # The job has been completed, but we still need to double check if it has acknowleged our current FF version
+            assert existing_job.bugzilla_is_open, "We are processing a job %s that is Done and the bugzilla bug is closed" % existing_job.id
+            # The job has been completed, but the bugzilla bug is open and we need to double check if it has acknowleged our current FF version
+
             if my_ff_version in existing_job.ff_versions:
                 self.logger.log("We found a job with id %s for revision %s that was already processed for this ff version (%s)." % (
                     existing_job.id, existing_job.version, my_ff_version), level=LogLevel.Info)
@@ -434,8 +436,9 @@ class VendorTaskRunner(BaseTaskRunner):
         for j in job_list:
             if j.result not in ["retry", "success"]:
                 if "build" in j.job_type_name:
-                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer_bz)
-                    self.phabricatorProvider.abandon(existing_job.phab_revision)
+                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+                    if not existing_job.relinquished:
+                        self.phabricatorProvider.abandon(existing_job.phab_revision)
                     self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
                     return False
 
@@ -450,6 +453,11 @@ class VendorTaskRunner(BaseTaskRunner):
 
         job_list = self.taskclusterProvider.get_job_details(try_revision_1)
         if not self._job_is_completed_without_build_failures(library, existing_job, job_list):
+            return
+
+        if not existing_job.bugzilla_is_open:
+            self.logger.log("The bugzilla bug has been closed, so we will only summarize results.", level=LogLevel.Info)
+            self._process_job_details_for_awaiting_retrigger_results(library, task, existing_job)
             return
 
         self.logger.log("All jobs completed, we're going to go to the next set of platforms.", level=LogLevel.Info)
@@ -517,13 +525,15 @@ class VendorTaskRunner(BaseTaskRunner):
             return
 
         # If we need to retrigger jobs
-        if results['to_retrigger']:
+        if results['to_retrigger'] and existing_job.bugzilla_is_open:
             self.logger.log("All jobs completed, we found failures we need to retrigger, going to retrigger %s jobs: " % len(results['to_retrigger']), level=LogLevel.Info)
             for j in results['to_retrigger']:
                 self.logger.log(j.job_type_name + " " + j.task_id, level=LogLevel.Debug)
             self.taskclusterProvider.retrigger_jobs(results['to_retrigger'])
             self.dbProvider.update_job_status(existing_job, newstatus=JOBSTATUS.AWAITING_RETRIGGER_RESULTS)
             return
+        elif results['to_retrigger']:
+            self.logger.log("While there were things we'd retrigger, the bugzilla bug has been closed, so we will only summarize results.", level=LogLevel.Info)
 
         self._process_job_results(library, task, existing_job, results, comment_lines)
 
@@ -556,26 +566,41 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.logger.log(c, level=LogLevel.Debug)
                 comment += c + "\n"
 
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library), assignee=library.maintainer_bz)
-            try:
-                self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
-            except Exception as e:
-                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
-                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
-                raise e
+            self.bugzillaProvider.comment_on_bug(
+                existing_job.bugzilla_id,
+                CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library),
+                assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+
+            if existing_job.bugzilla_is_open:
+                try:
+                    self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+                except Exception as e:
+                    self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
+                    self.bugzillaProvider.comment_on_bug(
+                        existing_job.bugzilla_id,
+                        CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
+                        needinfo=library.maintainer_bz)
+                    raise e
 
         # Everything.... succeeded?
         else:
             self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
             existing_job.outcome = JOBOUTCOME.ALL_SUCCESS
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_ALL_SUCCESS(), assignee=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(
+                existing_job.bugzilla_id,
+                CommentTemplates.DONE_ALL_SUCCESS(),
+                assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
 
-            try:
-                self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
-            except Exception as e:
-                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
-                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
-                raise e
+            if existing_job.bugzilla_is_open:
+                try:
+                    self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+                except Exception as e:
+                    self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
+                    self.bugzillaProvider.comment_on_bug(
+                        existing_job.bugzilla_id,
+                        CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
+                        needinfo=library.maintainer_bz)
+                    raise e
 
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
 
@@ -590,5 +615,9 @@ class VendorTaskRunner(BaseTaskRunner):
             comment += c + "\n"
             self.logger.log(c, level=LogLevel.Debug)
 
-        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library), needinfo=library.maintainer_bz, assignee=library.maintainer_bz)
+        self.bugzillaProvider.comment_on_bug(
+            existing_job.bugzilla_id,
+            CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library),
+            needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None,
+            assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)

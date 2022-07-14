@@ -36,22 +36,22 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def get_all_outcomes(self):
         return self.db.get_all_outcomes()
 
-    def get_all_jobs(self, include_relinquished=False):
-        return self.db.get_all_jobs(include_relinquished)
+    def get_all_jobs(self):
+        return self.db.get_all_jobs()
 
     def get_all_try_runs(self):
         return self.db.get_all_try_runs()
 
-    def get_all_jobs_for_library(self, library, jobtype, include_relinquished=False):
-        jobs = self.db.get_all_jobs_for_library(library, include_relinquished)
+    def get_all_jobs_for_library(self, library, jobtype):
+        jobs = self.db.get_all_jobs_for_library(library)
         return [j for j in jobs if j.type == jobtype]
 
     def get_all_active_jobs_for_library(self, library, jobtype):
-        all_jobs = self.db.get_all_jobs_for_library(library, include_relinquished=False)
+        all_jobs = self.db.get_all_jobs_for_library(library)
         return [j for j in all_jobs if j.status != JOBSTATUS.DONE and j.type == jobtype]
 
-    def get_job(self, library, new_version, include_relinquished=False):
-        return self.db.get_job(library, new_version, include_relinquished)
+    def get_job(self, library, new_version):
+        return self.db.get_job(library, new_version)
 
     # Only used for testing purposes, in the real database, we don't delete records.
     def delete_job(self, library=None, version=None, job_id=None):

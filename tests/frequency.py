@@ -25,7 +25,7 @@ class TestTaskFrequency(unittest.TestCase):
         bt.logger = simpleLogger
         bt.jobType = JOBTYPE.VENDORING
         bt.dbProvider = Struct(**{
-            "get_all_jobs_for_library": lambda a, b, include_relinquished: []})
+            "get_all_jobs_for_library": lambda a, b: []})
         bt.scmProvider = Struct(**{
             "check_for_update": lambda a, b, c, d: (['a', 'b'], ['a', 'b'])})
 
@@ -49,39 +49,39 @@ class TestTaskFrequency(unittest.TestCase):
         self.assertTrue(bt._should_process_new_job(library, task))
 
         bt.config = {'General': {'ff-version': 79}}
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"ff_versions": set([80]), "version": "whatever"})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"ff_versions": set([80]), "version": "whatever"})]
         self.assertTrue(bt._should_process_new_job(library, task))
 
         bt.config = {'General': {'ff-version': 79}}
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"ff_versions": set([79]), "version": "whatever"})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"ff_versions": set([79]), "version": "whatever"})]
         self.assertFalse(bt._should_process_new_job(library, task))
 
         task.frequency = '1 week'
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
         self.assertTrue(bt._should_process_new_job(library, task))
 
         task.frequency = '2 weeks'
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=2, hours=1)})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(weeks=2, hours=1)})]
         self.assertTrue(bt._should_process_new_job(library, task))
 
         task.frequency = '1 week'
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(days=5)})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(days=5)})]
         self.assertFalse(bt._should_process_new_job(library, task))
 
         task.frequency = '21 weeks'
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=20)})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(weeks=20)})]
         self.assertFalse(bt._should_process_new_job(library, task))
 
         task.frequency = '1 week, 3 commits'
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
         self.assertFalse(bt._should_process_new_job(library, task))
 
         task.frequency = '2 weeks, 2 commits'
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
         self.assertFalse(bt._should_process_new_job(library, task))
 
         task.frequency = '1 week, 2 commits'
-        bt.dbProvider.get_all_jobs_for_library = lambda a, b, include_relinquished: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
         self.assertTrue(bt._should_process_new_job(library, task))
 
 

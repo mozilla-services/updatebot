@@ -458,15 +458,13 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return [Struct(**r) for r in results]
 
     @logEntryExit
-    def get_all_jobs(self, include_relinquished):
+    def get_all_jobs(self):
         query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
                    LEFT OUTER JOIN job_to_ff_version as v
                        ON j.id = v.job_id
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id """
-        if not include_relinquished:
-            query += " AND j.status <> 5 "
         query += "ORDER BY j.created DESC, j.id DESC"""
         results = self._query_get_rows(query)
         return transform_job_and_try_results_into_objects(results)
@@ -478,7 +476,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return [TryRun(r) for r in results]
 
     @logEntryExit
-    def get_all_jobs_for_library(self, library, include_relinquished):
+    def get_all_jobs_for_library(self, library):
         query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
                    LEFT OUTER JOIN job_to_ff_version as v
@@ -486,15 +484,13 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                    LEFT OUTER JOIN try_runs as t
                        ON j.id = t.job_id
                    WHERE j.library = %s """
-        if not include_relinquished:
-            query += " AND j.status <> 5 "
         query += "ORDER BY j.created DESC, j.id DESC"""
         args = (library.name)
         results = self._query_get_rows(query, args)
         return transform_job_and_try_results_into_objects(results)
 
     @logEntryExit
-    def get_job(self, library, new_version, include_relinquished):
+    def get_job(self, library, new_version):
         query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
                    FROM jobs as j
                    LEFT OUTER JOIN job_to_ff_version as v
@@ -503,8 +499,6 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        ON j.id = t.job_id
                    WHERE j.library = %s
                      AND j.version = %s"""
-        if not include_relinquished:
-            query += " AND j.status <> 5 "
         query += " ORDER BY j.created DESC, j.id DESC"
 
         args = [library.name, new_version]
@@ -523,7 +517,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         args = (job_id, ff_version)
         self._query_execute(query, args)
 
-        return self.get_job(library, new_version, False)
+        return self.get_job(library, new_version)
 
     @logEntryExit
     def update_job_status(self, existing_job):

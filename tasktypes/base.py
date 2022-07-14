@@ -23,7 +23,7 @@ class BaseTaskRunner:
             self.logger.log("Task frequency is 'every' so processing the new job.", level=LogLevel.Info)
             return True
 
-        existing_jobs = self.dbProvider.get_all_jobs_for_library(library, self.jobType, include_relinquished=True)
+        existing_jobs = self.dbProvider.get_all_jobs_for_library(library, self.jobType)
         if not existing_jobs and frequency_type() in ['week', 'release']:
             self.logger.log("No prior jobs found, so processing the new job.", level=LogLevel.Info)
             return True

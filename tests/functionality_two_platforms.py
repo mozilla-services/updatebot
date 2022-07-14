@@ -540,7 +540,7 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it
             u.run(library_filter=library_filter)
 
-            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
+            all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "cube-2commits"]), 0, "I should not have created any jobs.")
 
             call_counter += 1
@@ -548,7 +548,7 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it again
             u.run(library_filter=library_filter)
 
-            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
+            all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "cube-2commits"]), 1, "I should have created a job.")
         finally:
             TestFunctionality._cleanup(u, expected_values)
@@ -853,7 +853,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully, and aborted the other one
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
-            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
+            all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 2, "I should have created two jobs.")
             self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
             self.assertTrue(was_abandoned, "We did not abandon the phabricator revision as expected.")
@@ -1053,7 +1053,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully, and aborted the other one
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
-            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
+            all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 2, "I should have created two jobs.")
             self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
             self.assertEqual(abandon_count, 1, "We did not abandon the phabricator revision as expected.")
@@ -1065,7 +1065,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully, and aborted the other one
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
-            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
+            all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 3, "I should have created three jobs.")
             self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
             self.assertEqual(all_jobs[2].outcome, JOBOUTCOME.ABORTED, "The second job should be set as Aborted.")
@@ -1139,7 +1139,7 @@ class TestFunctionality(SimpleLoggingTest):
 
             # Run it
             u.run(library_filter=library_filter)
-            all_jobs = u.dbProvider.get_all_jobs(include_relinquished=True)
+            all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 1, "I should still have one job.")
             self.assertEqual(all_jobs[0].ff_versions, set([old_ff_version + 1, old_ff_version]), "I did not add the second Firefox version to the second bug")
             self.assertTrue(was_marked_affected)

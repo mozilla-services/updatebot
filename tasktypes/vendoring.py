@@ -456,6 +456,27 @@ class VendorTaskRunner(BaseTaskRunner):
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit the updated library."), needinfo=library.maintainer_bz)
             raise e
 
+        if library.has_patches:
+            # Apply Patches -------------------
+            try:
+                self.vendorProvider.patch(library, existing_job.version)
+            except Exception as e:
+                if isinstance(e, subprocess.CalledProcessError):
+                    msg = ("stderr:\n" + e.stderr.decode().rstrip() + "\n\n") if e.stderr else ""
+                    msg += ("stdout:\n" + e.stdout.decode().rstrip()) if e.stdout else ""
+                else:
+                    msg = str(e)
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
+                return
+            # Commit Patches ------------------
+            try:
+                self.mercurialProvider.commit_patches(library, existing_job.bugzilla_id, existing_job.version)
+            except Exception as e:
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES)
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit after applying mozilla patches."), needinfo=library.maintainer_bz)
+                raise e
+
         # Submit to Try -------------------
         try:
             try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")

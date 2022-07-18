@@ -51,10 +51,10 @@ def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, try_revisions_func, get_file
     })
 
 
-def COMMAND_MAPPINGS(expected_values, callbacks):
-    ret = SHARED_COMMAND_MAPPINGS(expected_values, callbacks)
-    ret["./mach try auto --tasks-regex "] = callbacks['try_submit'] if 'try_submit' in callbacks else lambda: TRY_OUTPUT(expected_values.try_revisions_func()[0])
-    ret["./mach try fuzzy"] = callbacks['try_submit'] if 'try_submit' in callbacks else lambda: TRY_OUTPUT(expected_values.try_revisions_func()[0], False)
+def COMMAND_MAPPINGS(expected_values, command_callbacks):
+    ret = SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks)
+    ret["./mach try auto --tasks-regex "] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revisions_func()[0]))
+    ret["./mach try fuzzy"] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revisions_func()[0], False))
     if len(expected_values.try_revisions_func()) > 1:
         ret['./mach try auto --tasks-regex-exclude '] = lambda: TRY_OUTPUT(expected_values.try_revisions_func()[1])
     return ret
@@ -107,7 +107,7 @@ class TestFunctionality(SimpleLoggingTest):
                get_filed_bug_id_func,
                filed_bug_ids_func,
                assert_affected_func=None,
-               callbacks={},
+               command_callbacks={},
                keep_tmp_db=False):
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         db_config['keep_tmp_db'] = keep_tmp_db
@@ -141,7 +141,7 @@ class TestFunctionality(SimpleLoggingTest):
         }
 
         expected_values = DEFAULT_EXPECTED_VALUES(git_pretty_output_func, try_revisions_func, get_filed_bug_id_func)
-        configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values, callbacks)
+        configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values, command_callbacks)
 
         u = Updatebot(configs, PROVIDERS)
         _check_jobs = functools.partial(TestFunctionality._check_jobs, u, library_filter, expected_values)
@@ -241,7 +241,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'patch': patch_callback}
+            command_callbacks={'patch': patch_callback}
         )
         try:
             u.run(library_filter=library_filter)
@@ -260,7 +260,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'vendor': lambda: raise_(Exception("No vendoring!"))}
+            command_callbacks={'vendor': lambda: raise_(Exception("No vendoring!"))}
         )
         try:
             u.run(library_filter=library_filter)
@@ -286,7 +286,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'commit': lambda: raise_(Exception("No committing!"))}
+            command_callbacks={'commit': lambda: raise_(Exception("No committing!"))}
         )
         try:
             u.run(library_filter=library_filter)
@@ -312,7 +312,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'patch': lambda: raise_(Exception("No patching!"))}
+            command_callbacks={'patch': lambda: raise_(Exception("No patching!"))}
         )
         try:
             u.run(library_filter=library_filter)
@@ -339,8 +339,8 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'patch': lambda: "",
-                       'commit': lambda: "" if next(commit_calls) < 1 else raise_(Exception("No commiting the patching!"))}
+            command_callbacks={'patch': lambda: "",
+                               'commit': lambda: "" if next(commit_calls) < 1 else raise_(Exception("No commiting the patching!"))}
         )
         try:
             u.run(library_filter=library_filter)
@@ -366,7 +366,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
+            command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
         try:
             u.run(library_filter=library_filter)
@@ -392,7 +392,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
+            command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
         try:
             u.run(library_filter=library_filter)
@@ -421,7 +421,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'phab_submit': lambda: raise_(Exception("No submitting to phabricator!"))}
+            command_callbacks={'phab_submit': lambda: raise_(Exception("No submitting to phabricator!"))}
         )
         try:
             u.run(library_filter=library_filter)
@@ -456,7 +456,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'try_submit': try_output}
+            command_callbacks={'try_submit': try_output}
         )
         try:
             # Run it, then check that we created the job successfully
@@ -494,7 +494,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'try_submit': try_output}
+            command_callbacks={'try_submit': try_output}
         )
         try:
             # Run it, then check that we created the job successfully
@@ -600,7 +600,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["45cf941f54e2d5a362ed08dfd61ba3922a47fdc3"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
-            callbacks={'abandon': abandon_callback}
+            command_callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -754,7 +754,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             get_filed_bug_id,
             get_filed_bugs,
-            callbacks={'abandon': abandon_callback}
+            command_callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -837,7 +837,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             get_filed_bug_id,
             get_filed_bugs,
-            callbacks={'abandon': abandon_callback}
+            command_callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -925,7 +925,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             get_filed_bug_id,
             get_filed_bugs,
-            callbacks={'abandon': abandon_callback}
+            command_callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -1037,7 +1037,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             get_filed_bug_id,
             get_filed_bugs,
-            callbacks={'abandon': abandon_callback}
+            command_callbacks={'abandon': abandon_callback}
         )
 
         try:
@@ -1202,7 +1202,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             get_filed_bug_id,
             get_filed_bugs,
-            callbacks={'abandon': abandon_callback}
+            command_callbacks={'abandon': abandon_callback}
         )
 
         try:

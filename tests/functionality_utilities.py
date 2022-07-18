@@ -13,23 +13,41 @@ def AssertFalse(a=False, b=False, c=False):
     assert False, "We should not have called this function in this test."
 
 
-def SHARED_COMMAND_MAPPINGS(expected_values, callbacks):
+"""
+Optional callbacks:
+    If present, these callbacks will be used instead of the default value
+
+vendor          ./mach vendor
+commit          hg commit
+phab_submit     arc diff --verbatim
+try_submit      ./mach try
+    NOTE: try_submit is used differently for all_platforms.py and two_platforms.py
+
+Required Callbacks
+    If these commands are run, callbacks must be supplied or it will cause errors.
+
+abandon         echo {\"transactions\": [{\"type\":\"abandon\"")
+patch           ./mach vendor --patch-mode only
+"""
+
+
+def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
     def echo_str(s):
         if platform.system() != "Windows":
             return s.replace("echo {", "echo '{")
     return OrderedDict([
-        ("./mach vendor --patch-mode only", callbacks['patch'] if 'patch' in callbacks else AssertFalse),
+        ("./mach vendor --patch-mode only", command_callbacks.get('patch', AssertFalse)),
         ("./mach vendor --check-for-update", lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00"),
-        ("./mach vendor ", callbacks['vendor'] if 'vendor' in callbacks else lambda: ""),
-        ("hg commit", callbacks['commit'] if 'commit' in callbacks else lambda: ""),
+        ("./mach vendor ", command_callbacks.get('vendor', lambda: "")),
+        ("hg commit", command_callbacks.get('commit', lambda: "")),
         ("hg checkout -C .", lambda: ""),
         ("hg purge .", lambda: ""),
         ("hg status", lambda: ""),
         ("hg strip", lambda: ""),
-        ("arc diff --verbatim", callbacks['phab_submit'] if 'phab_submit' in callbacks else lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func())),
+        ("arc diff --verbatim", command_callbacks.get('phab_submit', lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func()))),
         (echo_str("echo {\"constraints\""), lambda: CONDUIT_USERNAME_SEARCH_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""), lambda: CONDUIT_EDIT_OUTPUT),
-        (echo_str("echo {\"transactions\": [{\"type\":\"abandon\""), callbacks['abandon'] if 'abandon' in callbacks else AssertFalse),
+        (echo_str("echo {\"transactions\": [{\"type\":\"abandon\""), command_callbacks.get('abandon', AssertFalse)),
         (echo_str("echo {\"transactions\": [{\"type\":\"bugzilla.bug-id\""), lambda: CONDUIT_EDIT_OUTPUT),
         ("git log -1 --oneline", lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output"),
         ("git clone https://example.invalid .", lambda: ""),

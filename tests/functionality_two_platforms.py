@@ -438,7 +438,7 @@ class TestFunctionality(SimpleLoggingTest):
             TestFunctionality._cleanup(u, expected_values)
 
     @logEntryExitHeaderLine
-    def testAllNewJobsWithFuzzyQuery(self):
+    def testAllNewFuzzyQueryJobs(self):
         # We use a custom try_output callback to let us change the return value based on the number
         # of times it's been called.
         global num_calls
@@ -475,7 +475,7 @@ class TestFunctionality(SimpleLoggingTest):
             TestFunctionality._cleanup(u, expected_values)
 
     @logEntryExitHeaderLine
-    def testAllNewJobsWithFuzzyPath(self):
+    def testAllNewFuzzyPathJobs(self):
         # We use a custom try_output callback to let us change the return value based on the number
         # of times it's been called.
         global num_calls

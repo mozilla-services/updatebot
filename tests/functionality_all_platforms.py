@@ -407,7 +407,7 @@ class TestFunctionality(SimpleLoggingTest):
             TestFunctionality._cleanup(u, expected_values)
 
     @logEntryExit
-    def testAllNewJobsWithFuzzyQuery(self):
+    def testAllNewFuzzyQueryJobs(self):
         library_filter = 'cubeb-query'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
             library_filter,
@@ -432,7 +432,7 @@ class TestFunctionality(SimpleLoggingTest):
             TestFunctionality._cleanup(u, expected_values)
 
     @logEntryExit
-    def testAllNewJobsWithFuzzyPath(self):
+    def testAllNewFuzzyPathJobs(self):
         library_filter = 'cubeb-path'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
             library_filter,

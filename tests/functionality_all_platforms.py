@@ -95,8 +95,8 @@ class TestFunctionality(SimpleLoggingTest):
         cls.server.server_close()
 
     @staticmethod
-    def _setup(git_pretty_output_func,
-               library_filter,
+    def _setup(library_filter,
+               git_pretty_output_func,
                get_filed_bug_id_func,
                filed_bug_ids_func,
                assert_affected_func=None,
@@ -191,8 +191,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testAllNewJobs(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
         )
@@ -214,8 +214,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = 'png'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'patch': patch_callback}
@@ -232,8 +232,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testFailsDuringVendor(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'vendor': lambda: raise_(Exception("No vendoring!"))}
@@ -257,8 +257,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testFailsDuringCommit(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'commit': lambda: raise_(Exception("No commiting!"))}
@@ -282,8 +282,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testFailsDuringPatching(self):
         library_filter = 'png'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'patch': lambda: raise_(Exception("No patching!"))}
@@ -308,8 +308,8 @@ class TestFunctionality(SimpleLoggingTest):
         library_filter = 'png'
         commit_calls = itertools.count()
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'patch': lambda: "",
@@ -334,8 +334,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testFailsDuringTrySubmit(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
@@ -359,8 +359,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testFailsDuringTrySubmitThenGoAgain(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
@@ -387,8 +387,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testFailsDuringPhabSubmit(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'phab_submit': lambda: raise_(Exception("No submitting to phabricator!"))}
@@ -410,8 +410,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testAllNewJobsWithFuzzyQuery(self):
         library_filter = 'cubeb-query'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
         )
@@ -435,8 +435,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testAllNewJobsWithFuzzyPath(self):
         library_filter = 'cubeb-path'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'try_submit': lambda cmd: raise_(Exception("No path specified")) if "media/" not in cmd else TRY_OUTPUT(expected_values.try_revision_id(), False)}
@@ -475,8 +475,8 @@ class TestFunctionality(SimpleLoggingTest):
                 return lines
 
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            git_pretty_output,
             library_filter,
+            git_pretty_output,
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
         )
@@ -502,8 +502,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobClassifiedFailures(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
         )
@@ -538,8 +538,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             command_callbacks={'abandon': abandon_callback}
@@ -567,8 +567,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobAllSuccess(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
         )
@@ -594,8 +594,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobUnclassifiedFailureNoRetriggers(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["4173dda99ea962d907e3fa043db5e26711085ed2|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["4173dda99ea962d907e3fa043db5e26711085ed2|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
         )
@@ -621,8 +621,8 @@ class TestFunctionality(SimpleLoggingTest):
     def testExistingJobUnclassifiedFailuresNeedingRetriggers(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["ab2232a04301f1d2dbeea7050488f8ec2dde5451|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["ab2232a04301f1d2dbeea7050488f8ec2dde5451|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: []  # filed_bug_ids_func
         )
@@ -687,8 +687,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            git_pretty_output,
             library_filter,
+            git_pretty_output,
             get_filed_bug_id,
             get_filed_bugs,
             command_callbacks={'abandon': abandon_callback}
@@ -768,8 +768,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            git_pretty_output,
             library_filter,
+            git_pretty_output,
             get_filed_bug_id,
             get_filed_bugs,
             command_callbacks={'abandon': abandon_callback}
@@ -855,8 +855,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            git_pretty_output,
             library_filter,
+            git_pretty_output,
             get_filed_bug_id,
             get_filed_bugs,
             command_callbacks={'abandon': abandon_callback}
@@ -964,8 +964,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            git_pretty_output,
             library_filter,
+            git_pretty_output,
             get_filed_bug_id,
             get_filed_bugs,
             command_callbacks={'abandon': abandon_callback}
@@ -1035,8 +1035,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             library_filter,
+            lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             filed_bug_ids,
             assert_affected_func=assert_affected,
@@ -1127,8 +1127,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = TestFunctionality._setup(
-            git_pretty_output,
             library_filter,
+            git_pretty_output,
             get_filed_bug_id,
             get_filed_bugs,
             command_callbacks={'abandon': abandon_callback}

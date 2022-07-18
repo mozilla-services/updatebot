@@ -7,10 +7,7 @@
 import platform
 from collections import OrderedDict
 from components.providerbase import BaseProvider
-
-
-def AssertFalse(a=False, b=False, c=False):
-    assert False, "We should not have called this function in this test."
+from components.utilities import AssertFalse
 
 
 """

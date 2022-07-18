@@ -10,9 +10,6 @@ import inspect
 import unittest
 import functools
 
-from http import server
-from threading import Thread
-
 sys.path.append(".")
 sys.path.append("..")
 from automation import Updatebot
@@ -28,7 +25,6 @@ from components.commandprovider import CommandProvider
 from tests.mock_commandprovider import TestCommandProvider, DO_EXECUTE
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_repository import COMMITS_BRANCH1, COMMITS_MAIN
-from tests.mock_treeherder_server import MockTreeherderServer
 from tests.database import transform_db_config_to_tmp_db
 
 try:
@@ -134,17 +130,6 @@ PROVIDERS = {
 
 
 class TestFunctionality(SimpleLoggingTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.server = server.HTTPServer(('', 27490), MockTreeherderServer)
-        t = Thread(target=cls.server.serve_forever)
-        t.start()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.shutdown()
-        cls.server.server_close()
-
     @staticmethod
     def _setup(current_library_version_func,
                new_library_version_func,

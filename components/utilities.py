@@ -37,6 +37,10 @@ PUSH_HEALTH_IGNORED_DICTS = ["commitHistory", 'jobCounts', 'status']
 PUSH_HEALTH_IGNORED_KEYS = ['next', 'previous', 'revision', 'id', 'result', 'push_timestamp']
 
 
+def AssertFalse(*args, **kwargs):
+    assert False, "We should not have called this function."
+
+
 # Needed so you can raise an exception in a lambda
 def raise_(e):
     raise e

@@ -31,7 +31,7 @@ from apis.phabricator import PhabricatorProvider
 from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_libraryprovider import MockLibraryProvider
-from tests.mock_treeherder_server import MockTreeherderServer, reset_seen_counters
+from tests.mock_treeherder_server import MockTreeherderServerFactory
 from tests.database import transform_db_config_to_tmp_db
 
 try:

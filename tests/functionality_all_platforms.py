@@ -18,7 +18,7 @@ sys.path.append(".")
 sys.path.append("..")
 from automation import Updatebot
 
-from components.utilities import Struct, raise_
+from components.utilities import Struct, raise_, AssertFalse
 from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExit
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
@@ -31,7 +31,7 @@ from apis.phabricator import PhabricatorProvider
 from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_libraryprovider import MockLibraryProvider
-from tests.mock_treeherder_server import MockTreeherderServer, reset_seen_counters
+from tests.mock_treeherder_server import MockTreeherderServerFactory
 from tests.database import transform_db_config_to_tmp_db
 
 try:
@@ -83,25 +83,19 @@ PROVIDERS = {
 
 
 class TestFunctionality(SimpleLoggingTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.server = server.HTTPServer(('', 27490), MockTreeherderServer)
-        t = Thread(target=cls.server.serve_forever)
-        t.start()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.shutdown()
-        cls.server.server_close()
-
-    @staticmethod
-    def _setup(library_filter,
+    def _setup(self,
+               library_filter,
                git_pretty_output_func,
                get_filed_bug_id_func,
                filed_bug_ids_func,
+               treeherder_response,
                assert_affected_func=None,
                command_callbacks={},
                keep_tmp_db=False):
+        self.server = server.HTTPServer(('', 27490), MockTreeherderServerFactory(treeherder_response))
+        t = Thread(target=self.server.serve_forever)
+        t.start()
+
         db_config = transform_db_config_to_tmp_db(localconfig['Database'])
         db_config['keep_tmp_db'] = keep_tmp_db
 
@@ -149,9 +143,9 @@ class TestFunctionality(SimpleLoggingTest):
 
         return (u, expected_values, _check_jobs)
 
-    @staticmethod
-    def _cleanup(u, expected_values):
-        reset_seen_counters()
+    def _cleanup(self, u, expected_values):
+        self.server.shutdown()
+        self.server.server_close()
         for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']):
             for task in lib.tasks:
                 if task.type != 'vendoring':
@@ -190,17 +184,18 @@ class TestFunctionality(SimpleLoggingTest):
     @logEntryExit
     def testAllNewJobs(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [],  # filed_bug_ids_func
+            AssertFalse  # treeherder_response
         )
         try:
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     @logEntryExit
     def testPatchJob(self):

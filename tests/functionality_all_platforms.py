@@ -199,7 +199,6 @@ class TestFunctionality(SimpleLoggingTest):
 
     @logEntryExit
     def testPatchJob(self):
-
         global was_patched
         was_patched = False
 
@@ -208,11 +207,12 @@ class TestFunctionality(SimpleLoggingTest):
             was_patched = True
 
         library_filter = 'png'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
             command_callbacks={'patch': patch_callback}
         )
         try:
@@ -220,17 +220,18 @@ class TestFunctionality(SimpleLoggingTest):
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
             self.assertTrue(was_patched, "Did not successfully patch as expected.")
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Fails during ./mach vendor
     @logEntryExit
     def testFailsDuringVendor(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
             command_callbacks={'vendor': lambda: raise_(Exception("No vendoring!"))}
         )
         try:
@@ -245,17 +246,18 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> Fails during committing
     @logEntryExit
     def testFailsDuringCommit(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
             command_callbacks={'commit': lambda: raise_(Exception("No commiting!"))}
         )
         try:
@@ -270,17 +272,18 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during mach vendor patch
     @logEntryExit
     def testFailsDuringPatching(self):
         library_filter = 'png'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
             command_callbacks={'patch': lambda: raise_(Exception("No patching!"))}
         )
         try:
@@ -295,18 +298,19 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> mach vendor patch -> Fails during committing
     @logEntryExit
     def testFailsDuringPatchingCommit(self):
         library_filter = 'png'
         commit_calls = itertools.count()
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
             command_callbacks={'patch': lambda: "",
                                'commit': lambda: "" if next(commit_calls) < 1 else raise_(Exception("No commiting the patching!"))}
         )
@@ -322,17 +326,18 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during try submit
     @logEntryExit
     def testFailsDuringTrySubmit(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
         try:
@@ -347,17 +352,18 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during try submit -> make sure we don't make a new job
     @logEntryExit
     def testFailsDuringTrySubmitThenGoAgain(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
         try:
@@ -375,17 +381,18 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(len(u.dbProvider.get_all_jobs()), 1, "Created a job when we shouldn't")
 
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> try run -> Fails during phab submit
     @logEntryExit
     def testFailsDuringPhabSubmit(self):
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
             command_callbacks={'phab_submit': lambda: raise_(Exception("No submitting to phabricator!"))}
         )
         try:
@@ -399,7 +406,7 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, got outcome %s" % (j.outcome.name))
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     @logEntryExit
     def testAllNewFuzzyQueryJobs(self):

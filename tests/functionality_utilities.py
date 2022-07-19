@@ -5,9 +5,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import platform
+from functools import wraps
 from collections import OrderedDict
+
 from components.providerbase import BaseProvider
-from components.utilities import AssertFalse
+from components.utilities import AssertFalse, static_vars
+
+from tests.mock_treeherder_server import TYPE_HEALTH, TYPE_JOBS
 
 
 """
@@ -188,3 +192,24 @@ class MockedBugzillaProvider(BaseProvider):
 
     def mark_ff_version_affected(self, bug_id, ff_version, affected):
         self._assert_affected_func(bug_id, ff_version, affected)
+
+
+# Decorator for the response callback given to MockTreeherderServer
+# It will initialize function-static variables `health_calls` and 'jobs_calls'
+# and increment them after every call to the function.
+# This reduces boilerplate in the individual tests that will define their own
+# callbacks.
+def treeherder_response(treeherder_response_func):
+    @wraps(treeherder_response_func)
+    def func_wrapper(request_type, fullpath):
+        ret = treeherder_response_func(request_type, fullpath)
+        if request_type == TYPE_HEALTH:
+            func_wrapper.health_calls += 1
+        elif request_type == TYPE_JOBS:
+            func_wrapper.jobs_calls += 1
+        else:
+            raise Exception("Unknown request type given to treeherder_response")
+        return ret
+    func_wrapper.health_calls = 0
+    func_wrapper.jobs_calls = 0
+    return func_wrapper

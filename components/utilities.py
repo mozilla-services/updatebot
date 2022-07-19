@@ -122,3 +122,19 @@ def Memoize(func):
         return memoized(*args, **kwargs)
 
     return helper
+
+
+# static_vars is a decorator that lets you easily declare function-static
+# variables.  e.g.
+#
+# @static_vars(counter=0)
+# def foo():
+#     print(counter)
+#     counter += 1
+def static_vars(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+
+    return decorate

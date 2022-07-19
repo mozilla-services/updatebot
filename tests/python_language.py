@@ -11,7 +11,10 @@ sys.path.append(".")
 sys.path.append("..")
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 from components.logging import LoggingProvider
+from components.utilities import static_vars
 from tests.mock_commandprovider import TestCommandProvider
+from tests.functionality_utilities import treeherder_response
+from tests.mock_treeherder_server import TYPE_HEALTH, TYPE_JOBS
 
 
 class FakeProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
@@ -42,6 +45,47 @@ class TestCommandRunner(unittest.TestCase):
     def testString(self):
         should_be_string = ("hello" + "world") if True else ""
         self.assertEqual(type(should_be_string), type("string"), "Adding a string inside a paren isn't a string anymore.")
+
+    def simpleDecorator(self):
+        global calls
+        calls = 0
+
+        @static_vars(foo=2)
+        def testfunc():
+            if calls == 0:
+                self.assertTrue(testfunc.foo, 2)
+                testfunc.foo += 1
+            elif calls == 1:
+                self.assertTrue(testfunc.foo, 3)
+            else:
+                self.assertTrue(False)
+
+        testfunc()
+        calls += 1
+        testfunc()
+
+    def testComplicatedDecorator(self):
+
+        global calls
+        calls = 0
+
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if calls == 0:
+                self.assertEqual(treeherder.health_calls, 0)
+                self.assertEqual(treeherder.jobs_calls, 0)
+            elif calls == 1:
+                self.assertEqual(treeherder.health_calls, 1)
+                self.assertEqual(treeherder.jobs_calls, 0)
+            elif calls == 2:
+                self.assertEqual(treeherder.health_calls, 1)
+                self.assertEqual(treeherder.jobs_calls, 1)
+
+        treeherder(TYPE_HEALTH, "")
+        calls += 1
+        treeherder(TYPE_JOBS, "")
+        calls += 1
+        treeherder(TYPE_HEALTH, "")
 
 
 if __name__ == '__main__':

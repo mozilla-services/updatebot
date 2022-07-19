@@ -581,12 +581,13 @@ class TestFunctionality(SimpleLoggingTest):
             else:
                 return lines
 
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             git_pretty_output,
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            AssertFalse
         )
         try:
             # Run it
@@ -595,7 +596,7 @@ class TestFunctionality(SimpleLoggingTest):
             all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "cube-2commits"]), 0, "I should not have created any jobs.")
 
-            call_counter += 1
+            call_counter += 1  # See (**)
 
             # Run it again
             u.run(library_filter=library_filter)
@@ -603,7 +604,7 @@ class TestFunctionality(SimpleLoggingTest):
             all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "cube-2commits"]), 1, "I should have created a job.")
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
     @logEntryExitHeaderLine

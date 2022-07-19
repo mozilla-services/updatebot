@@ -712,13 +712,29 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> Jobs are Running -> All Success
     @logEntryExitHeaderLine
     def testExistingJobAllSuccess(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_all_success.txt"
+                self.assertTrue(False, "Should not reach here")
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                if "80240fe58a7558fc21d4f2499261a53f3a9f6fad" in fullpath:
+                    return "jobs_success_linuxonly.txt"
+                elif "56AAAAAAacfacba40993e47ef8302993c59e264e" in fullpath:
+                    return "jobs_success_notlinux.txt"
+                self.assertTrue(False, "Should not reach here")
+
+        call_counter = 0
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            treeherder
         )
 
         try:
@@ -728,6 +744,9 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            call_counter += 1  # See (**)
+
             # Run it again, this time we'll tell it the jobs are done
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
@@ -735,7 +754,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Same test on multiple platforms -> Unclassified Failure
     @logEntryExitHeaderLine

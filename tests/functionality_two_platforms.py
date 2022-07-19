@@ -759,13 +759,32 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> Jobs are Running -> Same test on multiple platforms -> Unclassified Failure
     @logEntryExitHeaderLine
     def testExistingJobUnclassifiedFailureNoRetriggers(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                if "ec74c1b52c533106d7e3d15f3c75cfd57355a885" in fullpath:
+                    return "health_unclassified_failures_linuxonly_multiple_per_test.txt"
+                elif "2529ff21c5717182ebf32e180dcc6bfd3917a78c" in fullpath:
+                    return "health_unclassified_failures_notlinux_multiple_per_test.txt"
+                self.assertTrue(False, "Should not reach here")
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                if "ec74c1b52c533106d7e3d15f3c75cfd57355a885" in fullpath:
+                    return "jobs_unclassified_failures_linuxonly_multiple_per_test.txt"
+                elif "2529ff21c5717182ebf32e180dcc6bfd3917a78c" in fullpath:
+                    return "jobs_unclassified_failures_notlinux_multiple_per_test.txt"
+                self.assertTrue(False, "Should not reach here")
+
+        call_counter = 0
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["ec74c1b52c533106d7e3d15f3c75cfd57355a885|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["ec74c1b52c533106d7e3d15f3c75cfd57355a885", "2529ff21c5717182ebf32e180dcc6bfd3917a78c"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            treeherder
         )
 
         try:
@@ -775,6 +794,9 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            call_counter += 1  # See (**)
+
             # Run it again, this time we'll tell it the jobs are done
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
@@ -782,7 +804,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
     @logEntryExitHeaderLine

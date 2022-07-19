@@ -511,24 +511,38 @@ class TestFunctionality(SimpleLoggingTest):
 
     @logEntryExitHeaderLine
     def testAllNewFuzzyPathJobs(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                if "48f23619ddb818d8b32571e1e673bc2239e791af" in fullpath:
+                    return "health_classified_failures_linuxonly.txt"
+                elif "456dc4f24e790a9edb3f45eca85104607ca52168" in fullpath:
+                    return "health_classified_failures_notlinux.txt"
+                self.assertTrue(False, "Should not reach here")
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                if "48f23619ddb818d8b32571e1e673bc2239e791af" in fullpath:
+                    return "jobs_classified_failures_linuxonly.txt"
+                elif "456dc4f24e790a9edb3f45eca85104607ca52168" in fullpath:
+                    return "jobs_classified_failures_notlinux.txt"
+                self.assertTrue(False, "Should not reach here")
+
         # We use a custom try_output callback to let us change the return value based on the number
         # of times it's been called.
-        global num_calls
-        num_calls = 0
+        call_counter = 0
 
-        def try_output(cmd):
-            global num_calls
-            num_calls += 1
-            self.assertTrue("media/" in cmd, "Did not pass the fuzzy query path in the try command")
-            return TRY_OUTPUT(expected_values.try_revisions_func()[num_calls - 1], False)
+        def try_output():
+            return TRY_OUTPUT(expected_values.try_revisions_func()[call_counter], False)
 
         library_filter = 'cubeb-path'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["48f23619ddb818d8b32571e1e673bc2239e791af|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            treeherder,
             command_callbacks={'try_submit': try_output}
         )
         try:
@@ -538,6 +552,9 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            call_counter += 1  # See (**)
+
             # Run it again, this time we'll tell it the jobs are done
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
@@ -545,7 +562,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     @logEntryExitHeaderLine
     def testFrequencyCommits(self):

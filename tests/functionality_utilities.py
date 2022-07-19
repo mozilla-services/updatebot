@@ -9,7 +9,9 @@ from functools import wraps
 from collections import OrderedDict
 
 from components.providerbase import BaseProvider
-from components.utilities import AssertFalse, static_vars
+from components.utilities import AssertFalse
+from components.logging import logEntryExit
+from components.providerbase import INeedsLoggingProvider
 
 from tests.mock_treeherder_server import TYPE_HEALTH, TYPE_JOBS
 
@@ -151,7 +153,7 @@ ALL_BUGS = False
 ONLY_OPEN = True
 
 
-class MockedBugzillaProvider(BaseProvider):
+class MockedBugzillaProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config):
         self.config = config
         self._get_filed_bug_id_func = config['get_filed_bug_id_func']
@@ -161,6 +163,7 @@ class MockedBugzillaProvider(BaseProvider):
         else:
             self._assert_affected_func = AssertFalse
 
+    @logEntryExit
     def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None, blocks=None):
         references_prior_bug = "I've never filed a bug on before." in description
         if len(self._filed_bug_ids_func(False)) > 0:
@@ -172,12 +175,15 @@ class MockedBugzillaProvider(BaseProvider):
 
         return self._get_filed_bug_id_func()
 
+    @logEntryExit
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
         pass
 
+    @logEntryExit
     def wontfix_bug(self, bug_id, comment):
         pass
 
+    @logEntryExit
     def dupe_bug(self, bug_id, comment, dup_id):
         assert self.config['expect_a_dupe'], "We marked a bug as a duplicate when we weren't execting to."
         assert bug_id == self._filed_bug_ids_func(ALL_BUGS)[-1], \
@@ -187,9 +193,11 @@ class MockedBugzillaProvider(BaseProvider):
             "We expected to mark %s as a dupe of %s as a dupe, but we actually marked it a dupe of %s" % (
                 bug_id, self._get_filed_bug_id_func(), dup_id)
 
+    @logEntryExit
     def find_open_bugs(self, bug_ids):
         return self._filed_bug_ids_func(ONLY_OPEN)
 
+    @logEntryExit
     def mark_ff_version_affected(self, bug_id, ff_version, affected):
         self._assert_affected_func(bug_id, ff_version, affected)
 

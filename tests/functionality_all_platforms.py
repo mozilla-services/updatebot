@@ -19,7 +19,7 @@ sys.path.append("..")
 from automation import Updatebot
 
 from components.utilities import Struct, raise_, AssertFalse
-from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExit
+from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntryExitHeaderLine
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
@@ -166,6 +166,7 @@ class TestFunctionality(SimpleLoggingTest):
                     continue
 
                 j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+                log("In _check_jobs looking for status %s and outcome %s" % (status, outcome))
 
                 tc.assertNotEqual(j, None)
                 tc.assertEqual(lib.name, j.library_shortname)
@@ -179,9 +180,9 @@ class TestFunctionality(SimpleLoggingTest):
                     expected_values.try_revision_id(), j.try_runs[0].revision)
                 tc.assertEqual('all platforms', j.try_runs[0].purpose)
                 jobs_checked += 1
-        tc.assertEqual(jobs_checked, 1, "We did not find a single job to check.")
+        tc.assertEqual(jobs_checked, 1, "Did not find a single job to check")
 
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testAllNewJobs(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -197,7 +198,7 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testPatchJob(self):
         global was_patched
         was_patched = False
@@ -223,7 +224,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Fails during ./mach vendor
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testFailsDuringVendor(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -238,7 +239,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path'])[0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
@@ -249,7 +250,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> Fails during committing
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testFailsDuringCommit(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -258,13 +259,13 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
-            command_callbacks={'commit': lambda: raise_(Exception("No commiting!"))}
+            command_callbacks={'commit': lambda: raise_(Exception("No committing!"))}
         )
         try:
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path'])[0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
@@ -275,7 +276,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during mach vendor patch
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testFailsDuringPatching(self):
         library_filter = 'png'
         (u, expected_values, _check_jobs) = self._setup(
@@ -301,7 +302,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> mach vendor patch -> Fails during committing
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testFailsDuringPatchingCommit(self):
         library_filter = 'png'
         commit_calls = itertools.count()
@@ -329,7 +330,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during try submit
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testFailsDuringTrySubmit(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -355,7 +356,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> Fails during try submit -> make sure we don't make a new job
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testFailsDuringTrySubmitThenGoAgain(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -384,7 +385,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> ./mach vendor -> commit -> try run -> Fails during phab submit
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testFailsDuringPhabSubmit(self):
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -408,7 +409,7 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testAllNewFuzzyQueryJobs(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -445,7 +446,7 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testAllNewFuzzyPathJobs(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -483,7 +484,7 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testFrequencyCommits(self):
         library_filter = 'cube-2commits'
 
@@ -525,7 +526,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobClassifiedFailures(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -564,7 +565,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Build Failed
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobBuildFailed(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -614,7 +615,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> All Success
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobAllSuccess(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -651,7 +652,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Same test on multiple platforms -> Unclassified Failure
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobUnclassifiedFailureNoRetriggers(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -690,7 +691,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testExistingJobUnclassifiedFailuresNeedingRetriggers(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -748,7 +749,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Finish -> Create
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testSecondJobReferencesFirst(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -840,7 +841,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> (Not Done) -> Create
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testSecondJobButFirstIsntDone(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -932,7 +933,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Finish -> Create -> Finish -> Create
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testThreeJobsSimple(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -1052,7 +1053,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> (Not Done) -> Create -> (Not Done) -> Create
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testThreeJobsButDontLetThemFinish(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -1166,7 +1167,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> All Success -> Bump FF Version
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testBumpFFVersion(self):
         @treeherder_response
         def treeherder(request_type, fullpath):
@@ -1256,7 +1257,7 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     # Create -> Create -> Bugzilla Reopens Bug #1 -> Create -> Finish
-    @logEntryExit
+    @logEntryExitHeaderLine
     def testThreeJobsReopenFirst(self):
         @treeherder_response
         def treeherder(request_type, fullpath):

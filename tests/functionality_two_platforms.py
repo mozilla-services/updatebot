@@ -659,6 +659,16 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> Jobs are Running -> Build Failed
     @logEntryExitHeaderLine
     def testExistingJobBuildFailed(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                self.assertTrue(False, "Should not reach here")
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "build_failed.txt"
+
+        call_counter = 0
         global was_abandoned
         was_abandoned = False
 
@@ -669,12 +679,13 @@ class TestFunctionality(SimpleLoggingTest):
             return CONDUIT_EDIT_OUTPUT
 
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["45cf941f54e2d5a362ed08dfd61ba3922a47fdc3|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["45cf941f54e2d5a362ed08dfd61ba3922a47fdc3"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            treeherder,
             command_callbacks={'abandon': abandon_callback}
         )
 
@@ -685,6 +696,9 @@ class TestFunctionality(SimpleLoggingTest):
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
+
+            call_counter += 1  # See (**)
+
             # Should still be Awaiting Try Results
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
             # Run it again, this time we'll tell it a build job failed
@@ -693,7 +707,7 @@ class TestFunctionality(SimpleLoggingTest):
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
             self.assertTrue(was_abandoned, "Did not successfully abandon the phabricator patch as expected.")
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> All Success
     @logEntryExitHeaderLine

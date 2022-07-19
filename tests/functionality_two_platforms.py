@@ -266,7 +266,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
@@ -292,7 +292,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
@@ -318,7 +318,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
@@ -346,7 +346,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
@@ -372,7 +372,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
@@ -398,7 +398,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
@@ -427,7 +427,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
 
             # Cannot use the provided _check_jobs
-            lib = [l for l in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in l.name][0]
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(expected_values.library_new_version_id(), j.version)
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))

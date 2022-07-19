@@ -116,6 +116,9 @@ class Job:
     def get_ff_versions(self):
         return ",".join(self.ff_versions)
 
+    def __repr__(self):
+        return "<Job id: %s library: %s>" % (self.id, self.library_shortname)
+
 
 class TryRun:
     def __init__(self, row=None, id_column='id'):

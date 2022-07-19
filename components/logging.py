@@ -38,6 +38,11 @@ def logEntryExit(func, print_arg_list=True, header_line=False):
         ret = func(*args, **kwargs)
         if type(ret) == list:
             obj.logger.log("Function returned a list of %s objects" % len(ret), level=LogLevel.Debug)
+        else:
+            return_string = str(ret)
+            if len(return_string) > 100:
+                return_string = return_string[0:100] + "..."
+            obj.logger.log("Function returned %s" % return_string, level=LogLevel.Debug)
         obj.logger.log("Ending %s" % func.__qualname__, level=LogLevel.Info)
         return ret
     return func_wrapper

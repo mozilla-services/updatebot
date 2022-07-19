@@ -6,7 +6,7 @@
 
 from components.db import MySQLDatabase
 from components.providerbase import BaseProvider, INeedsLoggingProvider
-from components.logging import LogLevel
+from components.logging import LogLevel, logEntryExit
 
 
 class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
@@ -56,6 +56,7 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         assert self.config['General']['ff-version'], "Called create_job but self.config['General']['ff-version'] was not provided"
         return self.db.create_job(jobtype, library, new_version, self.config['General']['ff-version'], status, outcome, bug_id)
 
+    @logEntryExit
     def update_job_status(self, existing_job, newstatus=None, newoutcome=None):
         if newstatus:
             existing_job.status = newstatus

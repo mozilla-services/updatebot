@@ -519,7 +519,6 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
         return self.get_job(library, new_version)
 
-    @logEntryExit
     def update_job_status(self, existing_job):
         query = "UPDATE jobs SET status=%s, outcome=%s WHERE id = %s"
         args = (existing_job.status, existing_job.outcome, existing_job.id)

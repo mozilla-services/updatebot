@@ -447,12 +447,22 @@ class TestFunctionality(SimpleLoggingTest):
 
     @logEntryExit
     def testAllNewFuzzyPathJobs(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_classified_failures.txt"
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "jobs_classified_failures.txt"
+
         library_filter = 'cubeb-path'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            treeherder,
             command_callbacks={'try_submit': lambda cmd: raise_(Exception("No path specified")) if "media/" not in cmd else TRY_OUTPUT(expected_values.try_revision_id(), False)}
         )
         try:
@@ -460,16 +470,18 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it the jobs succeeded
             u.run(library_filter=library_filter)
             # Should be DONE
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     @logEntryExit
     def testFrequencyCommits(self):
@@ -488,11 +500,12 @@ class TestFunctionality(SimpleLoggingTest):
             else:
                 return lines
 
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             git_pretty_output,
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [],  # filed_bug_ids_func
+            AssertFalse
         )
         try:
             # Run it
@@ -509,17 +522,27 @@ class TestFunctionality(SimpleLoggingTest):
             all_jobs = u.dbProvider.get_all_jobs()
             self.assertEqual(len([j for j in all_jobs if j.library_shortname == "cube-2commits"]), 1, "I should have created a job.")
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Jobs succeeded but there are classified failures
     @logEntryExit
     def testExistingJobClassifiedFailures(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_classified_failures.txt"
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "jobs_classified_failures.txt"
+
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [],  # filed_bug_ids_func
+            treeherder
         )
 
         try:
@@ -527,20 +550,31 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it the jobs succeeded
             u.run(library_filter=library_filter)
             # Should be DONE
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Build Failed
     @logEntryExit
     def testExistingJobBuildFailed(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                self.assertFalse(True, "Should not have requested this")
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "build_failed.txt"
+
         global was_abandoned
         was_abandoned = False
 
@@ -551,11 +585,12 @@ class TestFunctionality(SimpleLoggingTest):
             return CONDUIT_EDIT_OUTPUT
 
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
+            treeherder,
             command_callbacks={'abandon': abandon_callback}
         )
 
@@ -564,27 +599,39 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it a build job failed
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
             self.assertTrue(was_abandoned, "Did not successfully abandon the phabricator patch.")
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> All Success
     @logEntryExit
     def testExistingJobAllSuccess(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_all_success.txt"
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "jobs_all_success.txt"
+
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [],  # filed_bug_ids_func
+            treeherder
         )
 
         try:
@@ -601,17 +648,27 @@ class TestFunctionality(SimpleLoggingTest):
             # Should be DONE and Success.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Same test on multiple platforms -> Unclassified Failure
     @logEntryExit
     def testExistingJobUnclassifiedFailureNoRetriggers(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_unclassified_failures_multiple_per_test.txt"
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "jobs_unclassified_failures_multiple_per_test.txt"
+
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["4173dda99ea962d907e3fa043db5e26711085ed2|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            lambda b: [],  # filed_bug_ids_func
+            treeherder
         )
 
         try:
@@ -619,16 +676,18 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it some tests failed, same test, multiple platforms
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
     @logEntryExit

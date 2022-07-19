@@ -692,12 +692,32 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> Jobs are Running -> Awaiting Retriggers -> Unclassified Failure
     @logEntryExit
     def testExistingJobUnclassifiedFailuresNeedingRetriggers(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_unclassified_failures_before_retriggers.txt"
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                elif treeherder.jobs_calls == 1:
+                    return "jobs_unclassified_failures_before_retriggers.txt"
+                return "jobs_unclassified_failures_after_retriggers.txt"
+
+        call_counter = 0
+
+        def get_filed_bugs(only_open):
+            if call_counter == 0:
+                return []
+            elif call_counter == 1:
+                return [50]
+
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["ab2232a04301f1d2dbeea7050488f8ec2dde5451|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: []  # filed_bug_ids_func
+            get_filed_bugs,
+            treeherder
         )
 
         try:
@@ -705,20 +725,27 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            # Needed because get_filed_bugs needs to tell Updatebot that the bug we just filed is open
+            # so we advance to retrigger instead of just stopping here.
+            call_counter += 1
+
             # Run it again, this time we'll tell it a test failed
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
             _check_jobs(JOBSTATUS.AWAITING_RETRIGGER_RESULTS, JOBOUTCOME.PENDING)
+
             # Run it again, this time we'll tell it all the tests failed
             u.run(library_filter=library_filter)
             # Should be DONE and Failed.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Finish -> Create
     @logEntryExit

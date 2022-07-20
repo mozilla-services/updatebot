@@ -5,7 +5,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from components.db import MySQLDatabase
-from components.dbmodels import JOBSTATUS
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
 
@@ -46,10 +45,6 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         jobs = self.db.get_all_jobs_for_library(library)
         return [j for j in jobs if j.type == jobtype]
 
-    def get_all_active_jobs_for_library(self, library, jobtype):
-        all_jobs = self.db.get_all_jobs_for_library(library)
-        return [j for j in all_jobs if j.status != JOBSTATUS.DONE and j.type == jobtype]
-
     def get_job(self, library, new_version):
         return self.db.get_job(library, new_version)
 
@@ -67,6 +62,10 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         if newoutcome:
             existing_job.outcome = newoutcome
         return self.db.update_job_status(existing_job)
+
+    def update_job_relinquish(self, existing_job):
+        existing_job.relinquished = True
+        return self.db.update_job_relinquish(existing_job)
 
     def update_job_add_bug_id(self, existing_job, bug_id):
         return self.db.update_job_add_bug_id(existing_job, bug_id)

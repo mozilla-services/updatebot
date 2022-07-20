@@ -115,7 +115,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
     @logEntryExit
     @Memoize
-    def check_for_update(self, library, task, new_version, ignore_commits_from_these_jobs):
+    def check_for_update(self, library, task, new_version, most_recent_job):
         # This function uses two tricky variable names:
         #  all_upstream_commits - This means the commits that have occured upstream, on the branch we care about,
         #                         between the library's current revision and the tip of the branch.
@@ -148,8 +148,6 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 return [], []
 
             # We do have new upstream commits.
-            most_recent_job = ignore_commits_from_these_jobs[0] if ignore_commits_from_these_jobs else None
-
             # Step 4: Check if the most recent job was performed on a revision _after_ the library's current revision or _before_.
             # 'After the library's current revision' means:
             #        in m-c we update the library to A

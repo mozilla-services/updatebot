@@ -76,6 +76,10 @@ def MockTreeherderServerFactory(response_function):
                 revision = self.path[self.path.index(EXPECTEDPATH_PUSH) + len(EXPECTEDPATH_PUSH):]
                 log("MockTreeherderServer (push): Looking for revision %s" % revision, level=LogLevel.Info)
 
+                if "rev_broken" in self.path:
+                    self.wfile.write("{\"results\":[{\"missing_id\":0}]}".encode())
+                    return
+
                 # Ordinarily the push id is an integer, but here we'll just kick the try revision
                 # back and use that as the ID.
                 self.wfile.write(("{\"results\":[{\"id\": \"%s\"}]}" % revision).encode())

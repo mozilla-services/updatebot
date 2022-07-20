@@ -1,3 +1,4 @@
+```mermaid
 graph TD
     Done[Done]
 
@@ -54,3 +55,4 @@ graph TD
 
     SubmitPhab[Submit revision to phabricator]
     SubmitPhab --> Done
+```

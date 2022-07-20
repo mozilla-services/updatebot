@@ -15,16 +15,40 @@ from threading import Thread
 sys.path.append(".")
 sys.path.append("..")
 from components.logging import SimpleLoggerConfig
+from components.utilities import static_vars
 from apis.taskcluster import TaskclusterProvider
 
+from tests.functionality_utilities import treeherder_response
 from tests.mock_commandprovider import TestCommandProvider
-from tests.mock_treeherder_server import MockTreeherderServer, FAILURE_CLASSIFICATIONS, EXPECTED_RETRIGGER_DECISION_TASK
+from tests.mock_treeherder_server import MockTreeherderServerFactory, FAILURE_CLASSIFICATIONS, EXPECTED_RETRIGGER_DECISION_TASK, TYPE_HEALTH
+
+
+# Because jobs_count won't be consistent because we call this function for all tests
+#  use a separate boolean for the paging test. We flip it back and forth because
+#  we return the paged data in two different tests
+@static_vars(have_sent_page_1=False)
+@treeherder_response
+def treeherder_responses(requesttype, fullpath):
+    if "push_id=1" in fullpath:
+        if treeherder_responses.have_sent_page_1:
+            treeherder_responses.have_sent_page_1 = False
+            return "jobs_paged_2.txt"
+        else:
+            treeherder_responses.have_sent_page_1 = True
+            return "jobs_paged_1.txt"
+
+    if "health_rev" in fullpath:
+        if requesttype == TYPE_HEALTH:
+            return "health_correlation_example.txt"
+        else:
+            return "jobs_correlation_example.txt"
+    return ""
 
 
 class TestTaskclusterProvider(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.server = server.HTTPServer(('', 27490), MockTreeherderServer)
+        cls.server = server.HTTPServer(('', 27490), MockTreeherderServerFactory(treeherder_responses))
         cls.commandProvider = TestCommandProvider({})
         cls.commandProvider.update_config(SimpleLoggerConfig)
 
@@ -57,8 +81,9 @@ class TestTaskclusterProvider(unittest.TestCase):
         else:
             self.assertTrue(False, "Expected an exception from taskclusterProvider but didn't see it.")
 
-    def test_job_details(self):
-        job_list = self.taskclusterProvider.get_job_details('rev_good')
+    def test_job_details_paged(self):
+        # Job paging relies on using the ID of the push which is in the json, so with the new server we need to use the id that's in the json
+        job_list = self.taskclusterProvider.get_job_details('1')
         self.assertEqual(len(job_list), 3737, "Did not receive the correct number of jobs from the server.")
 
     def test_push_health(self):
@@ -138,7 +163,7 @@ class TestTaskclusterProvider(unittest.TestCase):
         self.assertEqual(data[1].decision_task.hello, "WHAT")
 
     def test_retrigger(self):
-        job_list = self.taskclusterProvider.get_job_details('rev_good')
+        job_list = self.taskclusterProvider.get_job_details('1')
         to_retrigger = [j for j in job_list if j.job_type_name == "source-test-mozlint-mingw-cap"]
         decision_tasks = self.taskclusterProvider.retrigger_jobs(to_retrigger)
         self.assertEqual(EXPECTED_RETRIGGER_DECISION_TASK, decision_tasks[0])

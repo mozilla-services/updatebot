@@ -1356,9 +1356,21 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> All Success -> Bump FF Version
 
     def testBumpFFVersion(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                self.assertFalse(True, "Should not be called")
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "build_failed.txt"
+
         call_counter = 0
 
-        def filed_bug_ids(only_open):
+        def get_filed_bug_id():
+            return 50
+
+        def get_filed_bugs(only_open):
             if call_counter == 0:
                 return []
             return [50]
@@ -1372,14 +1384,26 @@ class TestFunctionality(SimpleLoggingTest):
             affected_str = "affected" if affected else "unaffected"
             assert affected, "Marked %s as %s for %s when we shouldn't have." % (bug_id, affected_str, ff_version)
 
+        global abandon_count
+        abandon_count = 0
+
+        def abandon_callback(cmd):
+            global abandon_count
+            abandon_count += 1
+            expected = str(83000 + get_filed_bug_id())
+            assert expected in cmd, "Did not see the Phabricator revision we expected (%s) to when we abandoned one (%s)." % (expected, cmd)
+            return CONDUIT_EDIT_OUTPUT
+
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
-            lambda: 50,  # get_filed_bug_id_func,
-            filed_bug_ids,
-            assert_affected,
+            get_filed_bug_id,
+            get_filed_bugs,
+            treeherder,
+            command_callbacks={'abandon': abandon_callback},
+            assert_affected_func=assert_affected,
             keep_tmp_db=True
         )
 
@@ -1388,15 +1412,16 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            call_counter += 1  # See (**)
+
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
-            # Run it again, this time we'll tell it the jobs are done
+
+            # Run it again, this time we'll tell it a build failed
             u.run(library_filter=library_filter)
-            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
-            # Run it again, this time we'll tell it everything succeeded
-            u.run(library_filter=library_filter)
-            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
             self.assertFalse(was_marked_affected)
 
             old_ff_version = u.config_dictionary['General']['ff-version']
@@ -1415,7 +1440,7 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertTrue(was_marked_affected)
 
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> Finish -> Create -> Finish -> Bugzilla Reopens Bug #1 -> Create
     def testThreeJobsReopenFirst(self):

@@ -13,28 +13,24 @@ from enum import unique, IntEnum
 #      ┌──────────────── CREATED ────────────────────┐ Skips to DONE on error
 #      │                    │                        │
 #      │                    ▼                        │
-#      │   AWAITING_INITIAL_PLATFORM_TRY_RESULTS ────┼───┐
-#      │                    │                        │   │
-#      │                    ▼                        │   │
-#      └─► AWAITING_SECOND_PLATFORMS_TRY_RESULTS ────┼───┤
-#                           │                        │   │ Moves to Relinquished if
-#                           │                        │   │ a new job pre-empts it
-#                           ▼                        │   │
-#               AWAITING_RETRIGGER_RESULTS ──────────┼───┤
-#                           │                        │   │
-#                           ▼                        │   │
-#                          DONE ◄────────────────────┘   │
-#                           │                            │
-#                           ▼                            │
-#                      RELINQUISHED ◄────────────────────┘
-#
+#      │   AWAITING_INITIAL_PLATFORM_TRY_RESULTS ────|
+#      │                    │                        │
+#      │                    ▼                        │
+#      └─► AWAITING_SECOND_PLATFORMS_TRY_RESULTS ────|
+#                           │                        │
+#                           │                        │
+#                           ▼                        │
+#               AWAITING_RETRIGGER_RESULTS           |
+#                           │                        │
+#                           ▼                        │
+#                          DONE ◄────────────────────┘
 @unique
 class JOBSTATUS(IntEnum):
     AWAITING_INITIAL_PLATFORM_TRY_RESULTS = 1
     AWAITING_SECOND_PLATFORMS_TRY_RESULTS = 2
     AWAITING_RETRIGGER_RESULTS = 3
     DONE = 4
-    RELINQUISHED = 5
+    # RELINQUISHED = 5 No longer used.
     CREATED = 6
 
 
@@ -46,7 +42,7 @@ class JOBOUTCOME(IntEnum):
     CLASSIFIED_FAILURES = 4
     UNCLASSIFIED_FAILURES = 5
     ALL_SUCCESS = 6
-    ABORTED = 7
+    # ABORTED = 7 No longer used.
     CROSS_VERSION_STUB = 8
     COULD_NOT_COMMIT = 9
     COULD_NOT_PATCH = 10

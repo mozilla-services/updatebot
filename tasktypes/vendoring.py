@@ -79,8 +79,20 @@ class VendorTaskRunner(BaseTaskRunner):
             self.logger.log("Job id %s was already created for the latest upstream revision %s" % (existing_job.id, new_version), level=LogLevel.Info)
             return
 
-        self.logger.log("Processing %s for a new upstream revision %s." % (library.name, new_version), level=LogLevel.Info)
-        self._process_new_job(library, task, new_version, timestamp)
+        # We didn't, so we'll process it, but first:
+        # sanity-check - there should only ever be one non-relinquished job, and it should be the most recent.
+        non_relinquished_jobs = [j for j in all_jobs if not j.relinquished]
+        assert len(non_relinquished_jobs) <= 1, "We got more than one relinquished job: %s" % non_relinquished_jobs
+
+        most_recent_job = all_jobs[0] if all_jobs else None
+        assert (most_recent_job is None and 0 == len(non_relinquished_jobs)) or (len(non_relinquished_jobs) == 1 and most_recent_job == non_relinquished_jobs[0]), \
+            "Most Recent Job is %s, we have %s non-relinquished jobs (%s), and they don't match." % (
+            most_recent_job.id if most_recent_job else "nothing",
+            len(non_relinquished_jobs), non_relinquished_jobs)
+
+        # Now process it.
+        self.logger.log("Processing %s for a new upstream revision %s, the most recent job is %s." % (library.name, new_version, most_recent_job.id if most_recent_job else "(none)"), level=LogLevel.Info)
+        self._process_new_job(library, task, new_version, timestamp, most_recent_job)
         self._reset_for_new_job()
 
     # ====================================================================
@@ -105,108 +117,51 @@ class VendorTaskRunner(BaseTaskRunner):
     # ====================================================================
 
     @logEntryExit
-    def _process_new_job(self, library, task, new_version, timestamp):
+    def _process_new_job(self, library, task, new_version, timestamp, most_recent_job):
         if not self._should_process_new_job(library, task, new_version):
             self.logger.log("Because of the task's frequency restrictions (%s) we are not processing this new revision now." % task.frequency, level=LogLevel.Info)
             return
 
-        # We need this really dumb _styleN functions because otherwise flake8 will complain about
-        #   redefining functions. (Because I have to use 'def' below because you can't have multi-line lambdas)
-        def clean_up_old_job_style1(x, y):
-            pass
-
-        old_job = None
-        clean_up_old_job = clean_up_old_job_style1
-
-        # ==========================================================================================
-        # We need to do some work to handle previously opened bugs. Because we want to duplicate them
-        # in favor of the bug we have not yet filed, we will create a lambda for us to call later after
-        # we have filed the newer bug and have its id.
-
-        # First, we need to see if there was a previously active job for this library.
-        # This is a job that is _actively running_ in Updatebot and hasn't progressed to the 'Done' state.
-        # There should only ever be one of these (although only because we restrict vendoring tasks
-        #   to -central).
-        active_jobs = self.dbProvider.get_all_active_jobs_for_library(library, JOBTYPE.VENDORING)
-        assert len(active_jobs) <= 1, "Got more than one active job for library %s" % (library.name)
-
-        self.logger.log("Found %i active jobs for this library" % len(active_jobs), level=LogLevel.Info)
-        if active_jobs:
-            old_job = active_jobs[0]
-
-            def clean_up_old_job_style2(old_job, new_bug_id):
-                self.logger.log("Marking active Job ID %s as superseded by Bug ID %s ." % (old_job.id, new_bug_id), level=LogLevel.Info)
-                self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
-                try:
-                    if old_job.phab_revision:
-                        self.phabricatorProvider.abandon(old_job.phab_revision)
-                except Exception as e:
-                    self.dbProvider.update_job_status(old_job, JOBSTATUS.RELINQUISHED, JOBOUTCOME.COULD_NOT_ABANDON)
-                    # We're going to log this exception, but not stop processing the new job
-                    self.logger.log_exception(e)
-                else:
-                    self.dbProvider.update_job_status(old_job, JOBSTATUS.RELINQUISHED, JOBOUTCOME.ABORTED)
-            clean_up_old_job = clean_up_old_job_style2
-
-        # Then we need to check if there are any job-completed but still-open bugs for a _different revision_
-        # We assume that we should close any such bugs we find.
-        # Because we always do this, there should always only be one such bug.  And if we had found an active
-        # job, that should have been the one.
-        existing_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.VENDORING)
-        open_bugs = self.bugzillaProvider.find_open_bugs([j.bugzilla_id for j in existing_jobs])
-        jobs_with_open_bugs = [j for j in existing_jobs if j.bugzilla_id in open_bugs]
-
-        assert len(jobs_with_open_bugs) <= 1, "Got more than one completed job with still-open bugs for library %s" % (library.name)
-        if jobs_with_open_bugs:
-            assert not old_job or old_job.id == jobs_with_open_bugs[0].id, "We had an active job with id %s and then we found an existing job with id %s" % (old_job.id, existing_jobs[0].id)
-            assert not jobs_with_open_bugs or jobs_with_open_bugs[0].version != new_version, "We have an existing job, but it's the same revision as the revision we thought was New."
-
-        if not old_job and jobs_with_open_bugs:
-            self.logger.log("Found %s completed jobs with still-open bugs for this library (%s)" % (len(open_bugs), ", ".join(map(str, open_bugs))), level=LogLevel.Info)
-
-            if jobs_with_open_bugs:
-                old_job = jobs_with_open_bugs[0]  # The array has previoiusly assert it has one element, and now we know its bug is open
-
-                def clean_up_old_job_style3(old_job, new_bug_id):
-                    self.logger.log("Marking completed Job ID %s as superseded by Bug ID %s ." % (old_job.id, new_bug_id), level=LogLevel.Info)
-                    self.bugzillaProvider.dupe_bug(old_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), new_bug_id)
-                    try:
-                        if old_job.phab_revision:
-                            self.phabricatorProvider.abandon(old_job.phab_revision)
-                    except Exception as e:
-                        # We're going to log this exception, but not stop processing the new job
-                        self.logger.log_exception(e)
-                    # The job is done, so we're not going to change its outcome to COULD_NOT_ABANDON
-                    self.dbProvider.update_job_status(old_job, newstatus=JOBSTATUS.RELINQUISHED)
-
-                clean_up_old_job = clean_up_old_job_style3
-
-        # ==========================================================================================
-        # Now we can process the new job
-
-        # Get the information we will need to file a bug.
-        #  We pass in the most recent job
-        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, existing_jobs)
+        # Get the information we will need to file a bug
+        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job)
         commit_details = self.scmProvider.build_bug_description(all_upstream_commits)
 
-        # Create the job ----------------
+        # Create the job ----------------------
         created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING)
 
-        # Vendor ----------------------
+        # Vendor ------------------------------
         (result, msg) = self.vendorProvider.vendor(library, new_version)
 
-        # If it's a spurious update, finish up here
+        # Check for spurious update -----------
         if result == VendorResult.SPURIOUS_UPDATE:
             self.logger.log("Version %s was a spruious update." % new_version)
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.SPURIOUS_UPDATE)
             return
 
-        # File the bug ----------------
+        # File the bug ------------------------
         created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc, blocks=task.blocking)
         self.dbProvider.update_job_add_bug_id(created_job, created_job.bugzilla_id)
-        clean_up_old_job(old_job, created_job.bugzilla_id)
 
-        # Handle the other vendoring outcomes
+        # Address any prior bug ---------------
+        if most_recent_job and not most_recent_job.relinquished:
+            self.logger.log("The prior job id %s is not relinquished, so processing it." % most_recent_job.id, level=LogLevel.Info)
+
+            if not most_recent_job.bugzilla_is_open:
+                self.logger.log("The prior job's bugzilla bug is closed, so we only need to relinquish it.", level=LogLevel.Info)
+            else:
+                self.logger.log("The prior job's bugzilla bug is open, marking it as superseded by Bug ID %s ." % created_job.bugzilla_id, level=LogLevel.Info)
+
+                self.bugzillaProvider.dupe_bug(most_recent_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), created_job.bugzilla_id)
+                if most_recent_job.phab_revision:
+                    try:
+                        self.phabricatorProvider.abandon(most_recent_job.phab_revision)
+                    except Exception as e:
+                        self.bugzillaProvider.comment_on_bug(most_recent_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "abandon the phabricator patch."))
+                        self.logger.log_exception(e)  # We're going to log this exception, but not stop processing the new job
+
+            self.dbProvider.update_job_relinquish(most_recent_job)
+
+        # Handle other vendoring outcomes -----
         if result == VendorResult.GENERAL_ERROR:
             # We're not going to commit these changes; so clean them out.
             self.cmdProvider.run(["hg", "checkout", "-C", "."])
@@ -220,7 +175,7 @@ class VendorTaskRunner(BaseTaskRunner):
             # Add a comment but do not abort
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, msg))
 
-        # Commit ----------------------
+        # Commit ------------------------------
         try:
             self.mercurialProvider.commit(library, created_job.bugzilla_id, new_version)
         except Exception as e:
@@ -229,7 +184,7 @@ class VendorTaskRunner(BaseTaskRunner):
             raise e
 
         if library.has_patches:
-            # Apply Patches -----------
+            # Apply Patches -------------------
             try:
                 self.vendorProvider.patch(library, new_version)
             except Exception as e:
@@ -241,7 +196,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
                 self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
                 return
-            # Commit Patches ----------
+            # Commit Patches ------------------
             try:
                 self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)
             except Exception as e:
@@ -249,7 +204,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit after applying mozilla patches."), needinfo=library.maintainer_bz)
                 raise e
 
-        # Submit to Try ---------------
+        # Submit to Try -----------------------
         try:
             platform_restriction = "linux64" if self.config['General']['separate-platforms'] else ""
             next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
@@ -263,7 +218,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try."), needinfo=library.maintainer_bz)
             raise e
 
-        # Submit Phab Revision --------
+        # Submit Phab Revision ----------------
         try:
             phab_revision = self.phabricatorProvider.submit_patch(created_job.bugzilla_id)
             self.dbProvider.update_job_add_phab_revision(created_job, phab_revision)

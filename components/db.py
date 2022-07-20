@@ -526,6 +526,12 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
+    def update_job_relinquish(self, existing_job):
+        query = "UPDATE jobs SET relinquished=1 WHERE id = %s"
+        args = (existing_job.id)
+        self._query_execute(query, args)
+
+    @logEntryExit
     def update_job_add_bug_id(self, existing_job, bug_id):
         query = "UPDATE jobs SET bugzilla_id=%s WHERE id = %s"
         args = (bug_id, existing_job.id)

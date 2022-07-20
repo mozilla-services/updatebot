@@ -1,3 +1,4 @@
+```mermaid
 graph TD
     subgraph _process_existing_job
     Done[Done]
@@ -213,3 +214,4 @@ graph TD
     HandlebuildFailures22 --> Done
     _set_to_done2 --> Done
     end
+```

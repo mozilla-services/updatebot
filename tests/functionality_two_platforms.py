@@ -1213,6 +1213,15 @@ class TestFunctionality(SimpleLoggingTest):
 
     # Create -> (Not Done) -> Create -> (Not Done) -> Create
     def testThreeJobsButDontLetThemFinish(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_all_success.txt"
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls < 3:
+                    return "jobs_still_running.txt"
+                return "jobs_all_success.txt"
+
         call_counter = 0
 
         def git_pretty_output(since_last_job):
@@ -1221,10 +1230,10 @@ class TestFunctionality(SimpleLoggingTest):
                 "56082fc4acfacba40993e47ef8302993c59e264e|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000",
                 "56082fc4acfacba40993e47ef8302993c59e264d|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000",
             ]
-            if call_counter == 0:
+            if call_counter in [0]:
                 assert not since_last_job
                 return lines[2:]
-            elif call_counter == 1:
+            elif call_counter in [1]:
                 if since_last_job:
                     return lines[1:2]
                 return lines[1:]
@@ -1234,20 +1243,26 @@ class TestFunctionality(SimpleLoggingTest):
                 return lines
 
         def get_filed_bug_id():
-            if call_counter == 0:
+            if call_counter in [0]:
                 return 50
-            elif call_counter == 1:
+            elif call_counter in [1]:
                 return 51
             return 52
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
                 return []
-            elif call_counter == 1:
+            elif call_counter in [1]:
                 return [50]
-            elif only_open:
-                return [51]
-            return [50, 51]
+            elif call_counter in [2]:
+                if only_open:
+                    return [50, 51]
+                return [50, 51]
+            elif call_counter in [3]:
+                if only_open:
+                    return [52]
+                return [50, 51, 52]
+            self.assertFalse(True)
 
         global abandon_count
         abandon_count = 0
@@ -1260,12 +1275,13 @@ class TestFunctionality(SimpleLoggingTest):
             return CONDUIT_EDIT_OUTPUT
 
         library_filter = 'dav1d'
-        (u, expected_values, _check_jobs) = TestFunctionality._setup(
+        (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             git_pretty_output,
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             get_filed_bug_id,
             get_filed_bugs,
+            treeherder,
             command_callbacks={'abandon': abandon_callback}
         )
 
@@ -1276,41 +1292,66 @@ class TestFunctionality(SimpleLoggingTest):
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
 
             call_counter += 1
-            reset_seen_counters()
 
-            # Run it
+            # Run it, make the second job
             u.run(library_filter=library_filter)
-            # Check that we created the job successfully, and aborted the other one
+            # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             all_jobs = u.dbProvider.get_all_jobs()
-            self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 2, "I should have created two jobs.")
-            self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 2, "I should have created two jobs.")
+            self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.PENDING, "The first job should not be done yet.")
+            self.assertEqual(all_jobs[1].status, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, "The first job should be pending.")
+            self.assertTrue(all_jobs[1].relinquished, "The first job should be relinquished.")
             self.assertEqual(abandon_count, 1, "We did not abandon the phabricator revision as expected.")
 
             call_counter += 1
-            reset_seen_counters()
 
-            # Run it
+            # Run it, make the third job, but also re-eopn the first job's bug when we do this
             u.run(library_filter=library_filter)
-            # Check that we created the job successfully, and aborted the other one
+            # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+
             all_jobs = u.dbProvider.get_all_jobs()
-            self.assertEqual(len([j for j in all_jobs if j.library_shortname == "dav1d"]), 3, "I should have created three jobs.")
-            self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ABORTED, "The first job should be set as Aborted.")
-            self.assertEqual(all_jobs[2].outcome, JOBOUTCOME.ABORTED, "The second job should be set as Aborted.")
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 3, "I should have created three jobs.")
+            self.assertEqual(all_jobs[2].outcome, JOBOUTCOME.PENDING, "The first job should not be done yet.")
+            self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.PENDING, "The second job should not be done yet.")
+            self.assertTrue(all_jobs[2].relinquished, "The first job should be relinquished.")
+            self.assertTrue(all_jobs[1].relinquished, "The second job should be relinquished.")
             self.assertEqual(abandon_count, 2, "We did not abandon the phabricator revision as expected.")
 
-            # Run it again, this time we'll tell it the jobs are still in process
-            u.run(library_filter=library_filter)
-            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
-            # Run it again, this time we'll tell it the jobs are done
+            call_counter += 1
+
+            # Run it, and we'll say the jobs are done.
+            # And also, crucially, since the first bug was re-opened, we should advance it. (But not the second job)
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 3, "I should have created three jobs.")
+            self.assertEqual(all_jobs[2].outcome, JOBOUTCOME.ALL_SUCCESS, "The first job should be done.")
+            self.assertEqual(all_jobs[2].status, JOBSTATUS.DONE, "The first job should not be done.")
+            self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ALL_SUCCESS, "The second job SHOULD be done.")
+            self.assertEqual(all_jobs[1].status, JOBSTATUS.DONE, "The second job SHOULD be done.")
+            self.assertTrue(all_jobs[2].relinquished, "The first job should be relinquished.")
+            self.assertTrue(all_jobs[1].relinquished, "The second job should be relinquished.")
+            self.assertEqual(abandon_count, 2, "We did not abandon the phabricator revision as expected.")
+
             # Run it again, this time we'll tell it everything succeeded
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 3, "I should have created three jobs.")
+            self.assertEqual(all_jobs[2].outcome, JOBOUTCOME.ALL_SUCCESS, "The first job should be done.")
+            self.assertEqual(all_jobs[2].status, JOBSTATUS.DONE, "The first job should be done.")
+            self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ALL_SUCCESS, "The second job should be done.")
+            self.assertEqual(all_jobs[1].status, JOBSTATUS.DONE, "The second job should be done.")
+            self.assertTrue(all_jobs[2].relinquished, "The first job should be relinquished.")
+            self.assertTrue(all_jobs[1].relinquished, "The second job should be relinquished.")
+            self.assertEqual(abandon_count, 2, "We did not abandon the phabricator revision as expected.")
         finally:
-            TestFunctionality._cleanup(u, expected_values)
+            self._cleanup(u, expected_values)
 
     # Create -> All Success -> Bump FF Version
 

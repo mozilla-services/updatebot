@@ -25,27 +25,6 @@ class VendorTaskRunner(BaseTaskRunner):
         self.config = config_dictionary
 
     # ====================================================================
-    """
-    Callgraph:
-
-    process_task ->
-        _process_new_job -> []
-        _process_existing_job ->
-            _process_job_details_for_awaiting_initial_platform_results ->
-                _job_is_completed_without_build_failures
-            _process_job_details_for_awaiting_second_platform_results ->
-                _get_comments_on_push ->
-                    _job_is_completed_without_build_failures
-                _process_job_results ->
-                    _process_unclassified_failures
-            _process_job_details_for_awaiting_retrigger_results ->
-                _get_comments_on_push ->
-                    _job_is_completed_without_build_failures
-                _process_job_results ->
-                    _process_unclassified_failures
-
-    """
-    # ====================================================================
 
     def process_task(self, library, task):
         assert task.type == 'vendoring'

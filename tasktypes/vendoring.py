@@ -288,12 +288,21 @@ class VendorTaskRunner(BaseTaskRunner):
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNEXPECTED_CREATED_STATUS)
             raise Exception("Handled a Job with unexpected CREATED status in _process_existing_job")
 
-        if existing_job.status == JOBSTATUS.DONE:
+        elif existing_job.status == JOBSTATUS.DONE:
             # The job has been completed, but we still need to double check if it has acknowleged our current FF version
             if my_ff_version in existing_job.ff_versions:
                 self.logger.log("We found a job with id %s for revision %s that was already processed for this ff version (%s)." % (
                     existing_job.id, existing_job.version, my_ff_version), level=LogLevel.Info)
                 return
+
+            if existing_job.outcome in [JOBOUTCOME.SPURIOUS_UPDATE]:
+                self.logger.log("We found a job with id %s for revision %s but its outcome (%s) is not relevant for firefox tracking." % (
+                    existing_job.id, existing_job.version, existing_job.outcome), level=LogLevel.Info)
+                return
+
+            if not existing_job.bugzilla_id:
+                raise Exception("We found a job with id %s for revision %s and we should mark a ff version for tracking but it does not have a bugzilla ID." % (
+                    existing_job.id, existing_job.version))
 
             self.logger.log("We found a job with id %s for revision %s but it hasn't been processed for this ff version (%s) yet." % (
                 existing_job.id, existing_job.version, my_ff_version), level=LogLevel.Info)
@@ -303,7 +312,7 @@ class VendorTaskRunner(BaseTaskRunner):
             existing_job.ff_versions.add(my_ff_version)
             return
 
-        if existing_job.status == JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS:
+        elif existing_job.status == JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS:
             if len(existing_job.try_runs) != 1:
                 self.logger.log("State is AWAITING_INITIAL_PLATFORM_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids()), level=LogLevel.Error)
                 return

@@ -131,12 +131,13 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.logger.log("The prior job's bugzilla bug is open, marking it as superseded by Bug ID %s ." % created_job.bugzilla_id, level=LogLevel.Info)
 
                 self.bugzillaProvider.dupe_bug(most_recent_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), created_job.bugzilla_id)
-                if most_recent_job.phab_revision:
-                    try:
-                        self.phabricatorProvider.abandon(most_recent_job.phab_revision)
-                    except Exception as e:
-                        self.bugzillaProvider.comment_on_bug(most_recent_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "abandon the phabricator patch."))
-                        self.logger.log_exception(e)  # We're going to log this exception, but not stop processing the new job
+                if most_recent_job.phab_revisions:
+                    for p in most_recent_job.phab_revisions:
+                        try:
+                            self.phabricatorProvider.abandon(p.revision)
+                        except Exception as e:
+                            self.bugzillaProvider.comment_on_bug(most_recent_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "abandon the phabricator patch %s." % p.revision))
+                            self.logger.log_exception(e)  # We're going to log this exception, but not stop processing the new job
 
             self.dbProvider.update_job_relinquish(most_recent_job)
 
@@ -199,8 +200,11 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Submit Phab Revision ----------------
         try:
-            phab_revision = self.phabricatorProvider.submit_patch(created_job.bugzilla_id)
-            self.dbProvider.update_job_add_phab_revision(created_job, phab_revision)
+            phab_revisions = self.phabricatorProvider.submit_patchs(created_job.bugzilla_id)
+            assert len(phab_revisions) == 2 if library.has_patches else 1, "We don't have the correct number of phabricator patches; we have %s, expected %s" % (len(phab_revisions), 2 if library.has_patches else 1)
+            self.dbProvider.add_phab_revision(created_job, phab_revisions[0], 'vendoring commit')
+            if len(phab_revisions) > 1:
+                self.dbProvider.add_phab_revision(created_job, phab_revisions[1], 'patches commit')
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to phabricator."), needinfo=library.maintainer_bz)
@@ -372,7 +376,11 @@ class VendorTaskRunner(BaseTaskRunner):
                 if "build" in j.job_type_name:
                     self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
                     if not existing_job.relinquished:
-                        self.phabricatorProvider.abandon(existing_job.phab_revision)
+                        for p in existing_job.phab_revisions:
+                            try:
+                                self.phabricatorProvider.abandon(p.revision)
+                            except Exception:
+                                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "abandon the phabricator revision %s" % p.revision), needinfo=library.maintainer_bz)
                     self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
                     return False
 
@@ -507,7 +515,8 @@ class VendorTaskRunner(BaseTaskRunner):
 
             if existing_job.bugzilla_is_open:
                 try:
-                    self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+                    for p in existing_job.phab_revisions:
+                        self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
                 except Exception as e:
                     self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
                     self.bugzillaProvider.comment_on_bug(
@@ -527,7 +536,8 @@ class VendorTaskRunner(BaseTaskRunner):
 
             if existing_job.bugzilla_is_open:
                 try:
-                    self.phabricatorProvider.set_reviewer(existing_job.phab_revision, library.maintainer_phab)
+                    for p in existing_job.phab_revisions:
+                        self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
                 except Exception as e:
                     self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
                     self.bugzillaProvider.comment_on_bug(

@@ -197,8 +197,11 @@ class Updatebot:
 
     def run(self, library_filter=""):
         try:
-            version = self.cmdProvider.run(["git", "log", "-1", "--oneline"], shell=False, clean_return=True).stdout.decode().strip()
-            self.logger.log("Running Updatebot version: {0}".format(version), level=LogLevel.Info)
+            updatebot_version = self.cmdProvider.run(["git", "log", "-1", "--oneline"], shell=False, clean_return=True).stdout.decode().strip()
+            python_version = sys.version.replace("\n", " ")
+            self.logger.log("Running Updatebot version: {0} on Python {1}".format(updatebot_version, python_version), level=LogLevel.Info)
+            self.logger.log("Python prefix: {0}".format(sys.prefix), level=LogLevel.Debug)
+            self.logger.log("Python modules loaded from {0}".format(", ".join(sys.path)), level=LogLevel.Debug)
 
             if not self.dbProvider.updatebot_is_enabled():
                 self.logger.log_exception(Exception("Updatebot is disabled per the config database, not doing anything and ending execution."))

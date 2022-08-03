@@ -1,3 +1,12 @@
+Legend:
+Several functions are called in many different codepaths. To keep the graph from being a tangle of lines, we opted to duplicate functions. Same-color boxes represent the same function.
+
+ - `#009966` Light Green ![#009966](/docs/009966.png) - the function `process_job_results`
+ - `#440066` Purple ![#440066](/docs/440066.png) - the function `c_process_unclassified_failures`
+ - `#006699` Light Blue ![#006699](/docs/006699.png) - the function `c_process_job_details_for_awaiting_retrigger_results`
+ - `#ff5555` Light Red ![#ff5555](/docs/ff5555.png) - the function `c_get_comments_on_push`
+ - `#003333` Teal ![#003333](/docs/003333.png) - the function `c_job_is_completed_without_build_failures`
+
 ```mermaid
 graph TD
     subgraph _process_existing_job

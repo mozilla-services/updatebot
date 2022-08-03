@@ -28,10 +28,15 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
         if not result:
             return (None, None)
 
-        if "Creating " in result and " state directory" in result:
-            # If no ~/.mozbuild directory was present this gets output unfortunately.
+        if ("Creating " in result and " state directory" in result) or ("pip check" in result):
+            # Creating state directory - If no ~/.mozbuild directory was present
+            # pip check - Running "pip check" to verify compatibility between the system Python and the "mach" site
+
+            def desired_line(l):
+                return l.strip() and ("state directory" not in l) and ("pip check" not in l)
+
             result_lines = result.split("\n")
-            result_lines = [l.strip() for l in result_lines if l.strip() and "state directory" not in l]
+            result_lines = [l.strip() for l in result_lines if desired_line(l)]
             result = result_lines[0]
 
         parts = result.split(" ")

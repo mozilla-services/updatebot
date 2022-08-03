@@ -39,7 +39,10 @@ graph TD
 
     HandleVendoringOutcomes{What was the<br />vendoring Outcome}
     HandleVendoringOutcomes --> |General Error| X2[Update job status to done<br />comment on bugzilla it failed.] --> Done
-    HandleVendoringOutcomes --> |Could not <br />update mozbuild| Commit
+    HandleVendoringOutcomes --> |Could not <br />update mozbuild| CommentMozBuild
+    HandleVendoringOutcomes --> |Success| Commit
+
+    CommentMozBuild[Comment on<br />the bug about error] --> Commit
 
     Commit[Mercurial Commit] -->HasPatches
 

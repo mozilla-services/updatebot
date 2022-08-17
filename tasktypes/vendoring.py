@@ -61,7 +61,7 @@ class VendorTaskRunner(BaseTaskRunner):
         # We didn't, so we'll process it, but first:
         # sanity-check - there should only ever be one non-relinquished job, and it should be the most recent.
         non_relinquished_jobs = [j for j in all_jobs if not j.relinquished]
-        assert len(non_relinquished_jobs) <= 1, "We got more than one relinquished job: %s" % non_relinquished_jobs
+        assert len(non_relinquished_jobs) <= 1, "We got more than one non-relinquished job: %s" % non_relinquished_jobs
 
         most_recent_job = all_jobs[0] if all_jobs else None
         assert (most_recent_job is None and 0 == len(non_relinquished_jobs)) or (len(non_relinquished_jobs) == 1 and most_recent_job == non_relinquished_jobs[0]), \

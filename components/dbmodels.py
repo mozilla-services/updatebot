@@ -30,7 +30,7 @@ class JOBSTATUS(IntEnum):
     AWAITING_SECOND_PLATFORMS_TRY_RESULTS = 2
     AWAITING_RETRIGGER_RESULTS = 3
     DONE = 4
-    # RELINQUISHED = 5 No longer used.
+    RELINQUISHED = 5  # No longer used, but still in the database
     CREATED = 6
 
 
@@ -42,7 +42,7 @@ class JOBOUTCOME(IntEnum):
     CLASSIFIED_FAILURES = 4
     UNCLASSIFIED_FAILURES = 5
     ALL_SUCCESS = 6
-    # ABORTED = 7 No longer used.
+    ABORTED = 7  # No longer used, but still in the database
     CROSS_VERSION_STUB = 8
     COULD_NOT_COMMIT = 9
     COULD_NOT_PATCH = 10
@@ -144,7 +144,7 @@ class TryRun:
 
 
 class PhabRevision:
-    def __init__(self, row=None, column_prefix='id'):
+    def __init__(self, row=None, column_prefix=''):
         if row:
             self.id = row[column_prefix + 'id']
             self.revision = row[column_prefix + 'revision']

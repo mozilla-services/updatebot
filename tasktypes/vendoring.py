@@ -277,6 +277,8 @@ class VendorTaskRunner(BaseTaskRunner):
         elif existing_job.status == JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS:
             assert len(existing_job.try_runs) == 1, "State is AWAITING_INITIAL_PLATFORM_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids())
             self._process_job_details_for_awaiting_initial_platform_results(library, task, existing_job)
+        elif existing_job.status == JOBSTATUS.RELINQUISHED:
+            self.logger.log("Job ID %s has the (obsolete) status RELINQUISHED so I am not going to try to process it." % existing_job.id, level=LogLevel.Info)
         else:
             if not self.config['General']['separate-platforms']:
                 assert len(existing_job.try_runs) == 1, "Status is %s, but we have %s try runs, not 1 (%s)." % (existing_job.status, len(existing_job.try_runs), existing_job.get_try_run_ids())

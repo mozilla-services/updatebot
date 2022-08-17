@@ -399,6 +399,10 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                         self._query_execute("ALTER TABLE `jobs` ADD COLUMN `relinquished` TINYINT NOT NULL AFTER `outcome`")
                         self._query_execute("UPDATE jobs SET relinquished=1 WHERE status = 5")
 
+                        # Ensure that there is only one job that is not relinquished
+                        # We have to use a nested subquery to avoid https://stackoverflow.com/q/45494
+                        self._query_execute("UPDATE jobs SET relinquished=1 WHERE id not in (select id from (select library, max(id) as id from jobs group by library) as tbl)")
+
                     if config_version <= 15 and CURRENT_DATABASE_CONFIG_VERSION >= 16:
                         self.logger.log("Upgrading to database version 16", level=LogLevel.Warning)
                         # Create the phab_runs table, and port the existing phabricator revisions across

@@ -472,16 +472,17 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def delete_database(self):
-        try:
-            for constraint_key in ALTER_QUERIES:
-                (constraint_table, constraint_name) = constraint_key.split("|")
+        for constraint_key in ALTER_QUERIES:
+            (constraint_table, constraint_name) = constraint_key.split("|")
+            try:
                 self._query_execute("ALTER TABLE " + constraint_table + " DROP FOREIGN KEY " + constraint_name)
-            for table_name in CREATION_QUERIES:
+            except Exception:
+                self.logger.log("Encountered an error trying to drop the constraint `%s`." % constraint_name, level=LogLevel.Warning)
+        for table_name in CREATION_QUERIES:
+            try:
                 self._query_execute("DROP TABLE " + table_name)
-        except Exception as e:
-            self.logger.log("We don't handle exceptions raised during database deletion elegantly. Your database is in an unknown state.", level=LogLevel.Fatal)
-            self.logger.log_exception(e)
-            raise e
+            except Exception:
+                self.logger.log("Encountered an error trying to drop the table `%s`." % table_name, level=LogLevel.Warning)
 
     def get_configuration(self):
         query = "SELECT * FROM config"

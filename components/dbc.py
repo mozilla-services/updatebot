@@ -41,9 +41,6 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def get_all_try_runs(self):
         return self.db.get_all_try_runs()
 
-    def get_all_phabricator_revisions(self):
-        return self.db.get_all_phabricator_revisions()
-
     def get_all_jobs_for_library(self, library, jobtype):
         jobs = self.db.get_all_jobs_for_library(library)
         return [j for j in jobs if j.type == jobtype]
@@ -74,14 +71,14 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def update_job_add_bug_id(self, existing_job, bug_id):
         return self.db.update_job_add_bug_id(existing_job, bug_id)
 
+    def update_job_add_phab_revision(self, existing_job, phab_revision):
+        return self.db.update_job_add_phab_revision(existing_job, phab_revision)
+
     def update_job_ff_versions(self, existing_job, ff_version_to_add):
         return self.db.update_job_ff_versions(existing_job, ff_version_to_add)
 
     def add_try_run(self, existing_job, try_revision, try_run_type):
         return self.db.add_try_run(existing_job, try_revision, try_run_type)
-
-    def add_phab_revision(self, existing_job, phab_revision, phab_revision_type):
-        return self.db.add_phab_revision(existing_job, phab_revision, phab_revision_type)
 
     def print(self):
         def get_column_widths(objects, columns):
@@ -133,11 +130,8 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         print_objects("OUTCOMES", self.get_all_outcomes(), status_columns)
 
         job_columns = ['id', 'type', 'created', 'library_shortname', 'version',
-                       'status', 'outcome', 'relinquished', 'bugzilla_id', 'ff_versions']
+                       'status', 'outcome', 'relinquished', 'bugzilla_id', 'phab_revision', 'ff_versions']
         print_objects("JOBS", self.get_all_jobs(), job_columns)
 
         try_run_columns = ['id', 'revision', 'job_id', 'purpose']
         print_objects("TRY RUNS", self.get_all_try_runs(), try_run_columns)
-
-        phab_revision_columns = ['id', 'revision', 'job_id', 'purpose']
-        print_objects("PHABRICATOR REVISIONS", self.get_all_phabricator_revisions(), phab_revision_columns)

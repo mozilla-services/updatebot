@@ -13,9 +13,7 @@ class BaseTaskRunner:
     @logEntryExit
     def _should_process_new_job(self, library, task, new_version=None):
         def frequency_type():
-            if 'commit' in task.frequency and 'week' in task.frequency:
-                return 'commit-and-week'
-            elif 'commit' in task.frequency:
+            if 'commit' in task.frequency:
                 return 'commit'
             elif 'week' in task.frequency:
                 return 'week'
@@ -57,7 +55,7 @@ class BaseTaskRunner:
         except Exception as e:
             raise Exception("Could not parse '%s' or '%s' as a frequency" % (week_half, commit_half), e)
 
-        if week_count > 0 and most_recent_job:
+        if week_count > 0:
             do_not_process_job = most_recent_job.created + timedelta(weeks=week_count) > datetime.now()
             self.logger.log("The most recent job was processed %s and we process jobs every %s weeks, so %sprocessing the new job." % (
                 most_recent_job.created, week_count, "not " if do_not_process_job else ""), level=LogLevel.Info)

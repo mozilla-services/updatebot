@@ -30,7 +30,7 @@ class JOBSTATUS(IntEnum):
     AWAITING_SECOND_PLATFORMS_TRY_RESULTS = 2
     AWAITING_RETRIGGER_RESULTS = 3
     DONE = 4
-    RELINQUISHED = 5  # No longer used, but still in the database
+    # RELINQUISHED = 5 No longer used.
     CREATED = 6
 
 
@@ -42,7 +42,7 @@ class JOBOUTCOME(IntEnum):
     CLASSIFIED_FAILURES = 4
     UNCLASSIFIED_FAILURES = 5
     ALL_SUCCESS = 6
-    ABORTED = 7  # No longer used, but still in the database
+    # ABORTED = 7 No longer used.
     CROSS_VERSION_STUB = 8
     COULD_NOT_COMMIT = 9
     COULD_NOT_PATCH = 10
@@ -65,35 +65,24 @@ class JOBTYPE(IntEnum):
 def transform_job_and_try_results_into_objects(rows):
     """
     In this function we are given an array of rows where the firefox
-    versions, phab revisions, and try runs have been left-outer-joined
-    into the jobs table, so we have duplicate job data.
+    versions and try runs have been left-outer-joined into the jobs
+    table, so we have duplicate job data.
     We're going to transform this data into objects
     """
     jobs = {}
     for r in rows:
-        # This will recreate the Job object a bunch of times, but that's fine, whateber
-        jobs[r['id']] = Job(r)
-
+        jobs[r['job_id']] = Job(r)
     for r in rows:
         if r['ff_version']:
-            jobs[r['id']].ff_versions.add(r['ff_version'])
+            jobs[r['job_id']].ff_versions.add(r['ff_version'])
         if r['try_run_id']:
-            # Ensure we only add a try run once
-            new = TryRun(r, column_prefix='try_run_')
-            if not any([t for t in jobs[r['id']].try_runs if t.id == new.id]):
-                jobs[r['id']].try_runs.append(new)
-        if r['phab_revision_id']:
-            # Ensure we only add a phabricator revision once
-            new = PhabRevision(r, column_prefix='phab_revision_')
-            if not any([t for t in jobs[r['id']].phab_revisions if t.id == new.id]):
-                jobs[r['id']].phab_revisions.append(new)
+            jobs[r['job_id']].try_runs.append(TryRun(r, id_column='try_run_id'))
 
     # Make sure the try runs are in ascending order. Uses a database-internal
     # key which is a bad practice, because what if the key turns into a guid
     # in the future?
     for j in jobs:
         jobs[j].try_runs.sort(key=lambda i: i.id)
-        jobs[j].phab_revisions.sort(key=lambda i: i.id)
 
     job_list = list(jobs.values())
     job_list.sort(key=lambda x: (x.created, x.id), reverse=True)
@@ -117,15 +106,12 @@ class Job:
             self.outcome = JOBOUTCOME(row['outcome'])
             self.relinquished = not not row['relinquished']
             self.bugzilla_id = row['bugzilla_id']
+            self.phab_revision = row['phab_revision']
             self.ff_versions = set()
-            self.phab_revisions = []
             self.try_runs = []
 
     def get_try_run_ids(self):
         return ",".join([t.revision for t in self.try_runs])
-
-    def get_phab_revision_ids(self):
-        return ",".join([t.revision for t in self.phab_revisions])
 
     def get_ff_versions(self):
         return ",".join(self.ff_versions)
@@ -135,18 +121,9 @@ class Job:
 
 
 class TryRun:
-    def __init__(self, row=None, column_prefix=''):
+    def __init__(self, row=None, id_column='id'):
         if row:
-            self.id = row[column_prefix + 'id']
-            self.revision = row[column_prefix + 'revision']
-            self.job_id = row[column_prefix + 'job_id']
-            self.purpose = row[column_prefix + 'purpose']
-
-
-class PhabRevision:
-    def __init__(self, row=None, column_prefix=''):
-        if row:
-            self.id = row[column_prefix + 'id']
-            self.revision = row[column_prefix + 'revision']
-            self.job_id = row[column_prefix + 'job_id']
-            self.purpose = row[column_prefix + 'purpose']
+            self.id = row[id_column]
+            self.revision = row['revision']
+            self.job_id = row['job_id']
+            self.purpose = row['purpose']

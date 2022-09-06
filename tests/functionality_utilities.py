@@ -92,7 +92,7 @@ remote:   https://hg.mozilla.org/try/rev/a8adec7d117968b8f0006a9e54393dba7c44471
 remote:   https://hg.mozilla.org/try/rev/%s
 remote:
 remote: Follow the progress of your build on Treeherder:
-remote:   https://treeherder.mozilla.org/#/jobs?repo=try&revision=%s
+remote:   https://treeherder.mozilla.org/jobs?repo=try&revision=%s
 remote: recorded changegroup in replication log in 0.011s
 push complete
 temporary commit removed, repository restored

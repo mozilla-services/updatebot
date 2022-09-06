@@ -81,9 +81,9 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 isNext = True
 
         self.logger.log("Submitted try run at {0}".format(try_link), level=LogLevel.Info)
-        if not try_link or "#/jobs?repo=try&revision=" not in try_link:
+        if not try_link or "jobs?repo=try&revision=" not in try_link:
             raise Exception("Could not find the try link in output:\n" + output)
-        try_link = try_link[try_link.index("#/jobs?repo=try&revision=") + len("#/jobs?repo=try&revision="):]
+        try_link = try_link[try_link.index("jobs?repo=try&revision=") + len("jobs?repo=try&revision="):]
         return try_link
 
     # =================================================================

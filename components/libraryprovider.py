@@ -207,17 +207,6 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'yaml_path': ''
         }
 
-        validated_task = {
-            'type': '',
-            'enabled': '',
-            'branch': '',
-            'cc': '',
-            'needinfo': '',
-            'frequency': '',
-            'platform': '',
-            'blocking': ''
-        }
-
         get_or_none = functools.partial(get_sub_key_or_none, dict=library, yaml_path=yaml_path)
         get_or_raise = functools.partial(get_sub_key_or_raise, dict=library, yaml_path=yaml_path)
 
@@ -269,7 +258,16 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
     @staticmethod
     def validate_task(task_dict, library_name):
-        validated_task = {}
+        validated_task = {
+            'type': '',
+            'enabled': True,
+            'branch': '',
+            'cc': '',
+            'needinfo': '',
+            'frequency': '',
+            'platform': '',
+            'blocking': ''
+        }
 
         if 'type' not in task_dict:
             raise AttributeError('library {0} task is missing type field'.format(library_name))
@@ -278,7 +276,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         validated_task['type'] = task_dict['type']
 
-        validated_task['enabled'] = not not get_key_or_default('enabled', task_dict, False)
+        validated_task['enabled'] = get_key_or_default('enabled', task_dict, 'True') in [True, 'True']
         validated_task['branch'] = get_key_or_default('branch', task_dict, None)
         validated_task['platform'] = get_key_or_default('platform', task_dict, 'linux').lower()
         validated_task['cc'] = get_key_or_default('cc', task_dict, [])

@@ -98,6 +98,7 @@ LIBRARY_FIND_OUTPUT = "\n".join([f.replace("/", os.path.sep) for f in [
     "{0}/.circleci/gecko-test/libcubeb-path/moz.yaml",
     "{0}/.circleci/gecko-test/libaom/moz.yaml",
     "{0}/.circleci/gecko-test/libdav1d/moz.yaml",
+    "{0}/.circleci/gecko-test/libnope/moz.yaml",
     "{0}/.circleci/gecko-test/libpng/moz.yaml"
 ]]).format(os.getcwd())
 

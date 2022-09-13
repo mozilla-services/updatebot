@@ -21,7 +21,7 @@ def repo_and_commit_to_url(repo, commit):
     # github wants https://domain.com/org/project/commit/sha
     # _But_ github won't redirect from gitlab's format and gitlab will redirect from github's format
     # So we use github's.  Sorry gitlab.
-    return repo.replace(".git", "") + "commit/" + commit
+    return repo.replace(".git", "") + "/commit/" + commit
 
 
 class Commit:

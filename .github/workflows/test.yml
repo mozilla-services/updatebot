@@ -10,8 +10,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.5", "3.6", "3.7", "3.8", "3.9", "3.10"]
-        poetry-version: [1.1.0, 1.2.1]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        poetry-version: [1.1.0]
         os: [ubuntu-18.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps: # TODO: mysql
@@ -26,6 +26,5 @@ jobs:
           cache: "poetry"
       - name: Test updatebot
         run: poetry run coverage run test.py
-      # TODO: necessary still?
-      # - name: Generate coverage metrics
-      #   run: poetry run codecov
+      - name: Generate coverage metrics
+        run: poetry run coverage report

@@ -1,0 +1,68 @@
+name: ci
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        poetry-version: [1.1.0]
+        os: [ubuntu-18.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+      - name: Install updatebot dependencies
+        run: poetry install
+  lint:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7"]
+        poetry-version: [1.1.0]
+        os: [ubuntu-18.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+      - name: lint codebase
+        run: poetry run flake8 --ignore=E501,E402 .
+  test:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        poetry-version: [1.1.0]
+        os: [ubuntu-18.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps: # TODO: mysql
+#           MYSQL_ROOT_PASSWORD: rootpw
+#           MYSQL_DATABASE: updatebot
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+      - name: Test updatebot
+        run: poetry run coverage run test.py
+      - name: Generate coverage metrics
+        run: poetry run coverage report

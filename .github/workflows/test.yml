@@ -1,0 +1,31 @@
+name: test
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.5", "3.6", "3.7", "3.8", "3.9", "3.10"]
+        poetry-version: [1.1.0, 1.2.1]
+        os: [ubuntu-18.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps: # TODO: mysql
+#           MYSQL_ROOT_PASSWORD: rootpw
+#           MYSQL_DATABASE: updatebot
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+      - name: Test updatebot
+        run: poetry run coverage run test.py
+      # TODO: necessary still?
+      # - name: Generate coverage metrics
+      #   run: poetry run codecov

@@ -31,7 +31,7 @@ jobs:
       matrix:
         python-version: ["3.7"]
         poetry-version: [1.1.0]
-        os: [ubuntu-18.04]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -50,11 +50,9 @@ jobs:
       matrix:
         python-version: ["3.7", "3.8", "3.9", "3.10"]
         poetry-version: [1.1.0]
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    steps: # TODO: mysql
-#           MYSQL_ROOT_PASSWORD: rootpw
-#           MYSQL_DATABASE: updatebot
+    steps:
       - uses: actions/checkout@v3
       - name: Install poetry
         run: pipx install poetry
@@ -62,6 +60,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
+      - name: Create localconfig for test run
+        run: cp localconfig.py.example localconfig.py
+      - name: Start MySQL service (Linux)
+        if: runner.os == 'Linux'
+        run: sudo systemctl start mysql.service
+      - name: Start MySQL service (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install mysql
+          mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'root'; FLUSH PRIVILEGES;"
       - name: Test updatebot
         run: poetry run coverage run test.py
       - name: Generate coverage metrics

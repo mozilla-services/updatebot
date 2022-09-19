@@ -42,7 +42,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
       - name: lint codebase
-        run: poetry run flake8 --ignore=E501,E402 .
+        run: poetry run flake8 --ignore=E501,E402,E275 .
   test:
     needs: build
     strategy:

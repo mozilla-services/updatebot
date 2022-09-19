@@ -43,9 +43,9 @@ To get started developing Updatebot, or to run it locally you'll need to run `po
 
 Testing is handled in a single step of `poetry run ./test.py`
 
-For formatting code automatically please use `poetry run autopep8 --in-place --recursive --ignore E501,E402 .`
+For formatting code automatically please use `poetry run autopep8 --in-place --recursive --ignore E501,E402,E275 .`
 
-For linting the codebase run `poetry run flake8 --ignore=E501,E402 .`
+For linting the codebase run `poetry run flake8 --ignore=E501,E402,E275 .`
 
 Updatebot is currently in active development with a lot of churn. We welcome patches and bugfixes, but encourage you to reach out to June Wilde or Tom Ritter before spending too much time as we may be already addressing your issue.
 

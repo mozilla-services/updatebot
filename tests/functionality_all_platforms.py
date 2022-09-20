@@ -41,13 +41,14 @@ except ImportError:
     sys.exit(1)
 
 
-def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func):
+def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func, two_phab_revisions):
     return Struct(**{
         'git_pretty_output_func': git_pretty_output_func,
         'library_new_version_id': lambda: git_pretty_output_func(False)[0].split("|")[0],
         'try_revision_id': lambda: git_pretty_output_func(False)[0].split("|")[0],
         'get_filed_bug_id_func': get_filed_bug_id_func,
-        'phab_revision_func': lambda: 83000 + get_filed_bug_id_func()
+        'phab_revision_func': lambda: 83000 + get_filed_bug_id_func(),
+        'two_phab_revisions': two_phab_revisions
     })
 
 
@@ -89,6 +90,7 @@ class TestFunctionality(SimpleLoggingTest):
                get_filed_bug_id_func,
                filed_bug_ids_func,
                treeherder_response,
+               two_phab_revisions=False,
                assert_affected_func=None,
                command_callbacks={},
                keep_tmp_db=False):
@@ -126,7 +128,7 @@ class TestFunctionality(SimpleLoggingTest):
             }
         }
 
-        expected_values = DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func)
+        expected_values = DEFAULT_EXPECTED_VALUES(git_pretty_output_func, get_filed_bug_id_func, two_phab_revisions)
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values, command_callbacks)
 
         u = Updatebot(configs, PROVIDERS)
@@ -174,7 +176,14 @@ class TestFunctionality(SimpleLoggingTest):
                 tc.assertEqual(status, j.status, "Expected status %s, got status %s" % (status.name, j.status.name))
                 tc.assertEqual(outcome, j.outcome, "Expected outcome %s, got outcome %s" % (outcome.name, j.outcome.name))
                 tc.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
-                tc.assertEqual(expected_values.phab_revision_func(), j.phab_revision)
+
+                tc.assertEqual(len(j.phab_revisions), 2 if expected_values.two_phab_revisions else 1)
+                tc.assertEqual(expected_values.phab_revision_func(), j.phab_revisions[0].revision)
+                tc.assertEqual('vendoring commit', j.phab_revisions[0].purpose)
+                if expected_values.two_phab_revisions:
+                    tc.assertEqual(expected_values.phab_revision_func() + 1, j.phab_revisions[1].revision)
+                    tc.assertEqual('patches commit', j.phab_revisions[1].purpose)
+
                 tc.assertEqual(len(j.try_runs), 1)
                 tc.assertEqual(
                     expected_values.try_revision_id(), j.try_runs[0].revision)
@@ -214,6 +223,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: [],  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
+            two_phab_revisions=True,
             command_callbacks={'patch': patch_callback}
         )
         try:

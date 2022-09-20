@@ -73,6 +73,10 @@ class TestTaskFrequency(unittest.TestCase):
         self.assertFalse(bt._should_process_new_job(library, task))
 
         task.frequency = '1 week, 3 commits'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: []
+        self.assertFalse(bt._should_process_new_job(library, task))
+
+        task.frequency = '1 week, 3 commits'
         bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1)})]
         self.assertFalse(bt._should_process_new_job(library, task))
 

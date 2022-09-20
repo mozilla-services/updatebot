@@ -163,7 +163,7 @@ careful inspection - *not* a rubberstamp.
 
     @staticmethod
     def TRY_RUN_SUBMITTED(revision, another=False):
-        return "I've submitted a" + ("nother" if another else "") + " try run for this commit: https://treeherder.mozilla.org/#/jobs?repo=try&revision=" + revision
+        return "I've submitted a" + ("nother" if another else "") + " try run for this commit: https://treeherder.mozilla.org/jobs?repo=try&revision=" + revision
 
     @staticmethod
     def BUG_SUPERSEDED():

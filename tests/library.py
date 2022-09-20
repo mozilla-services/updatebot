@@ -33,7 +33,7 @@ LIBRARIES = [
                         'enabled': True
                     }, "n/a")
         ],
-        "yaml_path": ".circleci/gecko-test/libcubeb-query/moz.yaml".replace("/", os.path.sep)
+        "yaml_path": ".github/gecko-test/libcubeb-query/moz.yaml".replace("/", os.path.sep)
     }),
     Library({
         "name": "cubeb-path",
@@ -53,7 +53,7 @@ LIBRARIES = [
                         'blocking': '1234'
                     }, "n/a")
         ],
-        "yaml_path": ".circleci/gecko-test/libcubeb-path/moz.yaml".replace("/", os.path.sep)
+        "yaml_path": ".github/gecko-test/libcubeb-path/moz.yaml".replace("/", os.path.sep)
     }),
     Library({
         "name": "dav1d",
@@ -71,7 +71,7 @@ LIBRARIES = [
                         'enabled': True,
                     }, "n/a")
         ],
-        "yaml_path": ".circleci/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep)
+        "yaml_path": ".github/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep)
     }),
     Library({
         'name': 'libpng',
@@ -89,16 +89,17 @@ LIBRARIES = [
                 'enabled': True,
             }, "n/a")
         ],
-        'yaml_path': '.circleci/gecko-test/libpng/moz.yaml'
+        'yaml_path': '.github/gecko-test/libpng/moz.yaml'
     })
 ]
 
 LIBRARY_FIND_OUTPUT = "\n".join([f.replace("/", os.path.sep) for f in [
-    "{0}/.circleci/gecko-test/libcubeb-query/moz.yaml",
-    "{0}/.circleci/gecko-test/libcubeb-path/moz.yaml",
-    "{0}/.circleci/gecko-test/libaom/moz.yaml",
-    "{0}/.circleci/gecko-test/libdav1d/moz.yaml",
-    "{0}/.circleci/gecko-test/libpng/moz.yaml"
+    "{0}/.github/gecko-test/libcubeb-query/moz.yaml",
+    "{0}/.github/gecko-test/libcubeb-path/moz.yaml",
+    "{0}/.github/gecko-test/libaom/moz.yaml",
+    "{0}/.github/gecko-test/libdav1d/moz.yaml",
+    "{0}/.github/gecko-test/libnope/moz.yaml",
+    "{0}/.github/gecko-test/libpng/moz.yaml"
 ]]).format(os.getcwd())
 
 

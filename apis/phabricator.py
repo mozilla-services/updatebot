@@ -36,30 +36,31 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             self.url = config['url']
 
     @logEntryExit
-    def submit_patch(self, bug_id):
+    def submit_patchs(self, bug_id):
         ret = self.run([_arc(), "diff", "--verbatim", "--conduit-uri", self.url, "--"])
         output = ret.stdout.decode()
 
-        phab_revision = None
+        phab_revisions = []
         r = re.compile(self.url + "D([0-9]+)")
         for line in output.split("\n"):
             s = r.search(line)
             if s:
-                phab_revision = s.groups(0)[0]
-                break
+                phab_revisions.append(s.groups(0)[0])
 
-        if not phab_revision:
+        if not phab_revisions:
             raise Exception("Could not find a phabricator revision in the output of arc diff using regex %s" % r.pattern)
 
-        cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, phab_revision))
-        cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
-        ret = self.run(cmd, shell=True)
-        result = json.loads(ret.stdout.decode())
-        if result['error']:
-            raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (phab_revision))
+        for p in phab_revisions:
+            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, p))
+            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
+            ret = self.run(cmd, shell=True)
+            result = json.loads(ret.stdout.decode())
+            if result['error']:
+                raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (p))
 
-        self.logger.log("Submitted phabricator patch at {0}".format(self.url + phab_revision), level=LogLevel.Info)
-        return phab_revision
+        for p in phab_revisions:
+            self.logger.log("Submitted phabricator patch at {0}".format(self.url + p), level=LogLevel.Info)
+        return phab_revisions
 
     @logEntryExit
     def set_reviewer(self, phab_revision, phab_username):

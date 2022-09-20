@@ -8,7 +8,7 @@ from components.utilities import Struct
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
-from components.dbmodels import TryRun, transform_job_and_try_results_into_objects, JOBSTATUS, JOBOUTCOME, JOBTYPE
+from components.dbmodels import TryRun, PhabRevision, transform_job_and_try_results_into_objects, JOBSTATUS, JOBOUTCOME, JOBTYPE
 
 import pymysql
 
@@ -16,7 +16,7 @@ import pymysql
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 15
+CURRENT_DATABASE_CONFIG_VERSION = 16
 
 CREATION_QUERIES = {
     "config": """
@@ -58,8 +58,6 @@ CREATION_QUERIES = {
         `outcome` TINYINT NOT NULL,
         `relinquished` TINYINT NOT NULL,
         `bugzilla_id` INT NULL,
-        `phab_revision` INT NULL,
-        `try_revision` VARCHAR(40) NULL,
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,
@@ -79,6 +77,15 @@ CREATION_QUERIES = {
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,
+    "phab_revisions": """
+      CREATE TABLE `phab_revisions` (
+        `id` INT NOT NULL AUTO_INCREMENT,
+        `revision` INT NULL,
+        `job_id` INT NOT NULL,
+        `purpose` VARCHAR(255) NOT NULL,
+        PRIMARY KEY (`id`)
+      ) ENGINE = InnoDB;
+      """,
 }
 
 # To support the --delete-database option, the key to this dictionary must be table_name|constraint_name
@@ -91,6 +98,8 @@ ALTER_QUERIES = {
         "ALTER TABLE jobs ADD CONSTRAINT fk_job_type FOREIGN KEY (job_type) REFERENCES job_types(id)",
     'try_runs|fk_tryrun_job':
         "ALTER TABLE try_runs ADD CONSTRAINT fk_tryrun_job FOREIGN KEY (job_id) REFERENCES jobs(id)",
+    'phab_revisions|fk_phabrevision_job':
+        "ALTER TABLE phab_revisions ADD CONSTRAINT fk_phabrevision_job FOREIGN KEY (job_id) REFERENCES jobs(id)",
     'job_to_ff_version|fk_job_to_ff_version_job':
         "ALTER TABLE job_to_ff_version ADD CONSTRAINT fk_job_to_ff_version_job FOREIGN KEY (job_id) REFERENCES jobs(id)",
 }
@@ -390,6 +399,42 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                         self._query_execute("ALTER TABLE `jobs` ADD COLUMN `relinquished` TINYINT NOT NULL AFTER `outcome`")
                         self._query_execute("UPDATE jobs SET relinquished=1 WHERE status = 5")
 
+                        # Ensure that there is only one job that is not relinquished
+                        # We have to use a nested subquery to avoid https://stackoverflow.com/q/45494
+                        self._query_execute("UPDATE jobs SET relinquished=1 WHERE id not in (select id from (select library, max(id) as id from jobs group by library) as tbl)")
+
+                    if config_version <= 15 and CURRENT_DATABASE_CONFIG_VERSION >= 16:
+                        self.logger.log("Upgrading to database version 16", level=LogLevel.Warning)
+                        # Create the phab_runs table, and port the existing phabricator revisions across
+                        # to it.
+                        # The first time I wrote this migration, it was broken because I didn't
+                        #   'select * from jobs' I called get_all_jobs which had been rewritten to
+                        #   inner join the (new) try_runs table (which was therefore empty) and didn't
+                        #   return anything. I fixed it to use a raw sql query to obtain data which is
+                        #   the better idea.
+                        # Then, I messed it up again - I edited the enum values but I didn't update
+                        #   the existing values in the jobs table. So jobs that were 'DONE' then became
+                        #   'AWAITING_RETRIGGER_RESULTS'. This mistake was not corrected because we're
+                        #   still in development so the db is empty and I can get away with it, but
+                        #   documenting it to hopefully help someone in the future.
+                        for table_name in CREATION_QUERIES:
+                            if table_name == 'phab_revisions':
+                                self._query_execute(CREATION_QUERIES[table_name])
+
+                        for query_name in ALTER_QUERIES:
+                            if 'phabrevision' in query_name:
+                                self._query_execute(ALTER_QUERIES[query_name])
+
+                        results = None
+                        with self.connection.cursor() as cursor:
+                            cursor.execute("SELECT * FROM jobs")
+                            results = cursor.fetchall()
+                        for r in results:
+                            self._query_execute("INSERT INTO `phab_revisions` (`revision`, `job_id`, `purpose`) VALUES (%s, %s, %s)",
+                                                (r['phab_revision'], r['id'], 'ported from job table'))
+
+                        self._query_execute("ALTER TABLE jobs DROP phab_revision")
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -431,16 +476,17 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def delete_database(self):
-        try:
-            for constraint_key in ALTER_QUERIES:
-                (constraint_table, constraint_name) = constraint_key.split("|")
+        for constraint_key in ALTER_QUERIES:
+            (constraint_table, constraint_name) = constraint_key.split("|")
+            try:
                 self._query_execute("ALTER TABLE " + constraint_table + " DROP FOREIGN KEY " + constraint_name)
-            for table_name in CREATION_QUERIES:
+            except Exception:
+                self.logger.log("Encountered an error trying to drop the constraint `%s`." % constraint_name, level=LogLevel.Warning)
+        for table_name in CREATION_QUERIES:
+            try:
                 self._query_execute("DROP TABLE " + table_name)
-        except Exception as e:
-            self.logger.log("We don't handle exceptions raised during database deletion elegantly. Your database is in an unknown state.", level=LogLevel.Fatal)
-            self.logger.log_exception(e)
-            raise e
+            except Exception:
+                self.logger.log("Encountered an error trying to drop the table `%s`." % table_name, level=LogLevel.Warning)
 
     def get_configuration(self):
         query = "SELECT * FROM config"
@@ -457,14 +503,32 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         results = self._query_get_rows(query)
         return [Struct(**r) for r in results]
 
+    def _get_job_query(self):
+        query = """SELECT
+                j.*,
+                v.ff_version,
+
+                t.id as try_run_id,
+                j.id as try_run_job_id,
+                t.revision as try_run_revision,
+                t.purpose as try_run_purpose,
+
+                p.id as phab_revision_id,
+                j.id as phab_revision_job_id,
+                p.revision as phab_revision_revision,
+                p.purpose as phab_revision_purpose
+           FROM jobs as j
+           LEFT OUTER JOIN job_to_ff_version as v
+               ON j.id = v.job_id
+           LEFT OUTER JOIN try_runs as t
+               ON j.id = t.job_id
+           LEFT OUTER JOIN phab_revisions as p
+               ON j.id = p.job_id """
+        return query
+
     @logEntryExit
     def get_all_jobs(self):
-        query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
-                   FROM jobs as j
-                   LEFT OUTER JOIN job_to_ff_version as v
-                       ON j.id = v.job_id
-                   LEFT OUTER JOIN try_runs as t
-                       ON j.id = t.job_id """
+        query = self._get_job_query()
         query += "ORDER BY j.created DESC, j.id DESC"""
         results = self._query_get_rows(query)
         return transform_job_and_try_results_into_objects(results)
@@ -476,14 +540,15 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         return [TryRun(r) for r in results]
 
     @logEntryExit
+    def get_all_phabricator_revisions(self):
+        query = "SELECT * FROM phab_revisions ORDER BY id ASC"
+        results = self._query_get_rows(query)
+        return [PhabRevision(r) for r in results]
+
+    @logEntryExit
     def get_all_jobs_for_library(self, library):
-        query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
-                   FROM jobs as j
-                   LEFT OUTER JOIN job_to_ff_version as v
-                       ON j.id = v.job_id
-                   LEFT OUTER JOIN try_runs as t
-                       ON j.id = t.job_id
-                   WHERE j.library = %s """
+        query = self._get_job_query()
+        query += "WHERE j.library = %s "
         query += "ORDER BY j.created DESC, j.id DESC"""
         args = (library.name)
         results = self._query_get_rows(query, args)
@@ -491,14 +556,9 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def get_job(self, library, new_version):
-        query = """SELECT j.*, v.ff_version, t.id as try_run_id, t.revision, j.id as job_id, t.purpose
-                   FROM jobs as j
-                   LEFT OUTER JOIN job_to_ff_version as v
-                       ON j.id = v.job_id
-                   LEFT OUTER JOIN try_runs as t
-                       ON j.id = t.job_id
-                   WHERE j.library = %s
-                     AND j.version = %s"""
+        query = self._get_job_query()
+        query += """WHERE j.library = %s
+                     AND j.version = %s """
         query += " ORDER BY j.created DESC, j.id DESC"
 
         args = [library.name, new_version]
@@ -537,12 +597,6 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
-    def update_job_add_phab_revision(self, existing_job, phab_revision):
-        query = "UPDATE jobs SET phab_revision=%s WHERE id = %s"
-        args = (phab_revision, existing_job.id)
-        self._query_execute(query, args)
-
-    @logEntryExit
     def update_job_ff_versions(self, existing_job, ff_version_to_add):
         query = "INSERT INTO job_to_ff_version(job_id, ff_version) VALUES(%s, %s)"
         args = (existing_job.id, ff_version_to_add)
@@ -555,11 +609,21 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
         self._query_execute(query, args)
 
     @logEntryExit
+    def add_phab_revision(self, existing_job, phab_revision, phab_revision_type):
+        query = "INSERT INTO phab_revisions(revision, job_id, purpose) VALUES(%s, %s, %s)"
+        args = (phab_revision, existing_job.id, phab_revision_type)
+        self._query_execute(query, args)
+
+    @logEntryExit
     def delete_job(self, library=None, version=None, job_id=None):
         assert job_id or (library and version), "You must provide a way to delete a job"
 
         if job_id:
             query = "DELETE FROM try_runs WHERE job_id = %s"
+            args = (job_id)
+            self._query_execute(query, args)
+
+            query = "DELETE FROM phab_revisions WHERE job_id = %s"
             args = (job_id)
             self._query_execute(query, args)
 
@@ -575,6 +639,15 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
                        FROM try_runs as t
                        INNER JOIN jobs as j
                           ON j.id = t.job_id
+                       WHERE j.library = %s
+                         AND j.version = %s"""
+            args = (library.name, version)
+            self._query_execute(query, args)
+
+            query = """DELETE p.*
+                       FROM phab_revisions as p
+                       INNER JOIN jobs as j
+                          ON j.id = p.job_id
                        WHERE j.library = %s
                          AND j.version = %s"""
             args = (library.name, version)

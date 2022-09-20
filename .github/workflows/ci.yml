@@ -1,0 +1,76 @@
+name: ci
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        poetry-version: [1.1.0]
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+      - name: Install updatebot dependencies
+        run: poetry install
+  lint:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7"]
+        poetry-version: [1.1.0]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+      - name: lint codebase
+        run: poetry run flake8 --ignore=E501,E402,E275 .
+  test:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        poetry-version: [1.1.0]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+      - name: Create localconfig for test run
+        run: cp localconfig.py.example localconfig.py
+      - name: Start MySQL service (Linux)
+        if: runner.os == 'Linux'
+        run: sudo systemctl start mysql.service
+      - name: Start MySQL service (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install mysql
+          mysql -uroot -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'root'; FLUSH PRIVILEGES;"
+      - name: Test updatebot
+        run: poetry run coverage run test.py
+      - name: Generate coverage metrics
+        run: poetry run coverage report

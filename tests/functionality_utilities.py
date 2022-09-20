@@ -38,6 +38,14 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
     def echo_str(s):
         if platform.system() != "Windows":
             return s.replace("echo {", "echo '{")
+
+    if expected_values.two_phab_revisions:
+        def default_phab_submit():
+            return (ARC_OUTPUT + ARC_OUTPUT_EXTRA) % (expected_values.phab_revision_func(), expected_values.phab_revision_func(), expected_values.phab_revision_func() + 1, expected_values.phab_revision_func() + 1)
+    else:
+        def default_phab_submit():
+            return ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func())
+
     return OrderedDict([
         ("./mach vendor --patch-mode only", command_callbacks.get('patch', AssertFalse)),
         ("./mach vendor --check-for-update", lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00"),
@@ -47,7 +55,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         ("hg purge .", lambda: ""),
         ("hg status", lambda: ""),
         ("hg strip", lambda: ""),
-        ("arc diff --verbatim", command_callbacks.get('phab_submit', lambda: ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func()))),
+        ("arc diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
         (echo_str("echo {\"constraints\""), lambda: CONDUIT_USERNAME_SEARCH_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""), lambda: CONDUIT_EDIT_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\":\"abandon\""), command_callbacks.get('abandon', AssertFalse)),
@@ -84,7 +92,7 @@ remote:   https://hg.mozilla.org/try/rev/a8adec7d117968b8f0006a9e54393dba7c44471
 remote:   https://hg.mozilla.org/try/rev/%s
 remote:
 remote: Follow the progress of your build on Treeherder:
-remote:   https://treeherder.mozilla.org/#/jobs?repo=try&revision=%s
+remote:   https://treeherder.mozilla.org/jobs?repo=try&revision=%s
 remote: recorded changegroup in replication log in 0.011s
 push complete
 temporary commit removed, repository restored
@@ -112,6 +120,12 @@ Completed
 (D%s) 539629:94adaadd8131 Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
 -> https://phabricator-dev.allizom.org/D%s
 """
+
+ARC_OUTPUT_EXTRA = """
+(D%s) 698645:a6daa7a50011 Bug 1780403: Allowlist some more preferences to avoid crashes r?ckerschb
+-> https://phabricator-dev.allizom.org/D%s
+"""
+
 
 CONDUIT_USERNAME_SEARCH_OUTPUT = """
 {"error":null,"errorMessage":null,"response":{"data":[{"id":154,"type":"USER","phid":"PHID-USER-dd6rge2k2csia46r2wcw","fields":{"username":"tjr","realName":"Tom Ritter","roles":["verified","approved","activated"],"dateCreated":1519415695,"dateModified":1519416233,"policy":{"view":"public","edit":"no-one"}},"attachments":[]}],"maps":[],"query":{"queryKey":null},"cursor":{"limit":100,"after":null,"before":null,"order":null}}}

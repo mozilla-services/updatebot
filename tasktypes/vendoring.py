@@ -105,17 +105,16 @@ class VendorTaskRunner(BaseTaskRunner):
         all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job)
         commit_details = self.scmProvider.build_bug_description(all_upstream_commits)
 
-        # Create the job ----------------------
-        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING)
-
         # Vendor ------------------------------
         (result, msg) = self.vendorProvider.vendor(library, new_version)
 
         # Check for spurious update -----------
         if result == VendorResult.SPURIOUS_UPDATE:
             self.logger.log("Version %s was a spruious update." % new_version)
-            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.SPURIOUS_UPDATE)
             return
+
+        # Create the job ----------------------
+        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING)
 
         # File the bug ------------------------
         created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc, blocks=task.blocking)
@@ -154,6 +153,10 @@ class VendorTaskRunner(BaseTaskRunner):
         elif result == VendorResult.MOZBUILD_ERROR:
             # Add a comment but do not abort
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, msg))
+        elif result == VendorResult.SUCCESS:
+            pass
+        else:
+            raise Exception("Unexpected VendorResult: %s " % result)
 
         # Commit ------------------------------
         try:

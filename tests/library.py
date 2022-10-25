@@ -36,6 +36,25 @@ LIBRARIES = [
         "yaml_path": ".github/gecko-test/libcubeb-query/moz.yaml".replace("/", os.path.sep)
     }),
     Library({
+        "name": "cubeb-preset",
+        "revision": "a7e83aa2b1571b842a555158e8f25aeb1419ebd1",
+        "repo_url": "https://github.com/mozilla/cubeb",
+        "has_patches": False,
+
+        "bugzilla_product": "Core",
+        "bugzilla_component": "Audio/Video: cubeb",
+        "maintainer_bz": "nobody@mozilla.com",
+        "maintainer_phab": "nobody",
+        "try_preset": "sm-shell",
+        "tasks": [
+                    LibraryProvider.validate_task({
+                        'type': "vendoring",
+                        'enabled': True
+                    }, "n/a")
+        ],
+        "yaml_path": ".github/gecko-test/libcubeb-preset/moz.yaml".replace("/", os.path.sep)
+    }),
+    Library({
         "name": "cubeb-path",
         "revision": "a7e83aa2b1571b842a555158e8f25aeb1419ebd1",
         "repo_url": "https://github.com/mozilla/cubeb",
@@ -95,6 +114,7 @@ LIBRARIES = [
 
 LIBRARY_FIND_OUTPUT = "\n".join([f.replace("/", os.path.sep) for f in [
     "{0}/.github/gecko-test/libcubeb-query/moz.yaml",
+    "{0}/.github/gecko-test/libcubeb-preset/moz.yaml",
     "{0}/.github/gecko-test/libcubeb-path/moz.yaml",
     "{0}/.github/gecko-test/libaom/moz.yaml",
     "{0}/.github/gecko-test/libdav1d/moz.yaml",
@@ -126,6 +146,7 @@ class TestLibraryProvider(unittest.TestCase):
 
     def testLibraryFindAndImport(self):
         libs = self.libraryprovider.get_libraries(os.getcwd())
+        self.maxDiff = 999999
         self.assertEqual(libs, LIBRARIES)
 
     def testLibraryExceptions(self):

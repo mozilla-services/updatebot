@@ -56,6 +56,24 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "yaml_path": "mozilla-central/source/media/cubeb-query/moz.yaml"
             }),
             Library({
+                "name": "cubeb-preset",
+                "bugzilla_product": "Core",
+                "bugzilla_component": "Audio/Video: cubeb",
+                "maintainer_phab": "nobody",
+                "maintainer_bz": "nobody@mozilla.com",
+                "try_preset": "sm-shell",
+                "revision": self.config.get('vendoring_revision_override', None),
+                "repo_url": "https://example.invalid",
+                "has_patches": False,
+                "tasks": [
+                    LibraryProvider.validate_task({
+                        "type": "vendoring",
+                        "enabled": True
+                    }, "n/a")
+                ],
+                "yaml_path": "mozilla-central/source/media/cubeb-preset/moz.yaml"
+            }),
+            Library({
                 "name": "cubeb-path",
                 "bugzilla_product": "Core",
                 "bugzilla_component": "Audio/Video: cubeb",

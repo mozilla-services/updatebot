@@ -7,7 +7,7 @@
 import os
 import re
 import sys
-from components.logging import LoggingProvider, SimpleLogger, LogLevel, SimpleLoggerConfig
+from components.logging import LoggingProvider, SimpleLogger, LogLevel
 from components.commandprovider import CommandProvider
 from components.dbc import DatabaseProvider
 from components.libraryprovider import LibraryProvider
@@ -303,21 +303,22 @@ if __name__ == "__main__":
     elif args.find_libraries:
         # We will need a CommandProvider, so instatiate that directly
         commandProvider = CommandProvider({})
-        # And provide it with a logger
+        # And provide it with a logger that won't log
         commandProvider.update_config({
-            'LoggingProvider': SimpleLogger(localconfig['Logging'])
+            'LoggingProvider': SimpleLogger({'local': False})
         })
         # Now instatiate a LibraryProvider (it doesn't need any config)
         libraryprovider = LibraryProvider({})
-        # Provide it with a logger and an instatiation of the CommandProvider
-        additional_config = SimpleLoggerConfig
-        additional_config.update({
+        additional_config = {
+            'LoggingProvider': SimpleLogger({'local': False}),
             'CommandProvider': commandProvider
-        })
+        }
         libraryprovider.update_config(additional_config)
         libs = libraryprovider.get_libraries(localconfig['General']['gecko-path'])
-        # TODO: Make this print out more readable
-        print(libs)
+        for lib in libs:
+            print(lib.pretty_str())
+            for t in lib.tasks:
+                print("\t", t)
     else:
         u = Updatebot(localconfig)
         u.run(library_filter=args.library_filter)

@@ -64,7 +64,7 @@ class Library:
         for prop in dir(self):
             if not prop.startswith("__") and prop != "id":
                 try:
-                    if getattr(other, prop) != getattr(self, prop):
+                    if type(getattr(self, prop)) == str and getattr(other, prop) != getattr(self, prop):
                         print("Library differing element:", self.name, prop, type(getattr(other, prop)), getattr(other, prop), type(getattr(self, prop)), getattr(self, prop))
                         return False
                 except AttributeError:
@@ -73,7 +73,7 @@ class Library:
 
         return True
 
-    def __repr__(self):
+    def pretty_str(self):
         components = (self.name,
                       self.bugzilla_product,
                       self.bugzilla_component,
@@ -85,9 +85,11 @@ class Library:
                       self.try_preset,
                       self.fuzzy_query,
                       self.fuzzy_paths,
-                      self.yaml_path,
-                      self.tasks)
+                      self.yaml_path)
         return "{{" + (" %s " * len(components) % components) + "}}"
+
+    def __repr__(self):
+        return self.pretty_str()[:-2] + str(self.tasks) + " }}"
 
 
 class Task:

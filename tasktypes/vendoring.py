@@ -364,6 +364,16 @@ class VendorTaskRunner(BaseTaskRunner):
                         comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
             comment_lines.append("")
 
+        if results['unknown_failures']:
+            comment_lines.append("**Needs Investigation (Other Failed Jobs)**:")
+            for job_type_name in results['unknown_failures'].keys():
+                comment_lines.append("\t" + job_type_name)
+
+                failed_task_ids = "(%s)" % ", ".join([j.task_id for j in results['unknown_failures'][job_type_name] if j.result not in ["retry", "success"]])
+                comment_lines.append("\t\t- %s %s" % (get_failed_summary_string(results['unknown_failures'][job_type_name]), failed_task_ids))
+
+            comment_lines.append("")
+
         return (True, results, comment_lines)
 
     @logEntryExitNoArgs

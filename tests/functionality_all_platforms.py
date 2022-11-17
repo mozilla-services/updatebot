@@ -421,6 +421,36 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     @logEntryExitHeaderLine
+    def testPushHealthDoesntSeeFailures(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_pushhealth_doesnt_see_failures.txt"
+            else:  # TYPE_JOBS
+                return "jobs_pushhealth_doesnt_see_failures_1.txt"
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [],  # filed_bug_ids_func
+            treeherder
+        )
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            # Run it again, this time we'll tell it the jobs succeeded
+            u.run(library_filter=library_filter)
+            # Should be DONE
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+        finally:
+            self._cleanup(u, expected_values)
+
+    @logEntryExitHeaderLine
     def testAllNewPresetJobs(self):
         @treeherder_response
         def treeherder(request_type, fullpath):

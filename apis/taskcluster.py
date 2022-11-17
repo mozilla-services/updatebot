@@ -221,9 +221,15 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     # =================================================================
     # =================================================================
 
+    def _get_push_list_url(self, revision):
+        return self.url_treeherder + "api/%spush/?revision=%s" % (self.url_project_path, revision)
+
+    def _get_job_details_url(self, push_id):
+        return self.url_treeherder + "api/jobs/?push_id=%s" % push_id
+
     @logEntryExit
     def get_job_details(self, revision):
-        push_list_url = self.url_treeherder + "api/%spush/?revision=%s" % (self.url_project_path, revision)
+        push_list_url = self._get_push_list_url(revision)
         self.logger.log("Requesting revision %s from %s" % (revision, push_list_url), level=LogLevel.Info)
 
         r = requests.get(push_list_url, headers=self.HEADERS)
@@ -239,7 +245,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         job_list = []
         property_names = []
-        job_details_url = self.url_treeherder + "api/jobs/?push_id=%s" % push_id
+        job_details_url = self._get_job_details_url(push_id)
         try:
             while job_details_url:
                 self.logger.log("Requesting push id %s from %s" % (push_id, job_details_url), level=LogLevel.Info)
@@ -274,9 +280,12 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     # =================================================================
     # =================================================================
 
+    def _get_push_health_url(self, revision):
+        return self.url_treeherder + "api/%spush/health/?revision=%s" % (self.url_project_path, revision)
+
     @logEntryExit
     def get_push_health(self, revision):
-        push_health_url = self.url_treeherder + "api/%spush/health/?revision=%s" % (self.url_project_path, revision)
+        push_health_url = self._get_push_health_url(revision)
         self.logger.log("Requesting push health for revision %s from %s" % (revision, push_health_url), level=LogLevel.Info)
 
         r = requests.get(push_health_url, headers=self.HEADERS)

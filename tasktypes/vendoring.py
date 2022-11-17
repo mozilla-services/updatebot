@@ -322,7 +322,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 return "%s of %s failed on different tasks" % (fails, len(jobs))
             return "%s of %s failed on the same (retriggered) task" % (fails, len(jobs))
 
-        # Before we retrieve the push health, process the failed jobs for build or lint failures.
+        # Before we retrieve the push health, process the failed jobs for lint failures.
         comment_lines = []
         printed_lint_header = False
         for j in job_list:
@@ -343,7 +343,8 @@ class VendorTaskRunner(BaseTaskRunner):
                 comment_lines.append("\t" + t)
                 comment_lines.append("\t\t- " + get_failed_summary_string(results['known_issues'][t]))
                 for j in results['known_issues'][t]:
-                    comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
+                    if j.result not in ["retry", "success"]:
+                        comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
             comment_lines.append("")
 
         if results['taskcluster_classified']:
@@ -353,13 +354,14 @@ class VendorTaskRunner(BaseTaskRunner):
             comment_lines.append("")
 
         if results['to_investigate']:
-            comment_lines.append("**Needs Investigation**:")
+            comment_lines.append("**Needs Investigation (From Push Health)**:")
             for t in results['to_investigate']:
                 comment_lines.append("")
                 comment_lines.append("\t" + t)
                 comment_lines.append("\t\t- " + get_failed_summary_string(results['to_investigate'][t]))
                 for j in results['to_investigate'][t]:
-                    comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
+                    if j.result not in ["retry", "success"]:
+                        comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
             comment_lines.append("")
 
         return (True, results, comment_lines)
@@ -497,6 +499,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
     # ==================================
 
+    @logEntryExitNoArgs
     def _process_job_results(self, library, task, existing_job, results, comment_lines):
         # We don't need to retrigger jobs, but we do have unclassified failures:
         if results['to_investigate'] and comment_lines:

@@ -182,11 +182,11 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self.logger.log("failed_jobs_with_taskcluster_classification_task_ids: %s" % failed_jobs_with_taskcluster_classification_task_ids, level=LogLevel.Debug)
 
         # Now get all the unique keys for failed jobs that *weren't* classified by push health or Taskcluster
-        jobs_failed_with_no_health_classification_task_ids = failed_jobs_task_ids - failed_jobs_with_health_classifications_task_ids - failed_jobs_with_taskcluster_classification_task_ids
-        self.logger.log("jobs_failed_with_no_health_classification_task_ids: %s" % jobs_failed_with_no_health_classification_task_ids, level=LogLevel.Debug)
+        jobs_failed_with_no_classification_task_ids = failed_jobs_task_ids - failed_jobs_with_health_classifications_task_ids - failed_jobs_with_taskcluster_classification_task_ids
+        self.logger.log("jobs_failed_with_no_classification_task_ids: %s" % jobs_failed_with_no_classification_task_ids, level=LogLevel.Debug)
 
         # And go back from unique key to the full job object
-        jobs_failed_with_no_health_classification = [j for j in failed_jobs if j.task_id in jobs_failed_with_no_health_classification_task_ids]
+        jobs_failed_with_no_classification = [j for j in failed_jobs if j.task_id in jobs_failed_with_no_classification_task_ids]
 
         # Now, go through and determine what jobs we need to retrigger.
         jobs_to_retrigger = set()
@@ -201,7 +201,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         # And we retrigger non-build, non-lint jobs that weren't classified by push health
         #    We don't retrigger jobs that failed because of a known issue.
-        for j in jobs_failed_with_no_health_classification:
+        for j in jobs_failed_with_no_classification:
             if "build" in j.job_type_name:
                 pass
             elif "lint" in j.job_type_name:

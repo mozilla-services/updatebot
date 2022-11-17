@@ -147,7 +147,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         # This function goes through the need_investigation and known_issues results
         #    and produces a mapping of test-failure to jobs that test failed in
-        def _correlate(detail_obj):
+        def _correlate_health_data(detail_obj):
             detail_by_testname = {}
 
             for i in detail_obj:
@@ -160,8 +160,21 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
             return detail_by_testname
 
-        need_investigation_by_test = _correlate(need_investigation)
-        known_issues_by_test = _correlate(known_issues)
+        # This function does through the failed jobs not classified by Push Health
+        #    or Taskcluster, and groups them by job type name
+        def _correlate_taskcluster_data(jobs_failed_with_no_classification):
+            jobs_failed_with_no_classification_by_job_type_name = {}
+
+            for j in jobs_failed_with_no_classification:
+                if j.job_type_name not in jobs_failed_with_no_classification_by_job_type_name:
+                    jobs_failed_with_no_classification_by_job_type_name[j.job_type_name] = []
+
+                jobs_failed_with_no_classification_by_job_type_name[j.job_type_name].append(j)
+
+            return jobs_failed_with_no_classification_by_job_type_name
+
+        need_investigation_by_test = _correlate_health_data(need_investigation)
+        known_issues_by_test = _correlate_health_data(known_issues)
 
         # Now get all the failed jobs in the push - not just those indicated in the ni/ki push health data
         failed_jobs = set().union([j for j in job_details if j.result not in ["retry", "success"]])
@@ -187,6 +200,9 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         # And go back from unique key to the full job object
         jobs_failed_with_no_classification = [j for j in failed_jobs if j.task_id in jobs_failed_with_no_classification_task_ids]
+
+        # And for commenting purposes, we group the jobs by job type name
+        jobs_failed_with_no_classification_by_job_type_name = _correlate_taskcluster_data(jobs_failed_with_no_classification)
 
         # Now, go through and determine what jobs we need to retrigger.
         jobs_to_retrigger = set()
@@ -215,7 +231,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             'to_retrigger': jobs_to_retrigger,
             'to_investigate': need_investigation_by_test,
             'known_issues': known_issues_by_test,
-            'taskcluster_classified': failed_jobs_with_taskcluster_classification
+            'taskcluster_classified': failed_jobs_with_taskcluster_classification,
+            'unknown_failures': jobs_failed_with_no_classification_by_job_type_name
         }
 
     # =================================================================

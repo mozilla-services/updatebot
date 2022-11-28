@@ -76,7 +76,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         assert 'data' in result['response']
         if len(result['response']['data']) != 1:
             raise Exception("When querying conduit for username %s, we got back %i results"
-                            % (phab_username, len(result['data'])))
+                            % (phab_username, len(result['response']['data'])))
 
         phid = result['response']['data'][0]['phid']
 

@@ -36,19 +36,35 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             self.url = config['url']
 
     @logEntryExit
-    def submit_patchs(self, bug_id):
-        ret = self.run([_arc(), "diff", "--verbatim", "--conduit-uri", self.url, "--"])
-        output = ret.stdout.decode()
-
+    def submit_patches(self, bug_id, has_patches):
         phab_revisions = []
-        r = re.compile(self.url + "D([0-9]+)")
-        for line in output.split("\n"):
-            s = r.search(line)
-            if s:
-                phab_revisions.append(s.groups(0)[0])
 
-        if not phab_revisions:
-            raise Exception("Could not find a phabricator revision in the output of arc diff using regex %s" % r.pattern)
+        def submit_to_phabricator():
+            ret = self.run([_arc(), "diff", "--verbatim", "--conduit-uri", self.url, "tip^", "--"])
+            output = ret.stdout.decode()
+
+            phab_revision = False
+            r = re.compile(self.url + "D([0-9]+)")
+            for line in output.split("\n"):
+                s = r.search(line)
+                if s:
+                    phab_revision = s.groups(0)[0]
+
+            if not phab_revision:
+                raise Exception("Could not find a phabricator revision in the output of arc diff using regex %s" % r.pattern)
+
+            return phab_revision
+
+        # arc diff will squash all commits into a single commit, so we need to do two things
+        # 1: Only commit the top-most commit in the repo (and not any subsequent commits)
+        #    This is done above in submit_to_phabricator() by 'tip^'
+        # 2: If we have two commits, go backwards and grab only the first commit, then go back to tip
+        if has_patches:
+            self.run(["hg", "checkout", "tip^"])
+            phab_revisions.append(submit_to_phabricator())
+            self.run(["hg", "checkout", "tip"])
+
+        phab_revisions.append(submit_to_phabricator())
 
         for p in phab_revisions:
             cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, p))

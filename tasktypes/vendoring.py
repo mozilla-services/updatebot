@@ -203,7 +203,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Submit Phab Revision ----------------
         try:
-            phab_revisions = self.phabricatorProvider.submit_patchs(created_job.bugzilla_id)
+            phab_revisions = self.phabricatorProvider.submit_patches(created_job.bugzilla_id, library.has_patches)
             assert len(phab_revisions) == 2 if library.has_patches else 1, "We don't have the correct number of phabricator patches; we have %s, expected %s" % (len(phab_revisions), 2 if library.has_patches else 1)
             self.dbProvider.add_phab_revision(created_job, phab_revisions[0], 'vendoring commit')
             if len(phab_revisions) > 1:

@@ -39,12 +39,21 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         if platform.system() != "Windows":
             return s.replace("echo {", "echo '{")
 
-    if expected_values.two_phab_revisions:
-        def default_phab_submit():
-            return (ARC_OUTPUT + ARC_OUTPUT_EXTRA) % (expected_values.phab_revision_func(), expected_values.phab_revision_func(), expected_values.phab_revision_func() + 1, expected_values.phab_revision_func() + 1)
-    else:
-        def default_phab_submit():
-            return ARC_OUTPUT % (expected_values.phab_revision_func(), expected_values.phab_revision_func())
+    global phab_calls
+    phab_calls = -1
+
+    def default_phab_submit():
+        global phab_calls
+        phab_calls += 1
+
+        value = expected_values.phab_revision_func()
+
+        # If we have two_phab_revisions, then we need to increment the
+        # phab revision on every other call.
+        if expected_values.two_phab_revisions:
+            value += (phab_calls % 2)
+
+        return ARC_OUTPUT % (value, value)
 
     return OrderedDict([
         ("./mach vendor --patch-mode only", command_callbacks.get('patch', AssertFalse)),
@@ -120,12 +129,6 @@ Completed
 (D%s) 539629:94adaadd8131 Bug 1652039 - Include checks in subdirectories in MozillaTidyModule.cpp r?andi
 -> https://phabricator-dev.allizom.org/D%s
 """
-
-ARC_OUTPUT_EXTRA = """
-(D%s) 698645:a6daa7a50011 Bug 1780403: Allowlist some more preferences to avoid crashes r?ckerschb
--> https://phabricator-dev.allizom.org/D%s
-"""
-
 
 CONDUIT_USERNAME_SEARCH_OUTPUT = """
 {"error":null,"errorMessage":null,"response":{"data":[{"id":154,"type":"USER","phid":"PHID-USER-dd6rge2k2csia46r2wcw","fields":{"username":"tjr","realName":"Tom Ritter","roles":["verified","approved","activated"],"dateCreated":1519415695,"dateModified":1519416233,"policy":{"view":"public","edit":"no-one"}},"attachments":[]}],"maps":[],"query":{"queryKey":null},"cursor":{"limit":100,"after":null,"before":null,"order":null}}}

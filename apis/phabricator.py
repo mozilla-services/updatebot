@@ -80,11 +80,19 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     def set_reviewer(self, phab_revision, phab_username):
-        # First get the user's phid
-        cmd = "echo " + quote_echo_string("""{"constraints": {"usernames":["%s"]}}""" % phab_username)
-        cmd += " | %s call-conduit --conduit-uri=%s user.search --""" % (_arc(), self.url)
+        # We have to call a different API endpoint if this is a review group
+        if phab_username[0] == "#":
+            # Get the group's phid (groups are implemented as 'projects'')
+            cmd = "echo " + quote_echo_string("""{"constraints": {"slugs":["%s"]}}""" % phab_username)
+            cmd += " | %s call-conduit --conduit-uri=%s project.search --""" % (_arc(), self.url)
+        else:
+            # Get the user's phid
+            cmd = "echo " + quote_echo_string("""{"constraints": {"usernames":["%s"]}}""" % phab_username)
+            cmd += " | %s call-conduit --conduit-uri=%s user.search --""" % (_arc(), self.url)
+
         ret = self.run(cmd, shell=True)
         result = json.loads(ret.stdout.decode())
+
         if result['error']:
             raise Exception("Got an error from phabricator when trying to search for %s" % (phab_username))
 
@@ -92,7 +100,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         assert 'data' in result['response']
         if len(result['response']['data']) != 1:
             raise Exception("When querying conduit for username %s, we got back %i results"
-                            % (phab_username, len(result['data'])))
+                            % (phab_username, len(result['response']['data'])))
 
         phid = result['response']['data'][0]['phid']
 

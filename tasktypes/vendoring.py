@@ -322,6 +322,13 @@ class VendorTaskRunner(BaseTaskRunner):
                 return "%s of %s failed on different tasks" % (fails, len(jobs))
             return "%s of %s failed on the same (retriggered) task" % (fails, len(jobs))
 
+        # Once (Bug 1804797) push health returned an odd name I hadn't seen before
+        # this function handles this scenario so the comment is readable
+        def handle_multiline_name(s):
+            if "\n" not in s:
+                return s
+            return "> " + s.replace("\n", "\n  > ")
+
         # Before we retrieve the push health, process the failed jobs for lint failures.
         comment_lines = []
         printed_lint_header = False
@@ -340,7 +347,7 @@ class VendorTaskRunner(BaseTaskRunner):
             comment_lines.append("**Known Issues (From Push Health)**:")
             for t in results['known_issues']:
                 comment_lines.append("")
-                comment_lines.append("- " + t)
+                comment_lines.append("- " + handle_multiline_name(t))
                 comment_lines.append("  - " + get_failed_summary_string(results['known_issues'][t]))
                 for j in results['known_issues'][t]:
                     if j.result not in ["retry", "success"]:
@@ -357,7 +364,7 @@ class VendorTaskRunner(BaseTaskRunner):
             comment_lines.append("**Needs Investigation (From Push Health)**:")
             for t in results['to_investigate']:
                 comment_lines.append("")
-                comment_lines.append("- " + t)
+                comment_lines.append("- " + handle_multiline_name(t))
                 comment_lines.append("  - " + get_failed_summary_string(results['to_investigate'][t]))
                 for j in results['to_investigate'][t]:
                     if j.result not in ["retry", "success"]:

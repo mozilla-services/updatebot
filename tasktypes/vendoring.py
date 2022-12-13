@@ -331,7 +331,7 @@ class VendorTaskRunner(BaseTaskRunner):
                     if not printed_lint_header:
                         comment_lines.append("**Lint Jobs Failed**:")
                         printed_lint_header = True
-                    comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
+                    comment_lines.append("- %s (%s)" % (j.job_type_name, j.task_id))
         if printed_lint_header:
             comment_lines.append("")
 
@@ -340,8 +340,8 @@ class VendorTaskRunner(BaseTaskRunner):
             comment_lines.append("**Known Issues (From Push Health)**:")
             for t in results['known_issues']:
                 comment_lines.append("")
-                comment_lines.append("\t" + t)
-                comment_lines.append("\t\t- " + get_failed_summary_string(results['known_issues'][t]))
+                comment_lines.append("- " + t)
+                comment_lines.append("  - " + get_failed_summary_string(results['known_issues'][t]))
                 for j in results['known_issues'][t]:
                     if j.result not in ["retry", "success"]:
                         comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
@@ -350,15 +350,15 @@ class VendorTaskRunner(BaseTaskRunner):
         if results['taskcluster_classified']:
             comment_lines.append("**Known Issues (From Taskcluster)**:")
             for j in results['taskcluster_classified']:
-                comment_lines.append("\t\t- %s (%s) - %s" % (j.job_type_name, j.task_id, self.taskclusterProvider.failure_classifications[j.failure_classification_id]))
+                comment_lines.append("- %s (%s) - %s" % (j.job_type_name, j.task_id, self.taskclusterProvider.failure_classifications[j.failure_classification_id]))
             comment_lines.append("")
 
         if results['to_investigate']:
             comment_lines.append("**Needs Investigation (From Push Health)**:")
             for t in results['to_investigate']:
                 comment_lines.append("")
-                comment_lines.append("\t" + t)
-                comment_lines.append("\t\t- " + get_failed_summary_string(results['to_investigate'][t]))
+                comment_lines.append("- " + t)
+                comment_lines.append("  - " + get_failed_summary_string(results['to_investigate'][t]))
                 for j in results['to_investigate'][t]:
                     if j.result not in ["retry", "success"]:
                         comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
@@ -367,10 +367,10 @@ class VendorTaskRunner(BaseTaskRunner):
         if results['unknown_failures']:
             comment_lines.append("**Needs Investigation (Other Failed Jobs)**:")
             for job_type_name in results['unknown_failures'].keys():
-                comment_lines.append("\t" + job_type_name)
+                comment_lines.append("- " + job_type_name)
 
                 failed_task_ids = "(%s)" % ", ".join([j.task_id for j in results['unknown_failures'][job_type_name] if j.result not in ["retry", "success"]])
-                comment_lines.append("\t\t- %s %s" % (get_failed_summary_string(results['unknown_failures'][job_type_name]), failed_task_ids))
+                comment_lines.append("  - %s %s" % (get_failed_summary_string(results['unknown_failures'][job_type_name]), failed_task_ids))
 
             comment_lines.append("")
 

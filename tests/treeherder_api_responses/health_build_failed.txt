@@ -1,0 +1,143 @@
+{
+    "revision": "f3ed767323dc433b9597dbade3c91baf82a85c5f",
+    "id": 1166241,
+    "result": "fail",
+    "jobs": {},
+    "metrics": {
+        "commitHistory": {
+            "name": "Commit History",
+            "result": "none",
+            "details": {
+                "parentSha": "c41cb5ac4dbd83ffd3edf2edc6cdffb5f9accd84",
+                "exactMatch": true,
+                "parentPushRevision": "c41cb5ac4dbd83ffd3edf2edc6cdffb5f9accd84",
+                "parentRepository": {
+                    "id": 77,
+                    "repository_group": {
+                        "name": "development",
+                        "description": "Collection of repositories where code initially lands in the development process"
+                    },
+                    "name": "autoland",
+                    "dvcs_type": "hg",
+                    "url": "https://hg.mozilla.org/integration/autoland",
+                    "branch": null,
+                    "codebase": "gecko",
+                    "description": "The destination for automatically landed Firefox commits.",
+                    "active_status": "active",
+                    "life_cycle_order": null,
+                    "performance_alerts_enabled": true,
+                    "expire_performance_data": false,
+                    "is_try_repo": false,
+                    "tc_root_url": "https://firefox-ci-tc.services.mozilla.com"
+                },
+                "id": 1166232,
+                "jobCounts": {
+                    "completed": 51,
+                    "pending": 0,
+                    "running": 1,
+                    "success": 49,
+                    "retry": 2
+                },
+                "revisions": [
+                    {
+                        "result_set_id": 1166241,
+                        "repository_id": 4,
+                        "revision": "f3ed767323dc433b9597dbade3c91baf82a85c5f",
+                        "author": "Sylvestre Ledru <sledru@mozilla.com>",
+                        "comments": "Fuzzy query=build\n\nPushed via `mach try fuzzy`"
+                    },
+                    {
+                        "result_set_id": 1166241,
+                        "repository_id": 4,
+                        "revision": "307916f7beb998b0d3e03350c4ee6ffb5a76615c",
+                        "author": "Sylvestre Ledru <sledru@mozilla.com>",
+                        "comments": "try with sccache v4.0.0-pre.1"
+                    },
+                    {
+                        "result_set_id": 1166241,
+                        "repository_id": 4,
+                        "revision": "c41cb5ac4dbd83ffd3edf2edc6cdffb5f9accd84",
+                        "author": "Sylvestre Ledru <sledru@mozilla.com>",
+                        "comments": "Bug 1806098 - Enable pylint on tools/lint/ & tools/moztreedocs/ r=jlorenzo,linter-reviewers,marco DONTBUILD\n\nDifferential Revision: https://phabricator.services.mozilla.com/D164894"
+                    }
+                ],
+                "revisionCount": 3,
+                "currentPush": {
+                    "id": 1166241,
+                    "revision": "f3ed767323dc433b9597dbade3c91baf82a85c5f",
+                    "author": "sledru@mozilla.com",
+                    "revisions": [
+                        {
+                            "result_set_id": 1166241,
+                            "repository_id": 4,
+                            "revision": "f3ed767323dc433b9597dbade3c91baf82a85c5f",
+                            "author": "Sylvestre Ledru <sledru@mozilla.com>",
+                            "comments": "Fuzzy query=build\n\nPushed via `mach try fuzzy`"
+                        },
+                        {
+                            "result_set_id": 1166241,
+                            "repository_id": 4,
+                            "revision": "307916f7beb998b0d3e03350c4ee6ffb5a76615c",
+                            "author": "Sylvestre Ledru <sledru@mozilla.com>",
+                            "comments": "try with sccache v4.0.0-pre.1"
+                        },
+                        {
+                            "result_set_id": 1166241,
+                            "repository_id": 4,
+                            "revision": "c41cb5ac4dbd83ffd3edf2edc6cdffb5f9accd84",
+                            "author": "Sylvestre Ledru <sledru@mozilla.com>",
+                            "comments": "Bug 1806098 - Enable pylint on tools/lint/ & tools/moztreedocs/ r=jlorenzo,linter-reviewers,marco DONTBUILD\n\nDifferential Revision: https://phabricator.services.mozilla.com/D164894"
+                        }
+                    ],
+                    "revision_count": 3,
+                    "push_timestamp": 1671201044,
+                    "repository_id": 4
+                }
+            }
+        },
+        "linting": {
+            "name": "Linting",
+            "result": "pass",
+            "details": []
+        },
+        "tests": {
+            "name": "Tests",
+            "result": "none",
+            "details": {
+                "needInvestigation": [],
+                "knownIssues": []
+            }
+        },
+        "builds": {
+            "name": "Builds",
+            "result": "fail",
+            "details": [
+                {
+                    "id": 399895234,
+                    "machine_platform_id": 232,
+                    "option_collection_hash": "102210fe594ee9b33d82058545b1ed14f4c8206e",
+                    "job_type_id": 18254,
+                    "job_group_id": 2,
+                    "result": "busted",
+                    "state": "completed",
+                    "failure_classification_id": 1,
+                    "push_id": 1166241,
+                    "start_time": "2022-12-16T14:41:35",
+                    "job_type_name": "build-win32/opt",
+                    "job_type_symbol": "B",
+                    "platform": "windows2012-32",
+                    "task_id": "FgacL_kvRUiM97_YD_4Hpw",
+                    "run_id": 0
+                }
+            ]
+        }
+    },
+    "status": {
+        "completed": 14,
+        "pending": 0,
+        "running": 0,
+        "success": 13,
+        "busted": 1,
+        "testfailed": 1
+    }
+}

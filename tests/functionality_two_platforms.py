@@ -827,6 +827,49 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
+    # Create -> Decision Task Exception
+    @logEntryExitHeaderLine
+    def testDecisionException(self):
+        call_counter = 0
+
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_decision_exception.txt"
+            else:  # TYPE_JOBS
+                return "jobs_decision_exception.txt"
+
+        def get_filed_bugs(only_open):
+            if call_counter == 0:
+                return []
+            elif call_counter == 1:
+                return [50]
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: ["56082fc4acfacba40993e47ef8302993c59e264e"],
+            lambda: 50,  # get_filed_bug_id_func,
+            get_filed_bugs,
+            treeherder
+        )
+
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            call_counter += 1
+
+            # Run it again, try run will end in an exception
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
+        finally:
+            self._cleanup(u, expected_values)
+
     # Create -> Jobs are Running -> Same test on multiple platforms -> Unclassified Failure
     @logEntryExitHeaderLine
     def testExistingJobUnclassifiedFailureNoRetriggers(self):

@@ -304,12 +304,13 @@ class VendorTaskRunner(BaseTaskRunner):
         push_health = {}
         for t in existing_job.try_runs:
             this_job_list = self.taskclusterProvider.get_job_details(t.revision)
-            if not self._job_is_completed_without_build_failures(library, existing_job, this_job_list):
-                return (False, None, None)
             job_list = self.taskclusterProvider.combine_job_lists(job_list, this_job_list)
 
             this_push_health = self.taskclusterProvider.get_push_health(t.revision)
             push_health = self.taskclusterProvider.combine_push_healths(push_health, this_push_health)
+
+        if not self._job_is_completed_without_build_failures(library, existing_job, this_job_list):
+            return (False, None, None)
 
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
 
@@ -387,6 +388,14 @@ class VendorTaskRunner(BaseTaskRunner):
     def _job_is_completed_without_build_failures(self, library, existing_job, job_list):
         if not job_list:
             self.logger.log("Try revision had no job results. Skipping this job.", level=LogLevel.Warning)
+            return False
+
+        # If there's only one job, and it's an exception we hit a really bad luck
+        # case where the Decision task excepted. Ordinarily we would try to retrigger
+        # it, but that will fail, so we should handle this case.
+        if len(job_list) == 1 and job_list[0].result == "exception":
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try. It appears that the Decision task has had an exception."), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
             return False
 
         for j in job_list:

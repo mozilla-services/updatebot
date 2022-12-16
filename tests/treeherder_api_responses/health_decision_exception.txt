@@ -1,0 +1,111 @@
+{
+    "revision": "719b9d9e749fdf806b859b08665653bce245436c",
+    "id": 1165321,
+    "result": "pass",
+    "jobs": {},
+    "metrics": {
+        "commitHistory": {
+            "name": "Commit History",
+            "result": "none",
+            "details": {
+                "parentSha": "7ff758e0d08b4bdf0ce3bd2abe84a1bff3be8ff4",
+                "exactMatch": true,
+                "parentPushRevision": "7ff758e0d08b4bdf0ce3bd2abe84a1bff3be8ff4",
+                "parentRepository": {
+                    "id": 1,
+                    "repository_group": {
+                        "name": "development",
+                        "description": "Collection of repositories where code initially lands in the development process"
+                    },
+                    "name": "mozilla-central",
+                    "dvcs_type": "hg",
+                    "url": "https://hg.mozilla.org/mozilla-central",
+                    "branch": null,
+                    "codebase": "gecko",
+                    "description": "",
+                    "active_status": "active",
+                    "life_cycle_order": 10,
+                    "performance_alerts_enabled": false,
+                    "expire_performance_data": false,
+                    "is_try_repo": false,
+                    "tc_root_url": "https://firefox-ci-tc.services.mozilla.com"
+                },
+                "id": 1165027,
+                "jobCounts": {
+                    "completed": 9446,
+                    "pending": 0,
+                    "running": 0,
+                    "success": 9305,
+                    "retry": 136,
+                    "usercancel": 5
+                },
+                "revisions": [
+                    {
+                        "result_set_id": 1165321,
+                        "repository_id": 4,
+                        "revision": "719b9d9e749fdf806b859b08665653bce245436c",
+                        "author": "Updatebot <updatebot@mozilla.com>",
+                        "comments": "Fuzzy query=!win !osx 'spidermonkey | 'shell-haz\n\nPushed via `mach try fuzzy`"
+                    },
+                    {
+                        "result_set_id": 1165321,
+                        "repository_id": 4,
+                        "revision": "d9b7ff0b80d2cc62be314ef6787e7b36ef06a8a3",
+                        "author": "Updatebot <updatebot@mozilla.com>",
+                        "comments": "Bug 1805798 - Update irregexp to 1e47404bb77ae6b6e0427e929f60e36c417545e3"
+                    }
+                ],
+                "revisionCount": 2,
+                "currentPush": {
+                    "id": 1165321,
+                    "revision": "719b9d9e749fdf806b859b08665653bce245436c",
+                    "author": "updatebot@mozilla.com",
+                    "revisions": [
+                        {
+                            "result_set_id": 1165321,
+                            "repository_id": 4,
+                            "revision": "719b9d9e749fdf806b859b08665653bce245436c",
+                            "author": "Updatebot <updatebot@mozilla.com>",
+                            "comments": "Fuzzy query=!win !osx 'spidermonkey | 'shell-haz\n\nPushed via `mach try fuzzy`"
+                        },
+                        {
+                            "result_set_id": 1165321,
+                            "repository_id": 4,
+                            "revision": "d9b7ff0b80d2cc62be314ef6787e7b36ef06a8a3",
+                            "author": "Updatebot <updatebot@mozilla.com>",
+                            "comments": "Bug 1805798 - Update irregexp to 1e47404bb77ae6b6e0427e929f60e36c417545e3"
+                        }
+                    ],
+                    "revision_count": 2,
+                    "push_timestamp": 1671063061,
+                    "repository_id": 4
+                }
+            }
+        },
+        "linting": {
+            "name": "Linting",
+            "result": "none",
+            "details": []
+        },
+        "tests": {
+            "name": "Tests",
+            "result": "none",
+            "details": {
+                "needInvestigation": [],
+                "knownIssues": []
+            }
+        },
+        "builds": {
+            "name": "Builds",
+            "result": "none",
+            "details": []
+        }
+    },
+    "status": {
+        "completed": 1,
+        "pending": 0,
+        "running": 0,
+        "exception": 1,
+        "testfailed": 0
+    }
+}

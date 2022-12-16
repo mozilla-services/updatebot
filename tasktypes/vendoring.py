@@ -393,8 +393,8 @@ class VendorTaskRunner(BaseTaskRunner):
         # If there's only one job, and it's an exception we hit a really bad luck
         # case where the Decision task excepted. Ordinarily we would try to retrigger
         # it, but that will fail, so we should handle this case.
-        if len(job_list) == 1 and job_list[0].result == "exception":
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try. It appears that the Decision task has had an exception."), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+        if len(job_list) == 1 and job_list[0].result in ["exception", "busted"]:
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try. It appears that the Decision task did not succeed."), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
             return False
 

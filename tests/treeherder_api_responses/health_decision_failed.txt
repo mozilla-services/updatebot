@@ -1,0 +1,110 @@
+{
+    "revision": "538da45d01628528b45bcf3dd6e6c1325656b629",
+    "id": 1166386,
+    "result": "pass",
+    "jobs": {},
+    "metrics": {
+        "commitHistory": {
+            "name": "Commit History",
+            "result": "none",
+            "details": {
+                "parentSha": "ef0d179e0aeb0bb18be03786361046fb661ad64f",
+                "exactMatch": true,
+                "parentPushRevision": "ef0d179e0aeb0bb18be03786361046fb661ad64f",
+                "parentRepository": {
+                    "id": 1,
+                    "repository_group": {
+                        "name": "development",
+                        "description": "Collection of repositories where code initially lands in the development process"
+                    },
+                    "name": "mozilla-central",
+                    "dvcs_type": "hg",
+                    "url": "https://hg.mozilla.org/mozilla-central",
+                    "branch": null,
+                    "codebase": "gecko",
+                    "description": "",
+                    "active_status": "active",
+                    "life_cycle_order": 10,
+                    "performance_alerts_enabled": false,
+                    "expire_performance_data": false,
+                    "is_try_repo": false,
+                    "tc_root_url": "https://firefox-ci-tc.services.mozilla.com"
+                },
+                "id": 1166154,
+                "jobCounts": {
+                    "completed": 9453,
+                    "pending": 0,
+                    "running": 1,
+                    "success": 9308,
+                    "retry": 145
+                },
+                "revisions": [
+                    {
+                        "result_set_id": 1166386,
+                        "repository_id": 4,
+                        "revision": "538da45d01628528b45bcf3dd6e6c1325656b629",
+                        "author": "Ryan VanderMeulen <ryanvm@gmail.com>",
+                        "comments": "Try Chooser Enhanced (5 tasks selected)\n\nPushed via `mach try again`"
+                    },
+                    {
+                        "result_set_id": 1166386,
+                        "repository_id": 4,
+                        "revision": "6819f375d37dca9298c2fbcffb386d4c3d0b4e31",
+                        "author": "Ryan VanderMeulen <ryanvm@gmail.com>",
+                        "comments": "Don't try to enable parallel marking in compiled unit tests."
+                    }
+                ],
+                "revisionCount": 2,
+                "currentPush": {
+                    "id": 1166386,
+                    "revision": "538da45d01628528b45bcf3dd6e6c1325656b629",
+                    "author": "ryanvm@gmail.com",
+                    "revisions": [
+                        {
+                            "result_set_id": 1166386,
+                            "repository_id": 4,
+                            "revision": "538da45d01628528b45bcf3dd6e6c1325656b629",
+                            "author": "Ryan VanderMeulen <ryanvm@gmail.com>",
+                            "comments": "Try Chooser Enhanced (5 tasks selected)\n\nPushed via `mach try again`"
+                        },
+                        {
+                            "result_set_id": 1166386,
+                            "repository_id": 4,
+                            "revision": "6819f375d37dca9298c2fbcffb386d4c3d0b4e31",
+                            "author": "Ryan VanderMeulen <ryanvm@gmail.com>",
+                            "comments": "Don't try to enable parallel marking in compiled unit tests."
+                        }
+                    ],
+                    "revision_count": 2,
+                    "push_timestamp": 1671217175,
+                    "repository_id": 4
+                }
+            }
+        },
+        "linting": {
+            "name": "Linting",
+            "result": "none",
+            "details": []
+        },
+        "tests": {
+            "name": "Tests",
+            "result": "none",
+            "details": {
+                "needInvestigation": [],
+                "knownIssues": []
+            }
+        },
+        "builds": {
+            "name": "Builds",
+            "result": "none",
+            "details": []
+        }
+    },
+    "status": {
+        "completed": 1,
+        "pending": 0,
+        "running": 0,
+        "busted": 1,
+        "testfailed": 0
+    }
+}

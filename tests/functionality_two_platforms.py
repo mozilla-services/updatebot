@@ -733,11 +733,11 @@ class TestFunctionality(SimpleLoggingTest):
         @treeherder_response
         def treeherder(request_type, fullpath):
             if request_type == TYPE_HEALTH:
-                self.assertTrue(False, "Should not reach here")
+                return "health_build_failed.txt"
             else:  # TYPE_JOBS
                 if treeherder.jobs_calls == 0:
                     return "jobs_still_running.txt"
-                return "build_failed.txt"
+                return "jobs_build_failed.txt"
 
         call_counter = 0
         global was_abandoned
@@ -1473,11 +1473,11 @@ class TestFunctionality(SimpleLoggingTest):
         @treeherder_response
         def treeherder(request_type, fullpath):
             if request_type == TYPE_HEALTH:
-                self.assertFalse(True, "Should not be called")
+                return "health_build_failed.txt"
             else:  # TYPE_JOBS
                 if treeherder.jobs_calls == 0:
                     return "jobs_still_running.txt"
-                return "build_failed.txt"
+                return "jobs_build_failed.txt"
 
         call_counter = 0
 

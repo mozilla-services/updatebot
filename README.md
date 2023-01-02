@@ -84,3 +84,4 @@ There are a few bits of complexity elided in the overview and architecture detai
 ## Fine Print
 
 This repo is subject to [our quality standards and practices](https://developer.mozilla.org/en-US/docs/Mozilla/Developer_guide/Committing_Rules_and_Responsibilities) and any interaction here is governed by the [Mozilla Community Participation Guidelines.](https://www.mozilla.org/en-US/about/governance/policies/participation/)
+test

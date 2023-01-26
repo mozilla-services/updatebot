@@ -15,8 +15,8 @@ class CommentTemplates:
             library.name, new_release_version, release_timestamp)
 
     @staticmethod
-    def UPDATE_DETAILS(num_commits, num_new_commits, commit_details):
-        new_commit_str = ""
+    def UPDATE_DETAILS(num_commits, num_new_commits, commit_stats, commit_details):
+        new_commit_str = "."
         if num_new_commits != num_commits:
             if num_new_commits == 1:
                 new_commit_str = ", including %s new upstream commit I've never filed a bug on before. (It's the top one.)" % (num_new_commits)
@@ -24,10 +24,13 @@ class CommentTemplates:
                 new_commit_str = ", including %s new upstream commits I've never filed a bug on before. (They're the top %s.)" % (num_new_commits, num_new_commits)
 
         return """
-This update covers %s commits%s:
+This update covers %s commits%s. Here are the overall diff statistics%s.
+
+----------------------------------------
+%s
 
 %s
-""" % (num_commits, new_commit_str, commit_details)
+""" % (num_commits, new_commit_str, ", and then the commit information" if commit_details else "", commit_stats, commit_details)
 
     @staticmethod
     def EXAMINE_COMMITS_SUMMARY(library, new_commits):

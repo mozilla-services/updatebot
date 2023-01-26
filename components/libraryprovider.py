@@ -45,6 +45,7 @@ class Library:
         self.revision = dict['revision']
         self.repo_url = dict['repo_url']
         self.has_patches = dict['has_patches']
+        self.flavor = dict['flavor']
         self.maintainer_bz = dict['maintainer_bz']
         self.maintainer_phab = dict['maintainer_phab']
         self.try_preset = dict.get('try_preset', None)
@@ -80,6 +81,7 @@ class Library:
                       self.revision,
                       self.repo_url,
                       self.has_patches,
+                      self.flavor,
                       self.maintainer_bz,
                       self.maintainer_phab,
                       self.try_preset,
@@ -203,6 +205,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'revision': None,
             'repo_url': '',
             'has_patches': False,
+            'flavor': '',
             'maintainer_bz': '',
             'maintainer_phab': '',
             'try_preset': '',
@@ -238,6 +241,11 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             validated_library['has_patches'] = not not library['vendoring']['patches']
         else:
             validated_library['has_patches'] = False
+
+        if 'vendoring' in library and 'flavor' in library['vendoring']:
+            validated_library['flavor'] = library['vendoring']['flavor']
+        else:
+            validated_library['flavor'] = 'regular'
 
         # Updatebot keys aren't required by the schema, so if we don't have them
         # then we just leave it set to disabled

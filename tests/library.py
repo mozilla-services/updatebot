@@ -21,6 +21,7 @@ LIBRARIES = [
         "revision": "a7e83aa2b1571b842a555158e8f25aeb1419ebd1",
         "repo_url": "https://github.com/mozilla/cubeb",
         "has_patches": False,
+        "flavor": 'regular',
 
         "bugzilla_product": "Core",
         "bugzilla_component": "Audio/Video: cubeb",
@@ -40,6 +41,7 @@ LIBRARIES = [
         "revision": "a7e83aa2b1571b842a555158e8f25aeb1419ebd1",
         "repo_url": "https://github.com/mozilla/cubeb",
         "has_patches": False,
+        "flavor": 'regular',
 
         "bugzilla_product": "Core",
         "bugzilla_component": "Audio/Video: cubeb",
@@ -59,6 +61,7 @@ LIBRARIES = [
         "revision": "a7e83aa2b1571b842a555158e8f25aeb1419ebd1",
         "repo_url": "https://github.com/mozilla/cubeb",
         "has_patches": False,
+        "flavor": 'regular',
 
         "bugzilla_product": "Core",
         "bugzilla_component": "Audio/Video: cubeb",
@@ -79,6 +82,7 @@ LIBRARIES = [
         "revision": "0243c3ffb644e61848b82f24f5e4a7324669d76e",
         "repo_url": "https://code.videolan.org/videolan/dav1d.git",
         "has_patches": False,
+        "flavor": 'regular',
 
         "bugzilla_product": "Core",
         "bugzilla_component": "Audio/Video: Playback",
@@ -97,6 +101,7 @@ LIBRARIES = [
         'revision': 'v1.6.37',
         'repo_url': 'https://github.com/glennrp/libpng',
         "has_patches": True,
+        "flavor": 'regular',
 
         'bugzilla_product': 'Core',
         'bugzilla_component': 'ImageLib',

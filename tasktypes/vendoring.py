@@ -101,10 +101,6 @@ class VendorTaskRunner(BaseTaskRunner):
             self.logger.log("Because of the task's frequency restrictions (%s) we are not processing this new revision now." % task.frequency, level=LogLevel.Info)
             return
 
-        # Get the information we will need to file a bug
-        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job)
-        commit_details = self.scmProvider.build_bug_description(all_upstream_commits)
-
         # Vendor ------------------------------
         (result, msg) = self.vendorProvider.vendor(library, new_version)
 
@@ -117,7 +113,11 @@ class VendorTaskRunner(BaseTaskRunner):
         created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING)
 
         # File the bug ------------------------
-        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_details), task.cc, blocks=task.blocking)
+        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job)
+        commit_details = self.scmProvider.build_bug_description(all_upstream_commits) if (library.name != 'irregexp' and library.flavor != 'individual-files') else ""
+        commit_stats = self.mercurialProvider.diff_stats()
+
+        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_details), task.cc, blocks=task.blocking)
         self.dbProvider.update_job_add_bug_id(created_job, created_job.bugzilla_id)
 
         # Address any prior bug ---------------

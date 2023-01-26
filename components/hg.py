@@ -25,3 +25,8 @@ class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvid
         bug_id = "Bug {0}".format(bug_id)
         self.run(["hg", "commit", "-m", "%s - Apply mozilla patches for %s" %
                   (bug_id, library.name)])
+
+    @logEntryExit
+    def diff_stats(self):
+        ret = self.run(["hg", "diff", "--stat"])
+        return ret.stdout.decode().rstrip()

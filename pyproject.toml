@@ -4,6 +4,9 @@ version = "1.0.0"
 description = "Automation for updating third party libraries for Firefox"
 authors = ["Tom Ritter <tom@mozilla.com>"]
 license = "MPL-2.0"
+packages = [
+	{ include = "windows" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.7"
@@ -19,6 +22,9 @@ sentry-sdk = "^1.9.8"
 autopep8 = "^1.7.0"
 coverage = "^5.5"
 flake8 = "^5.0.4"
+
+[tool.poetry.scripts]
+automation = "windows.runner:main"
 
 [build-system]
 requires = ["poetry>=1.1.0"]

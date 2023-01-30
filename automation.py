@@ -243,7 +243,7 @@ class Updatebot:
 # ====================================================================
 # ====================================================================
 
-if __name__ == "__main__":
+def main():
     import argparse
     try:
         from localconfig import localconfig
@@ -322,3 +322,6 @@ if __name__ == "__main__":
     else:
         u = Updatebot(localconfig)
         u.run(library_filter=args.library_filter)
+
+if __name__ == "__main__":
+    main()

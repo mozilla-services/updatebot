@@ -209,8 +209,9 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def find_open_bugs(self, bug_ids):
-        if len(bug_ids) > 0:
-            return findOpenBugs(self.config['url'], bug_ids)
+        filtered_ids = [b for b in bug_ids if b > 0]
+        if len(filtered_ids) > 0:
+            return findOpenBugs(self.config['url'], filtered_ids)
         return []
 
     @logEntryExit

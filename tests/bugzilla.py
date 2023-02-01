@@ -89,6 +89,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         if expectedPath_comment in self.path:
             assert 'id' in content
             assert 'comment' in content
+            assert len(content['comment']['body']) < 65535
             assert 'comment_tags' in content
             assert 'body' in content['comment']
             if bug_id == "1234":
@@ -175,6 +176,9 @@ class TestBugzillaProvider(unittest.TestCase):
 
         self.bugzillaProvider.comment_on_bug(
             1236, "Test Flags", needinfo='Jon')
+
+        self.bugzillaProvider.comment_on_bug(
+            1237, "X" * 70000, assignee='Jon')
 
     def testStatus(self):
         self.bugzillaProvider.mark_ff_version_affected(456, 76)

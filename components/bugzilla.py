@@ -195,6 +195,10 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
+        if len(comment) > 65535:
+            self.logger.log("Comment on Bug %s is too long: %s characters; truncating." % (bug_id, len(comment)), level=LogLevel.Warning)
+            suffix = "\n\nOops - the above comment was too long. I was unable to shrink it nicely, so I had to truncate it to fit Bugzilla's limits."
+            comment = comment[0:65534 - len(suffix)] + suffix
         commentOnBug(
             self.config['url'], self.config['apikey'], bug_id, comment, needinfo=needinfo, assignee=assignee)
         self.logger.log("Filed Comment on Bug %s" % (bug_id), level=LogLevel.Info)

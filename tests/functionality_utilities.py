@@ -195,6 +195,8 @@ class MockedBugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
+        if len(comment) > 65535:
+            assert False, "Bug comment cannot be longer than 65535 characters"
         pass
 
     @logEntryExit

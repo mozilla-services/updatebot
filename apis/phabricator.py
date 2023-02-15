@@ -39,8 +39,13 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def submit_patches(self, bug_id, has_patches):
         phab_revisions = []
 
-        def submit_to_phabricator():
-            ret = self.run([_arc(), "diff", "--verbatim", "--conduit-uri", self.url, "tip^", "--"])
+        def submit_to_phabricator(rev_id):
+            cmd = [_arc(), "diff", "--verbatim", "--conduit-uri", self.url]
+            if rev_id:
+                cmd.append(rev_id)
+            cmd.append("--")
+
+            ret = self.run(cmd)
             output = ret.stdout.decode()
 
             phab_revision = False
@@ -55,16 +60,25 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
             return phab_revision
 
-        # arc diff will squash all commits into a single commit, so we need to do two things
-        # 1: Only commit the top-most commit in the repo (and not any subsequent commits)
-        #    This is done above in submit_to_phabricator() by 'tip^'
-        # 2: If we have two commits, go backwards and grab only the first commit, then go back to tip
+        # arc diff will squash all commits into a single commit, so we need to jump through some hoops.
+        # Conceptually, we are only commiting the top-most commit in the repo (and not any subsequent commits)
+        # If we have two commits, we'll go backwards and grab only the first commit, then go back to tip
         if has_patches:
+            # Save the changeset of the second patch
+            tip_changeset = self.run(["hg", "log", "-r", "tip", "--template", "{node}"]).stdout.decode()
+            # Checkout to the first patch
             self.run(["hg", "checkout", "tip^"])
-            phab_revisions.append(submit_to_phabricator())
+            # Tell phabricator to submit from the base to the current working tree
+            phab_revisions.append(submit_to_phabricator(""))
+            # Now tip is a phabricator-rewritten version of the first patch
+            # Ask hg to rebase the original second patch on top of the rewritten first patch
+            self.run(["hg", "rebase", "-s", tip_changeset, "-d", "tip"])
+            # Check out the new 'tip' revision, which has changed from the rewritten first
+            # patch to the rebased second patch
             self.run(["hg", "checkout", "tip"])
 
-        phab_revisions.append(submit_to_phabricator())
+        # Submit only the topmost patch
+        phab_revisions.append(submit_to_phabricator("tip^"))
 
         for p in phab_revisions:
             cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, p))

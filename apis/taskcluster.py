@@ -48,7 +48,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self._vcs_setup_initialized = True
 
     @logEntryExit
-    def submit_to_try(self, library, platform_filter):
+    def submit_to_try(self, library, platform_filter, recursed=0):
         self._vcs_setup()
         if not platform_filter:
             platform_filter_args = []
@@ -70,8 +70,11 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         else:
             try_arguments = ["./mach", "try", "auto"] + platform_filter_args
 
-        ret = self.run(try_arguments)
+        ret = self.run(try_arguments, clean_return=False if recursed < 5 else True)
         output = ret.stdout.decode()
+
+        if "timed out waiting for lock held by" in output:
+            return self.submit_to_try(library, platform_filter, recursed + 1)
 
         isNext = False
         try_link = None

@@ -9,6 +9,7 @@ sys.path.append(".")
 sys.path.append("..")
 
 import inspect
+import subprocess
 
 from components.utilities import Struct
 from components.providerbase import BaseProvider, INeedsLoggingProvider
@@ -36,6 +37,7 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
         self.logger.log("Mocked Command executed", argument_string, level=LogLevel.Info)
 
         stdout = None
+        returncode = 0
         for m in self.mappings:
             if argument_string.startswith(m):
                 if self.mappings[m] == DO_EXECUTE:
@@ -48,10 +50,23 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
                     # If the lambda for this output expects a parameter, give it the command we want to execute
                     # But we don't require a parameter
                     if len(inspect.signature(func).parameters) > 0:
-                        stdout = func(argument_string)
+                        retval = func(argument_string)
                     else:
-                        stdout = func()
+                        retval = func()
+
                     self.logger.log("We found a mapped response, providing it.", level=LogLevel.Info)
+
+                    if isinstance(retval, tuple):
+                        returncode = retval[0]
+                        stdout = retval[1]
+                    else:
+                        stdout = retval
+
+                    if returncode:
+                        self.logger.log("... and it has a failing return code.", level=LogLevel.Info)
+                        if clean_return:
+                            raise subprocess.CalledProcessError(returncode, args)
+
                     self.logger.log("---\n%s\n---" % stdout, level=LogLevel.Debug2)
                 break
 
@@ -59,4 +74,4 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
             self.logger.log("We did not find a mapped response for the command `%s`." % argument_string, level=LogLevel.Warning)
         return Struct(**{'stdout':
                          Struct(**{'decode': lambda: stdout}),
-                         'returncode': 0})
+                         'returncode': returncode})

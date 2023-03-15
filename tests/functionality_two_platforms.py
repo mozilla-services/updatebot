@@ -28,7 +28,7 @@ from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
-from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
+from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH
@@ -397,6 +397,63 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
             self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, got outcome %s" % (j.outcome.name))
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Create -> ./mach vendor -> commit -> Fails during try submit after locking 5 times
+    @logEntryExitHeaderLine
+    def testFailsDuringTrySubmitLockedForever(self):
+        call_counter = 0
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: ["try_rev"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'try_submit': lambda: (1, TRY_LOCKED_OUTPUT)}
+        )
+        try:
+            u.run(library_filter=library_filter)
+
+            # Cannot use the provided _check_jobs
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, got outcome %s" % (j.outcome.name))
+            self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Create -> ./mach vendor -> commit -> Fails during try submit
+    @logEntryExitHeaderLine
+    def testTryLockedOutput(self):
+        call_counter = 0
+        library_filter = 'dav1d'
+
+        def try_output():
+            nonlocal call_counter
+            if call_counter < 2:
+                call_counter += 1
+                return (1, TRY_LOCKED_OUTPUT)
+            return (0, TRY_OUTPUT(expected_values.try_revisions_func()[0]))
+
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: ["try_rev"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'try_submit': try_output}
+        )
+        try:
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
 
         finally:
             self._cleanup(u, expected_values)

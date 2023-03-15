@@ -31,6 +31,16 @@ Required Callbacks
 
 abandon         echo {\"transactions\": [{\"type\":\"abandon\"")
 patch           ./mach vendor --patch-mode only
+
+
+The callbacks MAY take a single parameter - if they do, they will receive
+a string containing the command that was to be executed.
+
+The callbacks MAY return either a string, or a tuple of (int, string).
+If it returns a tuple, the integer is interpetted as the returncode of the
+mocked execution, and the string as the standard output.
+If it returns a string, it is interpretted as the standard output and a
+returncode os 0 is used.
 """
 
 
@@ -110,6 +120,25 @@ temporary commit removed, repository restored
 """ % (revision, revision)
     return s
 
+
+TRY_LOCKED_OUTPUT = """
+Creating temporary commit for remote...
+A try_task_config.json
+pushing to ssh://hg.mozilla.org/try
+searching for changes
+remote: waiting for lock on working directory of /repo/hg/mozilla/try held by process '18116' on host 'hgssh1.dmz.mdc1.mozilla.com/effffffc'
+remote: abort: working directory of /repo/hg/mozilla/try: timed out waiting for lock held by 'hgssh1.dmz.mdc1.mozilla.com/effffffc:20282'
+temporary commit removed, repository restored
+Error running mach:
+
+    ['try', 'auto']
+
+The error occurred in code that was called by the mach command. This is either
+a bug in the called code itself or in the way that mach is calling it.
+You can invoke ``./mach busted`` to check if this issue is already on file. If it
+isn't, please use ``./mach busted file try`` to report it. If ``./mach busted`` is
+misbehaving, you can also inspect the dependencies of bug 1543241.
+"""
 
 ARC_OUTPUT = """
 Submitting 1 commit for review:

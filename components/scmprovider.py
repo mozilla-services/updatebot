@@ -232,7 +232,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             self.logger.log("  - %s" % c, level=LogLevel.Error)
         raise Exception(problem)
 
-    def build_bug_description(self, list_of_commits):
+    def build_bug_description(self, list_of_commits, max_length):
         # The commits are ordered oldest to newest.
         # But when we file a bug we want the newest commit to be at the top.
         list_of_commits = copy.deepcopy(list_of_commits)
@@ -289,10 +289,10 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
         # Bugzilla's limit is 65535
         details = _get_details(verbosity=3)
-        if len(details) > 64000:
+        if len(details) > max_length:
             details = _get_details(verbosity=2)
-        if len(details) > 64000:
+        if len(details) > max_length:
             details = _get_details(verbosity=1)
-        if len(details) > 64000:
+        if len(details) > max_length:
             details = _get_details(verbosity=0)
         return details

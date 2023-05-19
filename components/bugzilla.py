@@ -16,7 +16,7 @@ class CommentTemplates:
 
     @staticmethod
     def UPDATE_DETAILS(num_commits, num_new_commits, commit_stats, commit_details):
-        new_commit_str = "."
+        new_commit_str = ""
         if num_new_commits != num_commits:
             if num_new_commits == 1:
                 new_commit_str = ", including %s new upstream commit I've never filed a bug on before. (It's the top one.)" % (num_new_commits)

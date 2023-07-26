@@ -209,6 +209,25 @@ class TestFunctionality(SimpleLoggingTest):
             self._cleanup(u, expected_values)
 
     @logEntryExitHeaderLine
+    def testAllNewJobsStateDir(self):
+        state_dir_prefix = "Creating local state directory: /builds/worker/.mozbuild/srcdirs/gecko-8a5b87fe5d69\nSite not up-to-date reason: \"/builds/worker/.mozbuild/srcdirs/gecko-8a5b87fe5d69/_virtualenvs/common\" does not exist\n"
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'check_for_update': lambda: state_dir_prefix + expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00"}
+        )
+        try:
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+        finally:
+            self._cleanup(u, expected_values)
+
+    @logEntryExitHeaderLine
     def testPatchJob(self):
         global was_patched
         was_patched = False

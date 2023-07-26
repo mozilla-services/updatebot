@@ -67,7 +67,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
 
     return OrderedDict([
         ("./mach vendor --patch-mode only", command_callbacks.get('patch', AssertFalse)),
-        ("./mach vendor --check-for-update", lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00"),
+        ("./mach vendor --check-for-update", command_callbacks.get('check_for_update', lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00")),
         ("./mach vendor ", command_callbacks.get('vendor', lambda: "")),
         ("hg commit", command_callbacks.get('commit', lambda: "")),
         ("hg checkout -C .", lambda: ""),

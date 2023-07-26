@@ -29,10 +29,9 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
             return (None, None)
 
         if "Creating " in result and " state directory" in result:
-            # If no ~/.mozbuild directory was present this gets output unfortunately.
+            # If no ~/.mozbuild directory was present this gets output unfortunately. Take the last line
             result_lines = result.split("\n")
-            result_lines = [line.strip() for line in result_lines if line.strip() and "state directory" not in line]
-            result = result_lines[0]
+            result = result_lines[-1]
 
         parts = result.split(" ")
         return (parts[0], string_date_to_uniform_string_date(parts[1]))

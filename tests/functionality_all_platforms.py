@@ -153,7 +153,8 @@ class TestFunctionality(SimpleLoggingTest):
             for task in lib.tasks:
                 if task.type != 'vendoring':
                     continue
-                u.dbProvider.delete_job(library=lib, version=expected_values.library_new_version_id())
+                if expected_values.library_new_version_id():
+                    u.dbProvider.delete_job(library=lib, version=expected_values.library_new_version_id())
 
     @staticmethod
     def _check_jobs(u, library_filter, expected_values, status, outcome):
@@ -205,6 +206,44 @@ class TestFunctionality(SimpleLoggingTest):
         try:
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+        finally:
+            self._cleanup(u, expected_values)
+
+    @logEntryExitHeaderLine
+    def testNoNewJobs(self):
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda x: [""],  # library_new_version_id
+            AssertFalse,  # get_filed_bug_id_func,
+            lambda x: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'check_for_update': lambda: ""}
+        )
+        try:
+            u.run(library_filter=library_filter)
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 0, "I should have zero jobs.")
+        finally:
+            self._cleanup(u, expected_values)
+
+    @logEntryExitHeaderLine
+    def testNoNewJobsStateDirLine(self):
+        state_dir_prefix = "Creating local state directory: /builds/worker/.mozbuild/srcdirs/gecko-8a5b87fe5d69\nSite not up-to-date reason: \"/builds/worker/.mozbuild/srcdirs/gecko-8a5b87fe5d69/_virtualenvs/common\" does not exist\n"
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda x: [""],  # library_new_version_id
+            AssertFalse,  # get_filed_bug_id_func,
+            lambda x: [],  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'check_for_update': lambda: state_dir_prefix}
+        )
+        try:
+            u.run(library_filter=library_filter)
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 0, "I should have zero jobs.")
         finally:
             self._cleanup(u, expected_values)
 

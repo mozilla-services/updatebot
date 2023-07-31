@@ -24,14 +24,15 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
     def check_for_update(self, library):
         result = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip()
 
+        if "Creating " in result and " state directory" in result:
+            # If no ~/.mozbuild directory was present this gets output unfortunately.
+            result_lines = result.split("\n")
+            result_lines = [line.strip() for line in result_lines if line.strip() and "/builds/worker" not in line]
+            result = result_lines[0] if result_lines else ""
+
         # ./mach vendor produces no output when no update is available
         if not result:
             return (None, None)
-
-        if "Creating " in result and " state directory" in result:
-            # If no ~/.mozbuild directory was present this gets output unfortunately. Take the last line
-            result_lines = result.split("\n")
-            result = result_lines[-1]
 
         parts = result.split(" ")
         return (parts[0], string_date_to_uniform_string_date(parts[1]))

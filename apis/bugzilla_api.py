@@ -18,7 +18,7 @@ def kw(s):
 
 
 def task_id_comment_tag():
-    return os.environ.get('TASK_ID', '')
+    return os.environ.get('TASK_ID', 'missing')
 
 
 def task_id_whiteboard():

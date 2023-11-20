@@ -64,18 +64,12 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         # Conceptually, we are only commiting the top-most commit in the repo (and not any subsequent commits)
         # If we have two commits, we'll go backwards and grab only the first commit, then go back to tip
         if has_patches:
-            # Save the changeset of the second patch
-            tip_changeset = self.run(["hg", "log", "-r", "tip", "--template", "{node}"]).stdout.decode()
             # Checkout to the first patch
             self.run(["hg", "checkout", "tip^"])
             # Tell phabricator to submit from the base to the current working tree
             phab_revisions.append(submit_to_phabricator(""))
-            # Now tip is a phabricator-rewritten version of the first patch
-            # Ask hg to rebase the original second patch on top of the rewritten first patch
-            self.run(["hg", "rebase", "-s", tip_changeset, "-d", "tip"])
-            # Check out the new 'tip' revision, which has changed from the rewritten first
-            # patch to the rebased second patch
-            self.run(["hg", "checkout", "tip"])
+            # Ask hg to evolve the original second patch on top of the rewritten first patch
+            self.run(["hg", "next"])
 
         # Submit only the topmost patch
         phab_revisions.append(submit_to_phabricator("tip^"))

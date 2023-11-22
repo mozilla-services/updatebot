@@ -176,6 +176,10 @@ This bug will be marked as a duplicate of it (because although this bug is older
 """
 
 
+def is_needinfo_exception(e):
+    return 'is not currently accepting "needinfo" requests' in str(e)
+
+
 class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
     def __init__(self, config):
         self.config = config
@@ -190,9 +194,17 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, blocks=None, moco_confidential=False):
-        bugID = fileBug(self.config['url'], self.config['apikey'], self.config['General']['ff-version'],
-                        library.bugzilla_product, library.bugzilla_component,
-                        summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential)
+        try:
+            bugID = fileBug(self.config['url'], self.config['apikey'], self.config['General']['ff-version'],
+                            library.bugzilla_product, library.bugzilla_component,
+                            summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential)
+        except Exception as e:
+            if is_needinfo_exception(e):
+                self.logger.log("Developer is not accepting needinfos, trying again without...", level=LogLevel.Info)
+                return self.file_bug(library, summary, description, cc_list, None, see_also, depends_on, blocks, moco_confidential)
+            else:
+                raise e
+
         self.logger.log("Filed Bug with ID", bugID, level=LogLevel.Info)
         return bugID
 
@@ -202,8 +214,17 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
             self.logger.log("Comment on Bug %s is too long: %s characters; truncating." % (bug_id, len(comment)), level=LogLevel.Warning)
             suffix = "\n\nOops - the above comment was too long. I was unable to shrink it nicely, so I had to truncate it to fit Bugzilla's limits."
             comment = comment[0:65534 - len(suffix)] + suffix
-        commentOnBug(
-            self.config['url'], self.config['apikey'], bug_id, comment, needinfo=needinfo, assignee=assignee)
+
+        try:
+            commentOnBug(
+                self.config['url'], self.config['apikey'], bug_id, comment, needinfo=needinfo, assignee=assignee)
+        except Exception as e:
+            if is_needinfo_exception(e):
+                self.logger.log("Developer is not accepting needinfos, trying again without...", level=LogLevel.Info)
+                self.comment_on_bug(bug_id, comment, None, assignee)
+            else:
+                raise e
+
         self.logger.log("Filed Comment on Bug %s" % (bug_id), level=LogLevel.Info)
 
     @logEntryExit

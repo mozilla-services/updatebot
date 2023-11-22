@@ -4,7 +4,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import os
 import copy
 import functools
 import subprocess
@@ -14,6 +13,7 @@ from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
+from components.hg import reset_repository
 
 
 class VendorTaskRunner(BaseTaskRunner):
@@ -83,15 +83,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # If we are on TC, update to the HEAD commit to avoid stripping WIP commits on holly
         self.cmdProvider.run(["hg", "status"])
-        original_revision = os.environ.get("GECKO_HEAD_REV", "")
-        if original_revision:
-            ret = self.cmdProvider.run(["hg", "update", original_revision])
-        else:
-            ret = self.cmdProvider.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
-            if ret.returncode == 255:
-                if "abort: empty revision set" not in ret.stderr.decode():
-                    self.logger.log("hg strip failed but not in a permissible way", level=LogLevel.Warning)
-                    ret.check_returncode()
+        reset_repository(self.cmdProvider)
 
     # ====================================================================
 
@@ -143,8 +135,7 @@ class VendorTaskRunner(BaseTaskRunner):
         # Handle other vendoring outcomes -----
         if result == VendorResult.GENERAL_ERROR:
             # We're not going to commit these changes; so clean them out.
-            self.cmdProvider.run(["hg", "checkout", "-C", "."])
-            self.cmdProvider.run(["hg", "purge", "."])
+            reset_repository(self.cmdProvider)
 
             # Handle `./mach vendor` failing
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR)

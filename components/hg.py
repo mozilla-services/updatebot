@@ -2,8 +2,24 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
+
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
+
+
+def reset_repository(cmdrunner):
+    cmdrunner.run(["hg", "checkout", "-C", "."])
+    cmdrunner.run(["hg", "purge", "."])
+
+    original_revision = os.environ.get("GECKO_HEAD_REV", "")
+    if original_revision:
+        ret = cmdrunner.run(["hg", "update", original_revision])
+    else:
+        ret = cmdrunner.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
+        if ret.returncode == 255:
+            if "abort: empty revision set" not in ret.stderr.decode():
+                ret.check_returncode()
 
 
 class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):

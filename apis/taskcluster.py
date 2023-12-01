@@ -145,76 +145,129 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     # =================================================================
 
     @logEntryExitNoArgs
-    def determine_jobs_to_retrigger(self, push_health, job_details):
-        need_investigation = push_health['metrics']['tests']['details']['needInvestigation']
-        known_issues = push_health['metrics']['tests']['details']['knownIssues']
+    def determine_jobs_to_retrigger(self, push_health, all_jobs):
+        def class_max(class1, class2):
+            if "New Failure" in class1 or "New Failure" in class2:
+                return "New Failure"
+            if "fixedByCommit" in class1 or "fixedByCommit" in class2:
+                return "fixedByCommit"
+            if "intermittent" in class1 or "intermittent" in class2:
+                return "intermittent"
+            if class1 not in ["New Failure", "fixedByCommit", "intermittent"]:
+                # Don't think this can happen.
+                self.logger.log_exception(Exception("Received an unknown suggestedClassification from push health: %s or %s." % (class1, class2)))
+            return class1
+
+        # The Push Health API is a bit long in the tooth. The difference between needsInvestigation and knownIssues has kind
+        # of faded over time.  The failureclassification from Taskcluster is manually set though, so it's fairly useful.
+        # What are left with is:
+        # High Priority You Should Investigate:
+        #   jobs w/ Push Health.suggestedClassification="New Issue" or jobs where failureClassification = "new failure not classified" 
+        # Jobs that are 'Not Your Fault'
+        #   jobs with failureclassification = "fixed by commit", "expected fail", "infra", or "autoclassified intermittent" 
+        # 'Possibly Intermittent - you should check'
+        #   everything else (failureclassification=intermittent, not classified)
+
+        # First ignore all the retry jobs for everything.
+        all_jobs = [j for j in all_jobs if j.result != "retry"]
+
 
         # This function goes through the need_investigation and known_issues results
-        #    and produces a mapping of test-failure to jobs that test failed in
-        def _correlate_health_data(detail_obj):
-            detail_by_testname = defaultdict(list)
-
+        #    and produces a mapping of test-failure to jobs that test ran in
+        def _correlate_health_data(health_failures_by_testname, detail_obj):
+            # You may have multiple entires in detail_obj for one test_name. This indicates the test failed on different platforms/settings
+            # Each entry has its own suggestedClassification and its own confidence.
+            # The Push Health website collapses all of these differences into one list, but also doesn't show the classification/confidence.
+            # We're going to collapse it, but also show the data
             for i in detail_obj:
-                jobs = [j for j in job_details if ("%s" % (j.job_type_name)) == i['jobName'] and j.result not in ["retry"]]
-                detail_by_testname[i['testName']].extend(jobs)
+                jobs = [j for j in all_jobs if ("%s" % (j.job_type_name)) == i['jobName']]
+                health_failures_by_testname[i['testName']].jobs.extend(jobs)
+                health_failures_by_testname[i['testName']].confidence = max(i['confidence'], health_failures_by_testname[i['testName']].confidence)
+                health_failures_by_testname[i['testName']].suggestedClassification = class_max(i['suggestedClassification'], health_failures_by_testname[i['testName']].suggestedClassification)
 
-            return detail_by_testname
+        health_failures_by_testname = defaultdict(lambda:Struct(**{
+            'jobs': list(),
+            'confidence': 0,
+            'suggestedClassification': "unknown"
+            }))
+        not_health_failures_by_jobTypeName = defaultdict(lambda:Struct(**{
+            'jobs': set(),
+            'confidence': 0,
+            'suggestedClassification': "unknown"
+            }))
 
-        # This function does through the failed jobs not classified by Push Health
-        #    or Taskcluster, and groups them by job type name
-        def _correlate_taskcluster_data(jobs_failed_with_no_classification):
-            jobs_failed_with_no_classification_by_job_type_name = defaultdict(list)
+        # Ignoring the distinction between these two
+        _correlate_health_data(health_failures_by_testname, push_health['metrics']['tests']['details']['needInvestigation'])
+        _correlate_health_data(health_failures_by_testname, push_health['metrics']['tests']['details']['knownIssues'])
 
-            for j in jobs_failed_with_no_classification:
-                jobs_failed_with_no_classification_by_job_type_name[j.job_type_name].append(j)
+        # Get all the failed jobs in the push
+        all_failed_jobs = [j for j in all_jobs if j.result != "success"]
+        all_failed_jobs_task_ids = set([j.task_id for j in all_failed_jobs])
+        self.logger.log("all_failed_jobs_task_ids: %s" % all_failed_jobs_task_ids, level=LogLevel.Debug)
 
-            return jobs_failed_with_no_classification_by_job_type_name
+        # All the high priority jobs
+        high_priority_jobs = [j for j in all_failed_jobs if self.failure_classifications[j.failure_classification_id] in ["new failure not classified"]]
+        for obj in health_failures_by_testname.values():
+            if obj.suggestedClassification == "New Failure":
+                high_priority_jobs.extend(obj.jobs)
+        high_priority_jobs_task_ids = set([j.task_id for j in high_priority_jobs])
+        self.logger.log("high_priority_jobs_task_ids: %s" % high_priority_jobs_task_ids, level=LogLevel.Debug)
 
-        need_investigation_by_test = _correlate_health_data(need_investigation)
-        known_issues_by_test = _correlate_health_data(known_issues)
+        # All the jobs that are not your fault
+        not_your_fault_jobs = [j for j in all_failed_jobs if self.failure_classifications[j.failure_classification_id] in ["autoclassified intermittent", "expected fail", "fixed by commit", "infra"] and j.task_id not in high_priority_jobs_task_ids]
+        not_your_fault_jobs_task_ids = set([j.task_id for j in not_your_fault_jobs])
+        self.logger.log("not_your_fault_jobs_task_ids: %s" % not_your_fault_jobs_task_ids, level=LogLevel.Debug)
 
-        # Now get all the failed jobs in the push - not just those indicated in the ni/ki push health data
-        failed_jobs = set().union([j for j in job_details if j.result not in ["retry", "success"]])
+        # Now find all the leftover failures
+        leftover_failures_jobs_task_ids = all_failed_jobs_task_ids - not_your_fault_jobs_task_ids - high_priority_jobs_task_ids
+        leftover_failures_jobs = [j for j in all_failed_jobs if j.task_id in leftover_failures_jobs_task_ids]
+        self.logger.log("leftover_failures_jobs_task_ids: %s" % leftover_failures_jobs_task_ids, level=LogLevel.Debug)
 
-        # We need a unique key for each job
-        failed_jobs_task_ids = set().union([j.task_id for j in failed_jobs])
-        self.logger.log("failed_jobs_task_ids: %s" % failed_jobs_task_ids, level=LogLevel.Debug)
-
-        # Now get all the unique keys for the jobs that failed due to something classified by push health
-        failed_jobs_with_health_classifications_task_ids = set()
-        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in need_investigation_by_test.values() for j in job_list])
-        failed_jobs_with_health_classifications_task_ids = failed_jobs_with_health_classifications_task_ids.union([j.task_id for job_list in known_issues_by_test.values() for j in job_list])
-        self.logger.log("failed_jobs_with_health_classifications_task_ids: %s" % failed_jobs_with_health_classifications_task_ids, level=LogLevel.Debug)
-
-        # Now get all the jobs that failed that were classified by Taskcluster as a known intermittent or issue
-        failed_jobs_with_taskcluster_classification = [j for j in failed_jobs if self.failure_classifications[j.failure_classification_id] != "not classified"]
-        failed_jobs_with_taskcluster_classification_task_ids = set([j.task_id for j in failed_jobs_with_taskcluster_classification])
-        self.logger.log("failed_jobs_with_taskcluster_classification_task_ids: %s" % failed_jobs_with_taskcluster_classification_task_ids, level=LogLevel.Debug)
-
-        # Now get all the unique keys for failed jobs that *weren't* classified by push health or Taskcluster
-        jobs_failed_with_no_classification_task_ids = failed_jobs_task_ids - failed_jobs_with_health_classifications_task_ids - failed_jobs_with_taskcluster_classification_task_ids
-        self.logger.log("jobs_failed_with_no_classification_task_ids: %s" % jobs_failed_with_no_classification_task_ids, level=LogLevel.Debug)
-
-        # And go back from unique key to the full job object
-        jobs_failed_with_no_classification = [j for j in failed_jobs if j.task_id in jobs_failed_with_no_classification_task_ids]
-
-        # And for commenting purposes, we group the jobs by job type name
-        jobs_failed_with_no_classification_by_job_type_name = _correlate_taskcluster_data(jobs_failed_with_no_classification)
-
+        for testName in health_failures_by_testname:
+            if health_failures_by_testname[testName].suggestedClassification == "New Issue":
+                pass
+            if len(health_failures_by_testname[testName].jobs) == len(set([j.task_id for j in health_failures_by_testname[testName].jobs]).intersection(not_your_fault_jobs_task_ids)):
+                print("FOUND ONE")
+                health_failures_by_testname[testName].suggestedClassification = "Not Your Fault"
+        
         # Now, go through and determine what jobs we need to retrigger.
         jobs_to_retrigger = set()
 
-        # We retrigger jobs where it contained a test that failed on only a single job
-        #    We omit jobs where a test failed more than one time. BUT that same job might
-        #    still be retriggered if it contained a test that did only fail one time.
-        for t in need_investigation_by_test:
-            jobs = need_investigation_by_test[t]
-            if len(jobs) == 1:
-                jobs_to_retrigger.add(jobs[0])
+        # We retrigger 'New Failures' if we've seen 1 or even 2 of those failures. We retrigger
+        # other jobs if they're not our fault and there's only one failure.
+        for t in health_failures_by_testname:
+            jobs = health_failures_by_testname[t].jobs
 
-        # And we retrigger non-build, non-lint jobs that weren't classified by push health
-        #    We don't retrigger jobs that failed because of a known issue.
-        for j in jobs_failed_with_no_classification:
+            # if we think it's a New Failure, we retrigger if we have only 1 or 2 jobs
+            # that failed.
+            if health_failures_by_testname[t].suggestedClassification == "New Failure":
+                if len(jobs) <= 2:
+                    jobs_to_retrigger.update(jobs)
+            # If it's not a New Failure (so it might be an intermittent), we retrigger if we
+            # have only 1 failure instance, unless it's not our fault
+            else:
+                if len(jobs) == 1 and jobs[0].task_id not in not_your_fault_jobs_task_ids:
+                    jobs_to_retrigger.add(jobs[0])
+
+        # We also need to retrigger jobs that failed that weren't classified by Push Health though. 
+        # Specifically, if a job is not in high_priority or not_our_fault and not classified by push_health,
+        # we probably want to retrigger it.  (Unless it failed a bunch of times already.
+        push_health_failed_jobs_task_ids = set()
+        for obj in health_failures_by_testname.values():
+            push_health_failed_jobs_task_ids.update([j.task_id for j in obj.jobs])
+        self.logger.log("push_health_failed_jobs_task_ids: %s" % push_health_failed_jobs_task_ids, level=LogLevel.Debug)
+
+        not_push_health_failed_jobs_task_ids = all_failed_jobs_task_ids - push_health_failed_jobs_task_ids
+        not_push_health_failed_jobs = [j for j in all_failed_jobs if j.task_id in not_push_health_failed_jobs_task_ids]
+        self.logger.log("not_push_health_failed_jobs_task_ids: %s" % not_push_health_failed_jobs_task_ids, level=LogLevel.Debug)
+        
+        remaining_failures_jobs_task_ids = not_push_health_failed_jobs_task_ids.intersection(leftover_failures_jobs_task_ids)
+        remaining_failures_jobs = [j for j in all_failed_jobs if j.task_id in remaining_failures_jobs_task_ids]
+        self.logger.log("remaining_failures_jobs_task_ids: %s" % remaining_failures_jobs_task_ids, level=LogLevel.Debug)
+
+        # So finally, we can retrigger jobs that failed, weren't classified by Push Health, were our fault, weren't high
+        # prioity, and aren't build or lint jobs.
+        for j in remaining_failures_jobs:
             if "build" in j.job_type_name:
                 pass
             elif "lint" in j.job_type_name:
@@ -222,14 +275,34 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             else:
                 jobs_to_retrigger.add(j)
 
+        # And for commenting purposes, we group any failed not-push-health jobs by job type name (including the passing jobs)
+        for failed_job in not_push_health_failed_jobs:
+            for j in all_jobs:
+                if j.job_type_name == failed_job.job_type_name:
+                    not_health_failures_by_jobTypeName[j.job_type_name].jobs.add(j)
+
+        # Then go through each grouping, and decide if it's High Priority, Not Your Fault, or Intermittent
+        for name in not_health_failures_by_jobTypeName:
+            sc = "intermittent"
+            for j in not_health_failures_by_jobTypeName[name].jobs:
+                if j.task_id in high_priority_jobs_task_ids:
+                    sc = "New Failure"
+                elif j.task_id in not_your_fault_jobs_task_ids and sc != "New Failure":
+                    sc = "NotYourFault"
+            not_health_failures_by_jobTypeName[name].suggestedClassification = sc
+
+                
+
         # Return the list of jobs to retrigger, as well as information about the test failures
         #    and job mappings
         return {
             'to_retrigger': jobs_to_retrigger,
-            'to_investigate': need_investigation_by_test,
-            'known_issues': known_issues_by_test,
-            'taskcluster_classified': failed_jobs_with_taskcluster_classification,
-            'unknown_failures': jobs_failed_with_no_classification_by_job_type_name
+
+            'health_failures_by_testname': health_failures_by_testname,
+            'not_health_failures_by_jobTypeName': not_health_failures_by_jobTypeName,
+
+            'not_your_fault_jobs': not_your_fault_jobs,
+            'high_priority_jobs': high_priority_jobs,
         }
 
     # =================================================================

@@ -305,14 +305,25 @@ class VendorTaskRunner(BaseTaskRunner):
 
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
 
-        def get_failed_summary_string(jobs):
+        def get_failed_summary_string(result_obj, include_task_ids):
             fails = 0
-            for j in jobs:
-                if j.result not in ["retry", "success"]:
+            fixedByCommit = True
+            for j in result_obj.jobs:
+                if j.result != "success":
                     fails += 1
-            if len(set([j.job_type_name for j in jobs])) != 1:
-                return "%s of %s failed on different tasks" % (fails, len(jobs))
-            return "%s of %s failed on the same (retriggered) task" % (fails, len(jobs))
+            if len(result_obj.jobs) == 1:
+                result = "%s of %s failed" % (fails, len(result_obj.jobs))
+            elif len(set([j.job_type_name for j in result_obj.jobs])) != 1:
+                result = "%s of %s failed on different tasks" % (fails, len(result_obj.jobs))
+            else:
+                result = "%s of %s failed on the same (retriggered) task" % (fails, len(result_obj.jobs))
+            # If we want to surface the confidence from Push Health at a later date, here it is.
+            # if result_obj.suggestedClassification == "intermittent":
+            #    result += " - %s%% likely to be intermittent" % result_obj.confidence
+            if include_task_ids:
+                result += " (failed: " + ", ".join([j.task_id for j in result_obj.jobs if j.result != "success"]) + ")"
+
+            return result
 
         # Once (Bug 1804797) push health returned an odd name I hadn't seen before
         # this function handles this scenario so the comment is readable
@@ -321,57 +332,63 @@ class VendorTaskRunner(BaseTaskRunner):
                 return s
             return "> " + s.replace("\n", "\n  > ")
 
-        # Before we retrieve the push health, process the failed jobs for lint failures.
-        comment_lines = []
-        printed_lint_header = False
+        # First comment on lint failures.
+        lint_lines = ["**Lint Jobs Failed**"]
         for j in job_list:
             if j.result not in ["retry", "success"]:
                 if "mozlint" in j.job_type_name:
-                    if not printed_lint_header:
-                        comment_lines.append("**Lint Jobs Failed**:")
-                        printed_lint_header = True
-                    comment_lines.append("- %s (%s)" % (j.job_type_name, j.task_id))
-        if printed_lint_header:
-            comment_lines.append("")
+                    lint_lines.append("- %s (%s)" % (j.job_type_name, j.task_id))
 
-        # Build up the comment we will leave
-        if results['known_issues']:
-            comment_lines.append("**Known Issues (From Push Health)**:")
-            for t in results['known_issues']:
-                comment_lines.append("")
-                comment_lines.append("- " + handle_multiline_name(t))
-                comment_lines.append("  - " + get_failed_summary_string(results['known_issues'][t]))
-                for j in results['known_issues'][t]:
-                    if j.result not in ["retry", "success"]:
-                        comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
-            comment_lines.append("")
+        high_priority_lines = ["**Needs Close Investigation**:"]
+        for t in results['health_failures_by_testname']:
+            if results['health_failures_by_testname'][t].suggestedClassification == "New Failure":
+                high_priority_lines.append("")
+                high_priority_lines.append("- " + handle_multiline_name(t))
+                high_priority_lines.append("  - " + get_failed_summary_string(results['health_failures_by_testname'][t], False))
+                for j in results['health_failures_by_testname'][t].jobs:
+                    if j.result != "success":
+                        high_priority_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
-        if results['taskcluster_classified']:
-            comment_lines.append("**Known Issues (From Taskcluster)**:")
-            for j in results['taskcluster_classified']:
-                comment_lines.append("- %s (%s) - %s" % (j.job_type_name, j.task_id, self.taskclusterProvider.failure_classifications[j.failure_classification_id]))
-            comment_lines.append("")
+        for t in results['not_health_failures_by_jobTypeName']:
+            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification == "New Failure":
+                high_priority_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['not_health_failures_by_jobTypeName'][t], True))
 
-        if results['to_investigate']:
-            comment_lines.append("**Needs Investigation (From Push Health)**:")
-            for t in results['to_investigate']:
-                comment_lines.append("")
-                comment_lines.append("- " + handle_multiline_name(t))
-                comment_lines.append("  - " + get_failed_summary_string(results['to_investigate'][t]))
-                for j in results['to_investigate'][t]:
-                    if j.result not in ["retry", "success"]:
-                        comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
-            comment_lines.append("")
 
-        if results['unknown_failures']:
-            comment_lines.append("**Needs Investigation (Other Failed Jobs)**:")
-            for job_type_name in results['unknown_failures'].keys():
-                comment_lines.append("- " + job_type_name)
+        intermittent_lines = ["**Needs Investigation (Possible Intermittents)**:"]
+        for t in results['health_failures_by_testname']:
+            if results['health_failures_by_testname'][t].suggestedClassification not in ["New Failure", "Not Your Fault"]:
+                intermittent_lines.append("")
+                intermittent_lines.append("- " + handle_multiline_name(t))
+                intermittent_lines.append("  - " + get_failed_summary_string(results['health_failures_by_testname'][t], False))
+                for j in results['health_failures_by_testname'][t].jobs:
+                    if j.result != "success":
+                        intermittent_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
-                failed_task_ids = "(%s)" % ", ".join([j.task_id for j in results['unknown_failures'][job_type_name] if j.result not in ["retry", "success"]])
-                comment_lines.append("  - %s %s" % (get_failed_summary_string(results['unknown_failures'][job_type_name]), failed_task_ids))
+        for t in results['not_health_failures_by_jobTypeName']:
+            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification not in ["New Failure", "Not Your Fault"]:
+                intermittent_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['not_health_failures_by_jobTypeName'][t], True))
 
-            comment_lines.append("")
+
+        not_your_fault_lines = ["**Known Issues**:"]
+        for t in results['health_failures_by_testname']:
+            if results['health_failures_by_testname'][t].suggestedClassification == "Not Your Fault":
+                not_your_fault_lines.append("")
+                not_your_fault_lines.append("- " + handle_multiline_name(t))
+                for j in results['health_failures_by_testname'][t].jobs:
+                    if j.result != "success":
+                        not_your_fault_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
+
+        for t in results['not_health_failures_by_jobTypeName']:
+            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification == "Not Your Fault":
+                not_your_fault_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['not_health_failures_by_jobTypeName'][t], True))
+
+
+
+        comment_lines = list()
+        comment_lines.extend((lint_lines + [""]) if len(lint_lines) > 1 else [])
+        comment_lines.extend((high_priority_lines + [""]) if len(high_priority_lines) > 1 else [])
+        comment_lines.extend((intermittent_lines + [""]) if len(intermittent_lines) > 1 else [])
+        comment_lines.extend((not_your_fault_lines + [""]) if len(not_your_fault_lines) > 1 else [])
 
         return (True, results, comment_lines)
 
@@ -519,7 +536,7 @@ class VendorTaskRunner(BaseTaskRunner):
     @logEntryExitNoArgs
     def _process_job_results(self, library, task, existing_job, results, comment_lines):
         # We don't need to retrigger jobs, but we do have unclassified failures:
-        if results['to_investigate'] and comment_lines:
+        if results['health_failures_by_testname'] and comment_lines:
             # This updates the job status to DONE, so return immediately after
             self._process_unclassified_failures(library, task, existing_job, comment_lines)
             return

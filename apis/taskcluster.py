@@ -8,6 +8,7 @@ import json
 import jsone
 import platform
 import requests
+from collections import defaultdict
 from urllib.parse import quote_plus
 
 from components.utilities import Struct, merge_dictionaries, PUSH_HEALTH_IGNORED_DICTS, PUSH_HEALTH_IGNORED_KEYS
@@ -151,27 +152,20 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         # This function goes through the need_investigation and known_issues results
         #    and produces a mapping of test-failure to jobs that test failed in
         def _correlate_health_data(detail_obj):
-            detail_by_testname = {}
+            detail_by_testname = defaultdict(list)
 
             for i in detail_obj:
                 jobs = [j for j in job_details if ("%s" % (j.job_type_name)) == i['jobName'] and j.result not in ["retry"]]
-
-                if i['testName'] not in detail_by_testname:
-                    detail_by_testname[i['testName']] = jobs
-                else:
-                    detail_by_testname[i['testName']].extend(jobs)
+                detail_by_testname[i['testName']].extend(jobs)
 
             return detail_by_testname
 
         # This function does through the failed jobs not classified by Push Health
         #    or Taskcluster, and groups them by job type name
         def _correlate_taskcluster_data(jobs_failed_with_no_classification):
-            jobs_failed_with_no_classification_by_job_type_name = {}
+            jobs_failed_with_no_classification_by_job_type_name = defaultdict(list)
 
             for j in jobs_failed_with_no_classification:
-                if j.job_type_name not in jobs_failed_with_no_classification_by_job_type_name:
-                    jobs_failed_with_no_classification_by_job_type_name[j.job_type_name] = []
-
                 jobs_failed_with_no_classification_by_job_type_name[j.job_type_name].append(j)
 
             return jobs_failed_with_no_classification_by_job_type_name
@@ -328,11 +322,9 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     @logEntryExitNoArgs
     def retrigger_jobs(self, retrigger_list):
         # Group the jobs to retrigger by decision task
-        decision_task_groups = {}
+        decision_task_groups = defaultdict(list)
         for j in retrigger_list:
             assert j.decision_task is not None
-            if j.decision_task not in decision_task_groups:
-                decision_task_groups[j.decision_task] = []
             decision_task_groups[j.decision_task].append(j)
 
         retrigger_decision_task_ids = []

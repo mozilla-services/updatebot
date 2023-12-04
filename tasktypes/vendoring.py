@@ -540,68 +540,25 @@ class VendorTaskRunner(BaseTaskRunner):
     @logEntryExitNoArgs
     def _process_job_results(self, library, task, existing_job, results, comment_lines):
         # We don't need to retrigger jobs, but we do have unclassified failures:
-        if results['health_failures_by_testname'] and comment_lines:
-            # This updates the job status to DONE, so return immediately after
+        if results['high_priority_jobs'] or results['intermittent_jobs']:
             self._process_unclassified_failures(library, task, existing_job, comment_lines)
-            return
 
         # We don't need to retrigger and we don't have unclassified failures but we do have failures
-        if comment_lines:
-            comment = "All jobs completed, we found the following issues.\n\n"
-            self.logger.log(comment, level=LogLevel.Info)
-            existing_job.outcome = JOBOUTCOME.CLASSIFIED_FAILURES
-            for c in comment_lines:
-                self.logger.log(c, level=LogLevel.Debug)
-                comment += c + "\n"
-
-            self.bugzillaProvider.comment_on_bug(
-                existing_job.bugzilla_id,
-                CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library),
-                assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
-
-            if existing_job.bugzilla_is_open:
-                try:
-                    for p in existing_job.phab_revisions:
-                        self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
-                except Exception as e:
-                    self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
-                    self.bugzillaProvider.comment_on_bug(
-                        existing_job.bugzilla_id,
-                        CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
-                        needinfo=library.maintainer_bz)
-                    raise e
+        elif results['not_your_fault_jobs']:
+            self._process_classified_failures(library, task, existing_job, comment_lines)
 
         # Everything.... succeeded?
         else:
-            self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
-            existing_job.outcome = JOBOUTCOME.ALL_SUCCESS
-            self.bugzillaProvider.comment_on_bug(
-                existing_job.bugzilla_id,
-                CommentTemplates.DONE_ALL_SUCCESS(),
-                assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
-
-            if existing_job.bugzilla_is_open:
-                try:
-                    for p in existing_job.phab_revisions:
-                        self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
-                except Exception as e:
-                    self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
-                    self.bugzillaProvider.comment_on_bug(
-                        existing_job.bugzilla_id,
-                        CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
-                        needinfo=library.maintainer_bz)
-                    raise e
-
-        self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
+            self._process_success(library, task, existing_job, comment_lines)
 
     # ==================================
 
     @logEntryExitNoArgs
-    def _process_unclassified_failures(self, library, task, existing_job, comment_bullets):
+    def _process_unclassified_failures(self, library, task, existing_job, comment_lines):
         comment = "The try push is done, we found jobs with unclassified failures.\n\n"
         self.logger.log(comment.strip(), level=LogLevel.Info)
 
-        for c in comment_bullets:
+        for c in comment_lines:
             comment += c + "\n"
             self.logger.log(c, level=LogLevel.Debug)
 
@@ -610,4 +567,60 @@ class VendorTaskRunner(BaseTaskRunner):
             CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library),
             needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None,
             assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+        
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
+
+    # ==================================
+
+    @logEntryExitNoArgs
+    def _process_classified_failures(self, library, task, existing_job, comment_lines):
+        comment = "All jobs completed, we found the following issues.\n\n"
+        self.logger.log(comment.strip(), level=LogLevel.Info)
+
+        for c in comment_lines:
+            self.logger.log(c, level=LogLevel.Debug)
+            comment += c + "\n"
+
+        self.bugzillaProvider.comment_on_bug(
+            existing_job.bugzilla_id,
+            CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library),
+            assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+
+        self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+
+        if existing_job.bugzilla_is_open:
+            try:
+                for p in existing_job.phab_revisions:
+                    self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
+            except Exception as e:
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
+                self.bugzillaProvider.comment_on_bug(
+                    existing_job.bugzilla_id,
+                    CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
+                    needinfo=library.maintainer_bz)
+                raise e
+
+    # ==================================
+
+    @logEntryExitNoArgs
+    def _process_success(self, library, task, existing_job, comment_lines):
+        self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
+
+        self.bugzillaProvider.comment_on_bug(
+            existing_job.bugzilla_id,
+            CommentTemplates.DONE_ALL_SUCCESS(),
+            assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+
+        self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+        if existing_job.bugzilla_is_open:
+            try:
+                for p in existing_job.phab_revisions:
+                    self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
+            except Exception as e:
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
+                self.bugzillaProvider.comment_on_bug(
+                    existing_job.bugzilla_id,
+                    CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
+                    needinfo=library.maintainer_bz)
+                raise e

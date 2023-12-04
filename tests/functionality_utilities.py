@@ -77,6 +77,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         ("hg log -r tip --template", lambda: "a61d07a72763"),
         ("hg diff --stat", lambda: " accessible/interfaces/ia2/moz.build |  6 +++---\n 1 files changed, 3 insertions(+), 3 deletions(-)\n"),
         ("arc diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
+        ("arcanist diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
         (echo_str("echo {\"constraints\""), lambda: CONDUIT_USERNAME_SEARCH_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""), lambda: CONDUIT_EDIT_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\":\"abandon\""), command_callbacks.get('abandon', AssertFalse)),

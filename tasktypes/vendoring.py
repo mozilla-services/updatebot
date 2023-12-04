@@ -10,6 +10,7 @@ import subprocess
 
 from tasktypes.base import BaseTaskRunner
 from components.bugzilla import CommentTemplates
+from apis.taskcluster import Classification
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
@@ -288,6 +289,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
     # ==================================
 
+    # Returns (no_build_failures, results, comment_lines)
     @logEntryExit
     def _get_comments_on_push(self, library, existing_job):
         # Fetch the job list (and double check its status), and the push health
@@ -341,37 +343,39 @@ class VendorTaskRunner(BaseTaskRunner):
 
         high_priority_lines = ["**Needs Close Investigation**:"]
         for t in results['health_failures_by_testname']:
-            if results['health_failures_by_testname'][t].suggestedClassification == "New Failure":
+            if results['health_failures_by_testname'][t].suggestedClassification == Classification.NewFailure:
                 high_priority_lines.append("")
                 high_priority_lines.append("- " + handle_multiline_name(t))
-                high_priority_lines.append("  - " + get_failed_summary_string(results['health_failures_by_testname'][t], False))
+                if len(results['health_failures_by_testname'][t].jobs) > 1:
+                    high_priority_lines.append("  - " + get_failed_summary_string(results['health_failures_by_testname'][t], False))
                 for j in results['health_failures_by_testname'][t].jobs:
                     if j.result != "success":
                         high_priority_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
         for t in results['not_health_failures_by_jobTypeName']:
-            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification == "New Failure":
+            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification == Classification.NewFailure:
                 high_priority_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['not_health_failures_by_jobTypeName'][t], True))
 
 
         intermittent_lines = ["**Needs Investigation (Possible Intermittents)**:"]
         for t in results['health_failures_by_testname']:
-            if results['health_failures_by_testname'][t].suggestedClassification not in ["New Failure", "Not Your Fault"]:
+            if results['health_failures_by_testname'][t].suggestedClassification == Classification.PossibleIntermittent:
                 intermittent_lines.append("")
                 intermittent_lines.append("- " + handle_multiline_name(t))
-                intermittent_lines.append("  - " + get_failed_summary_string(results['health_failures_by_testname'][t], False))
+                if len(results['health_failures_by_testname'][t].jobs) > 1:
+                    intermittent_lines.append("  - " + get_failed_summary_string(results['health_failures_by_testname'][t], False))
                 for j in results['health_failures_by_testname'][t].jobs:
                     if j.result != "success":
                         intermittent_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
         for t in results['not_health_failures_by_jobTypeName']:
-            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification not in ["New Failure", "Not Your Fault"]:
+            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification == Classification.PossibleIntermittent:
                 intermittent_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['not_health_failures_by_jobTypeName'][t], True))
 
 
         not_your_fault_lines = ["**Known Issues**:"]
         for t in results['health_failures_by_testname']:
-            if results['health_failures_by_testname'][t].suggestedClassification == "Not Your Fault":
+            if results['health_failures_by_testname'][t].suggestedClassification == Classification.NotYourFault:
                 not_your_fault_lines.append("")
                 not_your_fault_lines.append("- " + handle_multiline_name(t))
                 for j in results['health_failures_by_testname'][t].jobs:
@@ -379,7 +383,7 @@ class VendorTaskRunner(BaseTaskRunner):
                         not_your_fault_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
         for t in results['not_health_failures_by_jobTypeName']:
-            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification == "Not Your Fault":
+            if results['not_health_failures_by_jobTypeName'][t].suggestedClassification == Classification.NotYourFault:
                 not_your_fault_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['not_health_failures_by_jobTypeName'][t], True))
 
 

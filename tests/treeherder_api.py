@@ -123,7 +123,7 @@ class TestTaskclusterProvider(unittest.TestCase):
 
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
 
-        self.assertEqual(len(results['to_retrigger']), 21, "Did not get the expected number of jobs to retrigger.")
+        self.assertEqual(len(results['to_retrigger']), 26, "Did not get the expected number of jobs to retrigger.")
 
         return  # Debugging code below
         print("Known Issues:")

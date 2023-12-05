@@ -560,7 +560,7 @@ class TestFunctionality(SimpleLoggingTest):
             # Run it again, this time we'll tell it the jobs succeeded
             u.run(library_filter=library_filter)
             # Should be DONE
-            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
         finally:
             self._cleanup(u, expected_values)
 

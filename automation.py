@@ -285,7 +285,7 @@ if __name__ == "__main__":
             'LoggingProvider': SimpleLogger({'local': True, 'level': 5})
         })
         try:
-            db.print()
+            db.print(args.library_filter)
         except Exception as e:
             print("Error printing database:")
             print(e)

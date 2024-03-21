@@ -44,7 +44,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'summary': 'Update dav1d to new version V1 from 2020-08-21 15:13:49',
                 'description': '',
                 'whiteboard': '[3pl-filed]' + task_id_whiteboard(),
-                'cc': ['tom@mozilla.com', 'jewilde@mozilla.com', 'additional@example.com'],
+                'cc': ['tom@mozilla.com', 'fbraun@mozilla.com', 'additional@example.com'],
                 'flags': [{'name': 'needinfo', 'status': '?', 'requestee': 'needinfo@example.com'}],
                 'depends_on': 110,
                 'blocks': 120,

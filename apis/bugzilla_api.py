@@ -44,7 +44,7 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, c
         'summary': summary,
         'description': description,
         'whiteboard': kw('filed') + task_id_whiteboard(),
-        'cc': ['tom@mozilla.com', 'jewilde@mozilla.com'] + cc_list
+        'cc': ['tom@mozilla.com', 'fbraun@mozilla.com'] + cc_list
     }
 
     if is_prod(url):

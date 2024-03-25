@@ -40,9 +40,11 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Then process all of them
         for j in all_jobs_not_done:
+            self.logger.set_context(library.name, j.id)
             self.logger.log("Processing job id %s for %s which is currently %s and has a %s bug" % (j.id, library.name, j.status, "open" if j.bugzilla_is_open else "closed"))
             self._process_existing_job(library, task, j)
             self._reset_for_new_job()
+        self.logger.set_context(library.name)
 
         # See if we have a new upstream commit to process
         new_version, timestamp = self.vendorProvider.check_for_update(library)
@@ -103,6 +105,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Create the job ----------------------
         created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING)
+        self.logger.set_context(library.name, created_job.id)
 
         # File the bug ------------------------
         all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job)

@@ -59,12 +59,12 @@ class VendorTaskRunner(BaseTaskRunner):
             return
 
         # We didn't, so we'll process it, but first:
-        # sanity-check - there should only ever be one non-relinquished job, and it should be the most recent.
+        # sanity-check - there should be at most one non-relinquished job, and if it is present, it should be the most recent.
         non_relinquished_jobs = [j for j in all_jobs if not j.relinquished]
         assert len(non_relinquished_jobs) <= 1, "We got more than one non-relinquished job: %s" % non_relinquished_jobs
 
         most_recent_job = all_jobs[0] if all_jobs else None
-        assert (most_recent_job is None and 0 == len(non_relinquished_jobs)) or (len(non_relinquished_jobs) == 1 and most_recent_job == non_relinquished_jobs[0]), \
+        assert most_recent_job is None or 0 == len(non_relinquished_jobs) or (len(non_relinquished_jobs) == 1 and most_recent_job == non_relinquished_jobs[0]), \
             "Most Recent Job is %s, we have %s non-relinquished jobs (%s), and they don't match." % (
             most_recent_job.id if most_recent_job else "nothing",
             len(non_relinquished_jobs), non_relinquished_jobs)
@@ -239,7 +239,9 @@ class VendorTaskRunner(BaseTaskRunner):
                 existing_job.id, existing_job.library_shortname, existing_job.version), level=LogLevel.Warning)
             if existing_job.bugzilla_id:
                 self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.UNEXPECTED_JOB_STATE())
+
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNEXPECTED_CREATED_STATUS)
+            self.dbProvider.update_job_relinquish(existing_job)
             raise Exception("Handled a Job with unexpected CREATED status in _process_existing_job")
 
         elif existing_job.status == JOBSTATUS.DONE:

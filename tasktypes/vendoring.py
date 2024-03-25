@@ -8,6 +8,7 @@ import copy
 import functools
 import subprocess
 
+from apis.treestatus import is_try_open
 from tasktypes.base import BaseTaskRunner
 from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
@@ -68,6 +69,10 @@ class VendorTaskRunner(BaseTaskRunner):
             "Most Recent Job is %s, we have %s non-relinquished jobs (%s), and they don't match." % (
             most_recent_job.id if most_recent_job else "nothing",
             len(non_relinquished_jobs), non_relinquished_jobs)
+
+        if not is_try_open():
+            self.logger.log("Can not process new job for %s, try is currently closed", library.name)
+            return
 
         # Now process it.
         self.logger.log("Processing %s for a new upstream revision %s, the most recent job is %s." % (library.name, new_version, most_recent_job.id if most_recent_job else "(none)"), level=LogLevel.Info)

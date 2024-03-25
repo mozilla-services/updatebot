@@ -211,15 +211,16 @@ class MockedBugzillaProvider(BaseProvider, INeedsLoggingProvider):
             self._assert_affected_func = config['assert_affected_func']
         else:
             self._assert_affected_func = AssertFalse
+        self._assert_prior_bug_reference = config['assert_prior_bug_reference']
 
     @logEntryExit
     def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None, blocks=None):
         references_prior_bug = "I've never filed a bug on before." in description
         if len(self._filed_bug_ids_func(False)) > 0:
-            assert references_prior_bug, "We did not reference a prior bug when we should have"
+            assert not self._assert_prior_bug_reference or references_prior_bug, "We did not reference a prior bug when we should have"
             self.config['expect_a_dupe'] = True
         else:
-            assert not references_prior_bug, "We should not have referenced a prior bug but we did"
+            assert not self._assert_prior_bug_reference or not references_prior_bug, "We should not have referenced a prior bug but we did"
             self.config['expect_a_dupe'] = False
 
         return self._get_filed_bug_id_func()

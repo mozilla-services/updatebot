@@ -53,6 +53,8 @@ logEntryExitHeaderLine = partial(logEntryExit, print_arg_list=False, header_line
 
 
 class LoggingProvider(BaseProvider):
+    context = ""
+
     def __init__(self, config):
         self.loggers = []
         if 'local' in config and config['local']:
@@ -65,12 +67,24 @@ class LoggingProvider(BaseProvider):
             logger.update_config(additional_config)
 
     def log(self, *args, level=LogLevel.Info, category=None):
+        if LoggingProvider.context != "":
+            category = f"{category} {LoggingProvider.context}"
         for logger in self.loggers:
             logger.log(*args, level=level, category=category)
 
     def log_exception(self, e):
         for logger in self.loggers:
             logger.log_exception(e)
+
+    @staticmethod
+    def set_context(library_name, job_id=None):
+        LoggingProvider.context = library_name
+        if job_id:
+            LoggingProvider.context += " job_id=" + str(job_id)
+
+    @staticmethod
+    def clear_context():
+        LoggingProvider.context = ""
 
 
 class LoggerInstance(BaseProvider):
@@ -102,7 +116,7 @@ class LocalLogger(LoggerInstance):
             return
         if level.value <= self.min_log_level:
             prefix = ("[" + level.name + "]").ljust(9)
-            prefix += (" " + category + ":") if category else ""
+            prefix += ("(" + category + ")") if category else ""
             print(prefix, *args, flush=True)
 
     def log_exception(self, e):

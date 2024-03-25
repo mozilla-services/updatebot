@@ -225,6 +225,7 @@ class Updatebot:
                     continue
 
                 for task in lib.tasks:
+                    self.logger.set_context(lib.name)
                     try:
                         taskRunner = self.taskRunners[task.type]
 
@@ -244,6 +245,7 @@ class Updatebot:
                             self.logger.log_exception(Exception("Reached soft timeout"))
                             return
 
+                    self.logger.clear_context()
         except Exception as e:
             self.logger.log_exception(e)
             raise(e)

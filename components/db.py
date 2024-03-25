@@ -115,29 +115,26 @@ INSERTION_QUERIES = [
     })
 ]
 
-for p in dir(JOBSTATUS):
-    if p[0] != '_':
-        INSERTION_QUERIES.append(
-            Struct(**{
-                'query': "INSERT INTO `status_types` (`id`, `name`) VALUES (%s, %s)",
-                'args': (getattr(JOBSTATUS, p), p)
-            }))
+for p in JOBSTATUS:
+    INSERTION_QUERIES.append(
+        Struct(**{
+            'query': "INSERT INTO `status_types` (`id`, `name`) VALUES (%s, %s)",
+            'args': (p, p.name)
+        }))
 
-for p in dir(JOBOUTCOME):
-    if p[0] != '_':
-        INSERTION_QUERIES.append(
-            Struct(**{
-                'query': "INSERT INTO `outcome_types` (`id`, `name`) VALUES (%s, %s)",
-                'args': (getattr(JOBOUTCOME, p), p)
-            }))
+for p in JOBOUTCOME:
+    INSERTION_QUERIES.append(
+        Struct(**{
+            'query': "INSERT INTO `outcome_types` (`id`, `name`) VALUES (%s, %s)",
+            'args': (p, p.name)
+        }))
 
-for p in dir(JOBTYPE):
-    if p[0] != '_':
-        INSERTION_QUERIES.append(
-            Struct(**{
-                'query': "INSERT INTO `job_types` (`id`, `name`) VALUES (%s, %s)",
-                'args': (getattr(JOBTYPE, p), p)
-            }))
+for p in JOBTYPE:
+    INSERTION_QUERIES.append(
+        Struct(**{
+            'query': "INSERT INTO `job_types` (`id`, `name`) VALUES (%s, %s)",
+            'args': (p, p.name)
+        }))
 # ==================================================================================
 
 

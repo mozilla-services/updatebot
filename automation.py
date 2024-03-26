@@ -223,6 +223,7 @@ class Updatebot:
                     continue
 
                 for task in lib.tasks:
+                    self.logger.set_context(lib.name)
                     try:
                         taskRunner = self.taskRunners[task.type]
 
@@ -234,6 +235,7 @@ class Updatebot:
                         reset_repository(self.cmdProvider)
                         self.logger.log("Caught an exception while processing library %s task type %s" % (lib.name, task.type), level=LogLevel.Error)
                         self.logger.log_exception(e)
+                    self.logger.clear_context()
         except Exception as e:
             self.logger.log_exception(e)
             raise(e)

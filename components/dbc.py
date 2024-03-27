@@ -48,6 +48,10 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
         jobs = self.db.get_all_jobs_for_library(library)
         return [j for j in jobs if j.type == jobtype]
 
+    def get_all_jobs_for_library_by_name(self, library_name):
+        jobs = self.db.get_all_jobs()
+        return [j for j in jobs if library_name in j.library_shortname]
+
     def get_job(self, library, new_version):
         return self.db.get_job(library, new_version)
 
@@ -83,7 +87,7 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
     def add_phab_revision(self, existing_job, phab_revision, phab_revision_type):
         return self.db.add_phab_revision(existing_job, phab_revision, phab_revision_type)
 
-    def print(self):
+    def print(self, library_filter=None):
         def get_column_widths(objects, columns):
             widths = []
 
@@ -134,10 +138,14 @@ class DatabaseProvider(BaseProvider, INeedsLoggingProvider):
 
         job_columns = ['id', 'type', 'created', 'library_shortname', 'version',
                        'status', 'outcome', 'relinquished', 'bugzilla_id', 'ff_versions']
-        print_objects("JOBS", self.get_all_jobs(), job_columns)
+        if library_filter:
+            jobs = self.get_all_jobs_for_library_by_name(library_filter)
+        else:
+            jobs = self.get_all_jobs()
+        print_objects("JOBS", jobs, job_columns)
 
         try_run_columns = ['id', 'revision', 'job_id', 'purpose']
-        print_objects("TRY RUNS", self.get_all_try_runs(), try_run_columns)
+        print_objects("TRY RUNS", [t for t in self.get_all_try_runs() if t.job_id in [j.id for j in jobs]], try_run_columns)
 
         phab_revision_columns = ['id', 'revision', 'job_id', 'purpose']
-        print_objects("PHABRICATOR REVISIONS", self.get_all_phabricator_revisions(), phab_revision_columns)
+        print_objects("PHABRICATOR REVISIONS", [r for r in self.get_all_phabricator_revisions() if r.job_id in [j.id for j in jobs]], phab_revision_columns)

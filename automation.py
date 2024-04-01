@@ -7,6 +7,7 @@
 import os
 import re
 import sys
+import time
 from components.logging import LoggingProvider, SimpleLogger, LogLevel
 from components.commandprovider import CommandProvider
 from components.dbc import DatabaseProvider
@@ -197,6 +198,7 @@ class Updatebot:
 
     def run(self, library_filter=""):
         try:
+            start_time = time.time()
             updatebot_version = self.cmdProvider.run(["git", "log", "-1", "--oneline"], shell=False, clean_return=True).stdout.decode().strip()
             python_version = sys.version.replace("\n", " ")
             self.logger.log("Running Updatebot version: {0} on Python {1}".format(updatebot_version, python_version), level=LogLevel.Info)
@@ -234,6 +236,14 @@ class Updatebot:
                         reset_repository(self.cmdProvider)
                         self.logger.log("Caught an exception while processing library %s task type %s" % (lib.name, task.type), level=LogLevel.Error)
                         self.logger.log_exception(e)
+
+                    if "soft_timeout" in self.config_dictionary["General"]:
+                        soft_timeout = self.config_dictionary["General"]["soft_timeout"]
+                        if time.time() - start_time > soft_timeout:
+                            self.logger.log(f"Updatebot reached soft timeout of {soft_timeout} seconds, aborting", level=LogLevel.Error)
+                            self.logger.log_exception(Exception("Reached soft timeout"))
+                            return
+
         except Exception as e:
             self.logger.log_exception(e)
             raise(e)

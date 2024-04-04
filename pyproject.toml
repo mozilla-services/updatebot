@@ -23,3 +23,8 @@ flake8 = "^5.0.4"
 [build-system]
 requires = ["poetry>=1.1.0"]
 build-backend = "poetry.masonry.api"
+
+[tool.autopep8]
+ignore = "E501,E402,E275"
+in-place = true
+recursive = true

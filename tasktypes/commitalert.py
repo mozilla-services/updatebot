@@ -43,6 +43,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
         jobs_with_open_bugs = [j for j in all_library_jobs if j.bugzilla_id in open_bugs]
         self.logger.log("We need to potentially update the FF version on %s open bugs." % len(open_bugs), level=LogLevel.Info)
         for j in jobs_with_open_bugs:
+            self.logger.set_context(library.name, j.id)
             if my_ff_version not in j.ff_versions:
                 is_affected = _contains_commit(all_upstream_commits, j.version)
                 self.logger.log("Updating bug %s to set FF version %s as %s." % (
@@ -50,6 +51,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
                 self.bugzillaProvider.mark_ff_version_affected(j.bugzilla_id, my_ff_version, affected=is_affected)
                 j.ff_versions.add(my_ff_version)
                 self.dbProvider.update_job_ff_versions(j, my_ff_version)
+        self.logger.set_context(library.name)
 
         # ==========================================================================================
         if not unseen_upstream_commits:
@@ -60,6 +62,8 @@ class CommitAlertTaskRunner(BaseTaskRunner):
         newest_commit = unseen_upstream_commits[-1]
         existing_job = self.dbProvider.get_job(library, newest_commit.revision)
         if existing_job:
+            self.logger.set_context(library.name, existing_job.id)
+
             if my_ff_version in existing_job.ff_versions:
                 # We've already seen this revision, and we've already associated it with this FF version
                 self.logger.log("We found a job with id %s for revision %s that was already processed for this ff version (%s)." % (
@@ -82,6 +86,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
     @logEntryExit
     def _process_new_commits(self, library, task, new_commits, all_library_jobs):
         assert new_commits
+        self.logger.set_context(library.name, "new")
 
         newest_commit = new_commits[-1]
 

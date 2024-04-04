@@ -225,6 +225,7 @@ class Updatebot:
                     continue
 
                 for task in lib.tasks:
+                    self.logger.set_context(lib.name)
                     try:
                         taskRunner = self.taskRunners[task.type]
 
@@ -244,6 +245,7 @@ class Updatebot:
                             self.logger.log_exception(Exception("Reached soft timeout"))
                             return
 
+                    self.logger.clear_context()
         except Exception as e:
             self.logger.log_exception(e)
             raise(e)
@@ -285,7 +287,7 @@ if __name__ == "__main__":
             'LoggingProvider': SimpleLogger({'local': True, 'level': 5})
         })
         try:
-            db.print()
+            db.print(args.library_filter)
         except Exception as e:
             print("Error printing database:")
             print(e)

@@ -100,6 +100,7 @@ class TestFunctionality(SimpleLoggingTest):
                treeherder_response,
                two_phab_revisions=False,
                assert_affected_func=None,
+               assert_prior_bug_reference=True,
                command_callbacks={},
                keep_tmp_db=False):
         self.server = server.HTTPServer(('', 27490), MockTreeherderServerFactory(treeherder_response))
@@ -124,7 +125,8 @@ class TestFunctionality(SimpleLoggingTest):
             'Bugzilla': {
                 'get_filed_bug_id_func': get_filed_bug_id_func,
                 'filed_bug_ids_func': filed_bug_ids_func,
-                'assert_affected_func': assert_affected_func
+                'assert_affected_func': assert_affected_func,
+                'assert_prior_bug_reference': assert_prior_bug_reference
             },
             'Mercurial': {},
             'Taskcluster': {

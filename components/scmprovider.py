@@ -61,7 +61,7 @@ class Commit:
                 self.files_other.append(parts[0] + " " + parts[1])
 
         self.summary = run(["git", "log", "--pretty=%s", "-1", self.revision]).stdout.decode()
-        self.author = run(["git", "log", "--pretty=%an", "-1", self.revision]).stdout.decode()
+        self.author = run(["git", "log", "--pretty=%an <%ae>", "-1", self.revision]).stdout.decode()
         self.description = run(["git", "log", "--pretty=%b", "-1", self.revision]).stdout.decode()
         self.revision_link = repo_and_commit_to_url(repo, self.revision)
         self.populated = True

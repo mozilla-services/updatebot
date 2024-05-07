@@ -156,7 +156,10 @@ def findOpenBugs(url, bugIDs):
     except Exception as e:
         raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
 
-    return [b['id'] for b in j['bugs']]
+    try:
+        return [b['id'] for b in j['bugs']]
+    except KeyError as e:
+        raise Exception(j) from e
 
 
 def markFFVersionAffected(url, apikey, bugID, ff_version, affected):

@@ -64,7 +64,7 @@ CREATION_QUERIES = {
     "job_to_ff_version": """
       CREATE TABLE `job_to_ff_version` (
         `job_id` INT NOT NULL,
-        `ff_version` TINYINT NOT NULL,
+        `ff_version` SMALLINT NOT NULL,
         PRIMARY KEY (`job_id`, `ff_version`)
       ) ENGINE = InnoDB;
     """,

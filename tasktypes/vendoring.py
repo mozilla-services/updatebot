@@ -9,6 +9,7 @@ import functools
 import subprocess
 
 from tasktypes.base import BaseTaskRunner
+from apis.taskcluster import Classification
 from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
@@ -293,6 +294,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
     # ==================================
 
+    # Returns (no_build_failures, results, comment_lines)
     @logEntryExit
     def _get_comments_on_push(self, library, existing_job):
         # Fetch the job list (and double check its status), and the push health
@@ -310,14 +312,18 @@ class VendorTaskRunner(BaseTaskRunner):
 
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
 
-        def get_failed_summary_string(jobs):
-            fails = 0
-            for j in jobs:
-                if j.result not in ["retry", "success"]:
-                    fails += 1
-            if len(set([j.job_type_name for j in jobs])) != 1:
-                return "%s of %s failed on different tasks" % (fails, len(jobs))
-            return "%s of %s failed on the same (retriggered) task" % (fails, len(jobs))
+        def get_failed_summary_string(result_obj, include_task_ids):
+            fails_tuple = (len(result_obj.failed()), len(result_obj.all()))
+            if len(result_obj.all()) == 1:
+                result = "%s of %s failed" % fails_tuple
+            elif len(set([j.job_type_name for j in result_obj.all()])) != 1:
+                result = "%s of %s failed on different tasks" % fails_tuple
+            else:
+                result = "%s of %s failed on the same (retriggered) task" % fails_tuple
+            if include_task_ids:
+                result += " (failed: " + ", ".join([j.task_id for j in result_obj.failed()]) + ")"
+
+            return result
 
         # Once (Bug 1804797) push health returned an odd name I hadn't seen before
         # this function handles this scenario so the comment is readable
@@ -326,57 +332,92 @@ class VendorTaskRunner(BaseTaskRunner):
                 return s
             return "> " + s.replace("\n", "\n  > ")
 
-        # Before we retrieve the push health, process the failed jobs for lint failures.
-        comment_lines = []
-        printed_lint_header = False
+        task_ids_weve_reported = set()
+
+        # The order in which we go through the results matter, and is tied to the priority we want to give to the classifications.
+        # For example, if Push Health says something is a New Failure, but Taskcluster says it's NotYourFault.
+        # Our Priority List is: NotYourFault, NewFailure, Possible Intermittent
+
+        # First lint failures though.
+        lint_lines = ["**Lint Jobs Failed**"]
         for j in job_list:
             if j.result not in ["retry", "success"]:
                 if "mozlint" in j.job_type_name:
-                    if not printed_lint_header:
-                        comment_lines.append("**Lint Jobs Failed**:")
-                        printed_lint_header = True
-                    comment_lines.append("- %s (%s)" % (j.job_type_name, j.task_id))
-        if printed_lint_header:
-            comment_lines.append("")
+                    task_ids_weve_reported.add(j.task_id)
+                    lint_lines.append("- %s (%s)" % (j.job_type_name, j.task_id))
 
-        # Build up the comment we will leave
-        if results['known_issues']:
-            comment_lines.append("**Known Issues (From Push Health)**:")
-            for t in results['known_issues']:
-                comment_lines.append("")
-                comment_lines.append("- " + handle_multiline_name(t))
-                comment_lines.append("  - " + get_failed_summary_string(results['known_issues'][t]))
-                for j in results['known_issues'][t]:
-                    if j.result not in ["retry", "success"]:
-                        comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
-            comment_lines.append("")
+        # Then Not Your Fault
+        not_your_fault_lines = ["**Known Issues**:"]
+        for t in results['tasks_by_testname']:
+            if not results['tasks_by_testname'][t].failed():
+                continue
+            if results['tasks_by_testname'][t].classification == Classification.NotYourFault:
+                not_your_fault_lines.append("")
+                not_your_fault_lines.append("- " + handle_multiline_name(t))
+                for j in results['tasks_by_testname'][t].failed():
+                    task_ids_weve_reported.add(j.task_id)
+                    not_your_fault_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
-        if results['taskcluster_classified']:
-            comment_lines.append("**Known Issues (From Taskcluster)**:")
-            for j in results['taskcluster_classified']:
-                comment_lines.append("- %s (%s) - %s" % (j.job_type_name, j.task_id, self.taskclusterProvider.failure_classifications[j.failure_classification_id]))
-            comment_lines.append("")
+        for t in results['tasks_by_jobname']:
+            if not results['tasks_by_jobname'][t].failed():
+                continue
+            if results['tasks_by_jobname'][t].classification == Classification.NotYourFault:
+                if set([j.task_id for j in results['tasks_by_jobname'][t].failed()]) - task_ids_weve_reported:
+                    not_your_fault_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['tasks_by_jobname'][t], True))
 
-        if results['to_investigate']:
-            comment_lines.append("**Needs Investigation (From Push Health)**:")
-            for t in results['to_investigate']:
-                comment_lines.append("")
-                comment_lines.append("- " + handle_multiline_name(t))
-                comment_lines.append("  - " + get_failed_summary_string(results['to_investigate'][t]))
-                for j in results['to_investigate'][t]:
-                    if j.result not in ["retry", "success"]:
-                        comment_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
-            comment_lines.append("")
+        # Then New Failures
+        high_priority_lines = ["**Needs Close Investigation**:"]
+        for t in results['tasks_by_testname']:
+            if not results['tasks_by_testname'][t].failed():
+                continue
+            if results['tasks_by_testname'][t].classification == Classification.NewFailure:
+                high_priority_lines.append("")
+                high_priority_lines.append("- " + handle_multiline_name(t))
+                if len(results['tasks_by_testname'][t].all()) > 1:
+                    high_priority_lines.append("  - " + get_failed_summary_string(results['tasks_by_testname'][t], False))
+                for j in results['tasks_by_testname'][t].failed():
+                    task_ids_weve_reported.add(j.task_id)
+                    high_priority_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
-        if results['unknown_failures']:
-            comment_lines.append("**Needs Investigation (Other Failed Jobs)**:")
-            for job_type_name in results['unknown_failures'].keys():
-                comment_lines.append("- " + job_type_name)
+        for t in results['tasks_by_jobname']:
+            if not results['tasks_by_jobname'][t].failed():
+                continue
+            if results['tasks_by_jobname'][t].classification == Classification.NewFailure:
+                # Only report this group if we haven't reported all the failed tasks already
+                if set([j.task_id for j in results['tasks_by_jobname'][t].failed()]) - task_ids_weve_reported:
+                    high_priority_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['tasks_by_jobname'][t], True))
 
-                failed_task_ids = "(%s)" % ", ".join([j.task_id for j in results['unknown_failures'][job_type_name] if j.result not in ["retry", "success"]])
-                comment_lines.append("  - %s %s" % (get_failed_summary_string(results['unknown_failures'][job_type_name]), failed_task_ids))
+        # Finally intermittents
+        intermittent_lines = ["**Needs Investigation (Possible Intermittents)**:"]
+        for t in results['tasks_by_testname']:
+            if not results['tasks_by_testname'][t].failed():
+                continue
+            if results['tasks_by_testname'][t].classification == Classification.PossibleIntermittent:
+                intermittent_lines.append("")
+                intermittent_lines.append("- " + handle_multiline_name(t))
+                if len(results['tasks_by_testname'][t].all()) > 1:
+                    intermittent_lines.append("  - " + get_failed_summary_string(results['tasks_by_testname'][t], False))
+                for j in results['tasks_by_testname'][t].failed():
+                    task_ids_weve_reported.add(j.task_id)
+                    intermittent_lines.append("\t\t- %s (%s)" % (j.job_type_name, j.task_id))
 
-            comment_lines.append("")
+        for t in results['tasks_by_jobname']:
+            if not results['tasks_by_jobname'][t].failed():
+                continue
+            if results['tasks_by_jobname'][t].classification == Classification.PossibleIntermittent:
+                if set([j.task_id for j in results['tasks_by_jobname'][t].failed()]) - task_ids_weve_reported:
+                    intermittent_lines.append("- " + handle_multiline_name(t) + " - " + get_failed_summary_string(results['tasks_by_jobname'][t], True))
+
+        comment_lines = list()
+        comment_lines.extend((lint_lines + [""]) if len(lint_lines) > 1 else [])
+        comment_lines.extend((high_priority_lines + [""]) if len(high_priority_lines) > 1 else [])
+        comment_lines.extend((intermittent_lines + [""]) if len(intermittent_lines) > 1 else [])
+        comment_lines.extend((not_your_fault_lines + [""]) if len(not_your_fault_lines) > 1 else [])
+
+        results['classifications'] = set()
+        results['classifications'].add(Classification.NewFailure if len(high_priority_lines) > 1 else None)
+        results['classifications'].add(Classification.PossibleIntermittent if len(intermittent_lines) > 1 else None)
+        results['classifications'].add(Classification.NotYourFault if len(not_your_fault_lines) > 1 else None)
 
         return (True, results, comment_lines)
 
@@ -524,68 +565,25 @@ class VendorTaskRunner(BaseTaskRunner):
     @logEntryExitNoArgs
     def _process_job_results(self, library, task, existing_job, results, comment_lines):
         # We don't need to retrigger jobs, but we do have unclassified failures:
-        if results['to_investigate'] and comment_lines:
-            # This updates the job status to DONE, so return immediately after
+        if results['classifications'].intersection(set([Classification.PossibleIntermittent, Classification.NewFailure])):
             self._process_unclassified_failures(library, task, existing_job, comment_lines)
-            return
 
         # We don't need to retrigger and we don't have unclassified failures but we do have failures
-        if comment_lines:
-            comment = "All jobs completed, we found the following issues.\n\n"
-            self.logger.log(comment, level=LogLevel.Info)
-            existing_job.outcome = JOBOUTCOME.CLASSIFIED_FAILURES
-            for c in comment_lines:
-                self.logger.log(c, level=LogLevel.Debug)
-                comment += c + "\n"
-
-            self.bugzillaProvider.comment_on_bug(
-                existing_job.bugzilla_id,
-                CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library),
-                assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
-
-            if existing_job.bugzilla_is_open:
-                try:
-                    for p in existing_job.phab_revisions:
-                        self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
-                except Exception as e:
-                    self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
-                    self.bugzillaProvider.comment_on_bug(
-                        existing_job.bugzilla_id,
-                        CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
-                        needinfo=library.maintainer_bz)
-                    raise e
+        elif results['classifications'].intersection(set([Classification.NotYourFault])):
+            self._process_classified_failures(library, task, existing_job, comment_lines)
 
         # Everything.... succeeded?
         else:
-            self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
-            existing_job.outcome = JOBOUTCOME.ALL_SUCCESS
-            self.bugzillaProvider.comment_on_bug(
-                existing_job.bugzilla_id,
-                CommentTemplates.DONE_ALL_SUCCESS(),
-                assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
-
-            if existing_job.bugzilla_is_open:
-                try:
-                    for p in existing_job.phab_revisions:
-                        self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
-                except Exception as e:
-                    self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
-                    self.bugzillaProvider.comment_on_bug(
-                        existing_job.bugzilla_id,
-                        CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
-                        needinfo=library.maintainer_bz)
-                    raise e
-
-        self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
+            self._process_success(library, task, existing_job, comment_lines)
 
     # ==================================
 
     @logEntryExitNoArgs
-    def _process_unclassified_failures(self, library, task, existing_job, comment_bullets):
+    def _process_unclassified_failures(self, library, task, existing_job, comment_lines):
         comment = "The try push is done, we found jobs with unclassified failures.\n\n"
         self.logger.log(comment.strip(), level=LogLevel.Info)
 
-        for c in comment_bullets:
+        for c in comment_lines:
             comment += c + "\n"
             self.logger.log(c, level=LogLevel.Debug)
 
@@ -594,4 +592,60 @@ class VendorTaskRunner(BaseTaskRunner):
             CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library),
             needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None,
             assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
+
+    # ==================================
+
+    @logEntryExitNoArgs
+    def _process_classified_failures(self, library, task, existing_job, comment_lines):
+        comment = "All jobs completed, we found the following issues.\n\n"
+        self.logger.log(comment.strip(), level=LogLevel.Info)
+
+        for c in comment_lines:
+            self.logger.log(c, level=LogLevel.Debug)
+            comment += c + "\n"
+
+        self.bugzillaProvider.comment_on_bug(
+            existing_job.bugzilla_id,
+            CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library),
+            assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+
+        self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+
+        if existing_job.bugzilla_is_open:
+            try:
+                for p in existing_job.phab_revisions:
+                    self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
+            except Exception as e:
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
+                self.bugzillaProvider.comment_on_bug(
+                    existing_job.bugzilla_id,
+                    CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
+                    needinfo=library.maintainer_bz)
+                raise e
+
+    # ==================================
+
+    @logEntryExitNoArgs
+    def _process_success(self, library, task, existing_job, comment_lines):
+        self.logger.log("All jobs completed and we got a clean try run!", level=LogLevel.Info)
+
+        self.bugzillaProvider.comment_on_bug(
+            existing_job.bugzilla_id,
+            CommentTemplates.DONE_ALL_SUCCESS(),
+            assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+
+        self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+        if existing_job.bugzilla_is_open:
+            try:
+                for p in existing_job.phab_revisions:
+                    self.phabricatorProvider.set_reviewer(p.revision, library.maintainer_phab)
+            except Exception as e:
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
+                self.bugzillaProvider.comment_on_bug(
+                    existing_job.bugzilla_id,
+                    CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
+                    needinfo=library.maintainer_bz)
+                raise e

@@ -143,7 +143,7 @@ careful inspection - *not* a rubberstamp.
         return s
 
     @staticmethod
-    def COULD_NOT_GENERAL_ERROR(library, action, errormessage=None):
+    def COULD_NOT_GENERAL_ERROR(action, errormessage=None):
         s = "Updatebot encountered an error while trying to %s" % action
         if errormessage:
             s += " with the following message:\n\n"

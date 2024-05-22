@@ -158,7 +158,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.mercurialProvider.commit(library, created_job.bugzilla_id, new_version)
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit the updated library."), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."), needinfo=library.maintainer_bz)
             raise e
 
         if library.has_patches:
@@ -172,14 +172,14 @@ class VendorTaskRunner(BaseTaskRunner):
                 else:
                     msg = str(e)
                 self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
+                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
                 return
             # Commit Patches ------------------
             try:
                 self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)
             except Exception as e:
                 self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES)
-                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit after applying mozilla patches."), needinfo=library.maintainer_bz)
+                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit after applying mozilla patches."), needinfo=library.maintainer_bz)
                 raise e
 
         # Submit to Try -----------------------
@@ -193,7 +193,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try."), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to try."), needinfo=library.maintainer_bz)
             raise e
 
         # Submit Phab Revision ----------------
@@ -205,7 +205,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.dbProvider.add_phab_revision(created_job, phab_revisions[1], 'patches commit')
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to phabricator."), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to phabricator."), needinfo=library.maintainer_bz)
             raise e
 
     # ====================================================================
@@ -431,7 +431,7 @@ class VendorTaskRunner(BaseTaskRunner):
         # case where the Decision task excepted. Ordinarily we would try to retrigger
         # it, but that will fail, so we should handle this case.
         if len(job_list) == 1 and job_list[0].result in ["exception", "busted"]:
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try. It appears that the Decision task did not succeed."), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to try. It appears that the Decision task did not succeed."), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
             return False
 
@@ -450,7 +450,7 @@ class VendorTaskRunner(BaseTaskRunner):
                             try:
                                 self.phabricatorProvider.abandon(p.revision)
                             except Exception:
-                                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "abandon the phabricator revision %s" % p.revision), needinfo=library.maintainer_bz)
+                                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("abandon the phabricator revision %s" % p.revision), needinfo=library.maintainer_bz)
                     self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
                     return False
 
@@ -479,7 +479,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.vendorProvider.vendor(library, existing_job.version)
         except Exception as e:
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_REVENDOR)
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "re-vendor the library."), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("re-vendor the library."), needinfo=library.maintainer_bz)
             raise e
 
         # Re-Commit -------------------
@@ -487,7 +487,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.mercurialProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
         except Exception as e:
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT)
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit the updated library."), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."), needinfo=library.maintainer_bz)
             raise e
 
         if library.has_patches:
@@ -501,14 +501,14 @@ class VendorTaskRunner(BaseTaskRunner):
                 else:
                     msg = str(e)
                 self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
                 return
             # Commit Patches ------------------
             try:
                 self.mercurialProvider.commit_patches(library, existing_job.bugzilla_id, existing_job.version)
             except Exception as e:
                 self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES)
-                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "commit after applying mozilla patches."), needinfo=library.maintainer_bz)
+                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit after applying mozilla patches."), needinfo=library.maintainer_bz)
                 raise e
 
         # Submit to Try -------------------
@@ -519,7 +519,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.dbProvider.update_job_status(existing_job, newstatus=JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
         except Exception as e:
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "submit to try."), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to try."), needinfo=library.maintainer_bz)
             raise e
 
     # ==================================
@@ -621,7 +621,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
                 self.bugzillaProvider.comment_on_bug(
                     existing_job.bugzilla_id,
-                    CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
+                    CommentTemplates.COULD_NOT_GENERAL_ERROR("set you as a reviewer in phabricator."),
                     needinfo=library.maintainer_bz)
                 raise e
 
@@ -646,6 +646,6 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SET_PHAB_REVIEWER)
                 self.bugzillaProvider.comment_on_bug(
                     existing_job.bugzilla_id,
-                    CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "set you as a reviewer in phabricator."),
+                    CommentTemplates.COULD_NOT_GENERAL_ERROR("set you as a reviewer in phabricator."),
                     needinfo=library.maintainer_bz)
                 raise e

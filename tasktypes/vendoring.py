@@ -89,6 +89,25 @@ class VendorTaskRunner(BaseTaskRunner):
         reset_repository(self.cmdProvider)
 
     # ====================================================================
+    @logEntryExit
+    def _process_prior_job(self, prior_job, superseceding_bugzilla_id):
+        self.logger.log("The prior job id %s is not relinquished, so processing it." % prior_job.id, level=LogLevel.Info)
+
+        if not prior_job.bugzilla_is_open:
+            self.logger.log("The prior job's bugzilla bug is closed, so we only need to relinquish it.", level=LogLevel.Info)
+        elif superseceding_bugzilla_id:
+            self.logger.log("The prior job's bugzilla bug is open, marking it as superseded by Bug ID %s ." % superseceding_bugzilla_id, level=LogLevel.Info)
+
+            self.bugzillaProvider.dupe_bug(prior_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), superseceding_bugzilla_id)
+            if prior_job.phab_revisions:
+                for p in prior_job.phab_revisions:
+                    try:
+                        self.phabricatorProvider.abandon(p.revision)
+                    except Exception as e:
+                        self.bugzillaProvider.comment_on_bug(prior_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("abandon the phabricator patch %s." % p.revision))
+                        self.logger.log_exception(e)  # We're going to log this exception, but not stop processing the new job
+
+        self.dbProvider.update_job_relinquish(prior_job)
 
     @logEntryExit
     def _process_new_job(self, library, task, new_version, timestamp, most_recent_job):
@@ -118,23 +137,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Address any prior bug ---------------
         if most_recent_job and not most_recent_job.relinquished:
-            self.logger.log("The prior job id %s is not relinquished, so processing it." % most_recent_job.id, level=LogLevel.Info)
-
-            if not most_recent_job.bugzilla_is_open:
-                self.logger.log("The prior job's bugzilla bug is closed, so we only need to relinquish it.", level=LogLevel.Info)
-            else:
-                self.logger.log("The prior job's bugzilla bug is open, marking it as superseded by Bug ID %s ." % created_job.bugzilla_id, level=LogLevel.Info)
-
-                self.bugzillaProvider.dupe_bug(most_recent_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED(), created_job.bugzilla_id)
-                if most_recent_job.phab_revisions:
-                    for p in most_recent_job.phab_revisions:
-                        try:
-                            self.phabricatorProvider.abandon(p.revision)
-                        except Exception as e:
-                            self.bugzillaProvider.comment_on_bug(most_recent_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR(library, "abandon the phabricator patch %s." % p.revision))
-                            self.logger.log_exception(e)  # We're going to log this exception, but not stop processing the new job
-
-            self.dbProvider.update_job_relinquish(most_recent_job)
+            self._process_prior_job(most_recent_job, created_job.bugzilla_id)
 
         # Handle other vendoring outcomes -----
         if result == VendorResult.GENERAL_ERROR:
@@ -246,6 +249,11 @@ class VendorTaskRunner(BaseTaskRunner):
 
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNEXPECTED_CREATED_STATUS)
             self.dbProvider.update_job_relinquish(existing_job)
+
+            # We also need to address the job _prior_ to this one and relinquish it as well to ensure that there is
+            # at most one non-relinquished job and if present, it is the most recent
+            self._process_prior_job(existing_job.prior_job, existing_job.bugzilla_id)
+
             raise Exception("Handled a Job with unexpected CREATED status in _process_existing_job")
 
         elif existing_job.status == JOBSTATUS.DONE:

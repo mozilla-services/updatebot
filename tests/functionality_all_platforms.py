@@ -1699,6 +1699,162 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> raises an exception during bug filing, leaving it in a weird state -> Run again, updating it to 'unexpected create status'
     # Then run and make two more jobs
     @logEntryExitHeaderLine
+    def testRecoverFromOneUnexpectedCreateWithPreExisting(self):
+        call_counter = 0
+        library_filter = 'dav1d'
+
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_all_success.txt"
+            else:  # TYPE_JOBS
+                return "jobs_all_success.txt"
+
+        def get_filed_bug_id():
+            if call_counter == 0:
+                return 50
+            elif call_counter == 1:
+                raise Exception("crashing during filing the bug")
+            elif call_counter == 2:
+                return 51
+            return 52
+
+        def get_filed_bugs(only_open):
+            if call_counter == 0:
+                return [50]
+            elif call_counter == 1:
+                return [50]
+            return [51]
+
+        def git_pretty_output(since_last_job):
+            lines = [
+                "56082fc4acfacba40993e47ef8302993c59e262f|2021-02-12 15:30:04 -0500|2021-02-12 17:40:01 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264f|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264e|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264d|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000",
+            ]
+            if call_counter == 0:
+                assert not since_last_job
+                return lines[3:]
+            elif call_counter == 1:
+                if since_last_job:
+                    return lines[2:3]
+                return lines[2:]
+            elif call_counter == 2:
+                if since_last_job:
+                    return lines[1:2]
+                return lines[1:]
+            else:
+                if since_last_job:
+                    return lines[0:1]
+                return lines
+
+        global abandon_count
+        abandon_count = 0
+
+        def abandon_callback(cmd):
+            global abandon_count
+            abandon_count += 1
+            expected = str(83000 + get_filed_bug_id() - 1)
+            assert expected in cmd, "Did not see the Phabricator revision we expected (%s) to when we abandoned one (%s)." % (expected, cmd)
+            return CONDUIT_EDIT_OUTPUT
+
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            git_pretty_output,
+            get_filed_bug_id,  # get_filed_bug_id_func,
+            get_filed_bugs,  # filed_bug_ids_func
+            treeherder,  # treeherder_response
+            assert_prior_bug_reference=False,
+            command_callbacks={'abandon': abandon_callback}
+        )
+        try:
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+
+            # This job will succeed
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+            call_counter += 1
+
+            u.run(library_filter=library_filter)
+
+            # Cannot use the provided _check_jobs
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(expected_values.library_new_version_id(), j.version)
+            self.assertEqual(JOBSTATUS.CREATED, j.status, "Expected status JOBSTATUS.CREATED, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.PENDING, j.outcome, "Expected outcome JOBOUTCOME.PENDING, got outcome %s" % (j.outcome.name))
+
+            u.run(library_filter=library_filter)
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertTrue(all_jobs[0].relinquished, "The first job should be relinquished.")
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 2, "I should have two jobs.")
+
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.CREATED, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.UNEXPECTED_CREATED_STATUS, j.outcome, "Expected outcome JOBOUTCOME.UNEXPECTED_CREATED_STATUS, got outcome %s" % (j.outcome.name))
+
+            u.run(library_filter=library_filter)
+
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertTrue(all_jobs[0].relinquished, "The first job should be relinquished.")
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 2, "I should have two jobs.")
+
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.CREATED, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.UNEXPECTED_CREATED_STATUS, j.outcome, "Expected outcome JOBOUTCOME.UNEXPECTED_CREATED_STATUS, got outcome %s" % (j.outcome.name))
+            self.assertEqual(abandon_count, 0, "Nothing should have been abandoned")
+
+            call_counter += 1
+
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertTrue(all_jobs[2].relinquished, "The first job should be relinquished.")
+            self.assertTrue(all_jobs[1].relinquished, "The second job should be relinquished.")
+            self.assertTrue(not all_jobs[0].relinquished, "The third job should not be relinquished.")
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 3, "I should have three jobs.")
+            self.assertEqual(abandon_count, 0, "Nothing should have been abandoned")
+
+            # Run it again, the jobs are done
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 3, "I should have three jobs.")
+            self.assertEqual(abandon_count, 0, "Nothing should have been abandoned")
+
+            call_counter += 1
+
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertTrue(all_jobs[3].relinquished, "The first job should be relinquished.")
+            self.assertTrue(all_jobs[2].relinquished, "The second job should be relinquished.")
+            self.assertTrue(all_jobs[1].relinquished, "The third job should be relinquished.")
+            self.assertTrue(not all_jobs[0].relinquished, "The fourth job should not be relinquished.")
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 4, "I should have four jobs.")
+
+            # Run it again, the jobs are done
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertEqual(len([j for j in all_jobs if library_filter in j.library_shortname]), 4, "I should have four jobs.")
+            self.assertEqual(abandon_count, 1, "We did not abandon the phabricator revision as expected.")
+
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Create -> raises an exception during bug filing, leaving it in a weird state -> Run again, updating it to 'unexpected create status'
+    # Then run and make two more jobs
+    @logEntryExitHeaderLine
     def testRecoverFromOneUnexpectedCreate(self):
         call_counter = 0
         library_filter = 'dav1d'

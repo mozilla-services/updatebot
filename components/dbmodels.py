@@ -98,6 +98,10 @@ def transform_job_and_try_results_into_objects(rows):
     job_list = list(jobs.values())
     job_list.sort(key=lambda x: (x.created, x.id), reverse=True)
 
+    # Create a linked list of job references
+    for i in range(len(job_list) - 1):
+        job_list[i].prior_job = job_list[i + 1]
+
     # Every job should be associated with at least one Firefox Version.
     for j in job_list:
         assert len(j.ff_versions) > 0, "Job ID %s does not have any associated Firefox Versions." % j.id

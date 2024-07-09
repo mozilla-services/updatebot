@@ -36,6 +36,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             self.url = config['url']
 
     @logEntryExit
+    @retry
     def submit_patches(self, bug_id, has_patches):
         phab_revisions = []
 
@@ -87,6 +88,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         return phab_revisions
 
     @logEntryExit
+    @retry
     def set_reviewer(self, phab_revision, phab_username):
         # We have to call a different API endpoint if this is a review group
         if phab_username[0] == "#":
@@ -120,6 +122,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             raise Exception("Got an error from phabricator when trying to set reviewers to %s (%s) for %s: %s" % (phab_username, phid, phab_revision, result))
 
     @logEntryExit
+    @retry
     def abandon(self, phab_revision):
         cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}""" % phab_revision)
         cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)

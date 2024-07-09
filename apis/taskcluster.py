@@ -149,6 +149,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self._vcs_setup_initialized = True
 
     @logEntryExit
+    @retry
     def submit_to_try(self, library, platform_filter, recursed=0):
         self._vcs_setup()
         if not platform_filter:

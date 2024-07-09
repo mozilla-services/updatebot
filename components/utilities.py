@@ -7,9 +7,10 @@
 import copy
 import pickle
 import functools
+import time
+import functools
 
 from dateutil.parser import parse
-
 
 class Struct:
     def __init__(self, **entries):
@@ -138,3 +139,29 @@ def static_vars(**kwargs):
         return func
 
     return decorate
+
+# Retry calling a function `times` times, sleeping between each tries, with an exponential backoff
+# This is to be used on API calls, that are likely to fail
+def retry(_func=None, *, times=10, sleep_s=1, exp=2):
+    def decorator_retry(func):
+        @functools.wraps(func)
+        def wrapper_retry(*args, **kwargs):
+            retries_try = times
+            sleep_duration = sleep_s
+            while retries_try > 0:
+                try:
+                    func(*args, **kwargs)
+                    break
+                except BaseException as e:
+                    retries_try -= 1
+                    time.sleep(sleep_duration)
+                    sleep_duration *= exp
+                    if retries_try == 0:
+                        raise e
+
+        return wrapper_retry
+
+    if _func is None:
+        return decorator_retry
+    else:
+        return decorator_retry(_func)

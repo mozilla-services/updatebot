@@ -36,7 +36,7 @@ def logEntryExit(func, print_arg_list=True, header_line=False):
         obj.logger.log("Beginning %s" % func.__qualname__, level=LogLevel.Info)
         obj.logger.log(" Arguments: %s" % (str(args) + " " + str(kwargs) if print_arg_list else "[Omitted %s args]" % str(len(args) + len(kwargs))), level=LogLevel.Debug)
         ret = func(*args, **kwargs)
-        if type(ret) == list:
+        if ret is list:
             obj.logger.log("Function returned a list of %s objects" % len(ret), level=LogLevel.Debug)
         else:
             return_string = str(ret)

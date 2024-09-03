@@ -12,7 +12,7 @@ import requests
 from collections import defaultdict
 from urllib.parse import quote_plus
 
-from components.utilities import Struct, merge_dictionaries, PUSH_HEALTH_IGNORED_DICTS, PUSH_HEALTH_IGNORED_KEYS
+from components.utilities import retry, Struct, merge_dictionaries, PUSH_HEALTH_IGNORED_DICTS, PUSH_HEALTH_IGNORED_KEYS
 from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 

@@ -640,6 +640,57 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
+    # Fail the first time, then work.
+    @logEntryExitHeaderLine
+    def testRetryFunctionality(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_classified_failures.txt"
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "jobs_classified_failures.txt"
+
+        try_fails = 0
+
+        def try_submit(cmd):
+            nonlocal try_fails
+            if try_fails == 0:
+                try_fails += 1
+                raise Exception("No worky!")
+            if "./mach try auto" in cmd:
+                return TRY_OUTPUT(expected_values.try_revision_id())
+            elif "./mach try fuzzy" in cmd:
+                return TRY_OUTPUT(expected_values.try_revision_id(), False)
+
+        library_filter = 'cubeb-query'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: [],  # filed_bug_ids_func
+            treeherder,
+            command_callbacks={'try_submit': try_submit}
+        )
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            # Run it again, this time we'll tell it the jobs succeeded
+            u.run(library_filter=library_filter)
+            # Should be DONE
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+        finally:
+            self._cleanup(u, expected_values)
+
     @logEntryExitHeaderLine
     def testAllNewFuzzyPathJobs(self):
         @treeherder_response

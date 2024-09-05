@@ -194,6 +194,11 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def file_bug(self, library, summary, description, cc_list, needinfo=None, see_also=None, depends_on=None, blocks=None, moco_confidential=False):
+        if len(description) > 65535:
+            self.logger.log("New bug description is too long: %s characters; truncating." % (len(description)), level=LogLevel.Warning)
+            suffix = "\n\nOops - the above comment was too long. I was unable to shrink it nicely, so I had to truncate it to fit Bugzilla's limits."
+            description = description[0:65533 - len(suffix)] + suffix
+
         try:
             bugID = fileBug(self.config['url'], self.config['apikey'], self.config['General']['ff-version'],
                             library.bugzilla_product, library.bugzilla_component,

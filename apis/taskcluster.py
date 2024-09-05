@@ -172,11 +172,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         else:
             try_arguments = ["./mach", "try", "auto"] + platform_filter_args
 
-        ret = self.run(try_arguments, clean_return=False if recursed < 5 else True)
+        ret = self.run(try_arguments, clean_return=True)
         output = ret.stdout.decode()
-
-        if "timed out waiting for lock held by" in output:
-            return self.submit_to_try(library, platform_filter, recursed + 1)
 
         isNext = False
         try_link = None

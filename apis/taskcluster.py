@@ -12,7 +12,7 @@ import requests
 from collections import defaultdict
 from urllib.parse import quote_plus
 
-from components.utilities import retry, Struct, merge_dictionaries, PUSH_HEALTH_IGNORED_DICTS, PUSH_HEALTH_IGNORED_KEYS
+from components.utilities import retry, RETRY_TIMES, Struct, merge_dictionaries, PUSH_HEALTH_IGNORED_DICTS, PUSH_HEALTH_IGNORED_KEYS
 from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -149,7 +149,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self._vcs_setup_initialized = True
 
     @logEntryExit
-    @retry
+    @retry(times=RETRY_TIMES)
     def submit_to_try(self, library, platform_filter, recursed=0):
         self._vcs_setup()
         if not platform_filter:

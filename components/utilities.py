@@ -144,8 +144,8 @@ def static_vars(**kwargs):
 # Retry calling a function `times` times, sleeping between each tries, with an exponential backoff
 # This is to be used on API calls, that are likely to fail
 
-
-def retry(_func=None, *, times=10, sleep_s=1, exp=2):
+RETRY_TIMES=10
+def retry(_func=None, *, times=RETRY_TIMES, sleep_s=1, exp=2):
     def decorator_retry(func):
         @functools.wraps(func)
         def wrapper_retry(*args, **kwargs):

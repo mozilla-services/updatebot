@@ -12,6 +12,9 @@ import functools
 
 sys.path.append(".")
 sys.path.append("..")
+import components.utilities
+components.utilities.RETRY_TIMES = 2
+
 from automation import Updatebot
 
 from components.utilities import Struct, NeverUseMeClass

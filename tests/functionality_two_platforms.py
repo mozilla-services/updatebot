@@ -16,6 +16,9 @@ from threading import Thread
 
 sys.path.append(".")
 sys.path.append("..")
+import components.utilities
+components.utilities.RETRY_TIMES = 2
+
 from automation import Updatebot
 
 from components.utilities import Struct, raise_, AssertFalse
@@ -33,6 +36,7 @@ from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH
 from tests.database import transform_db_config_to_tmp_db
+
 
 try:
     from localconfig import localconfig

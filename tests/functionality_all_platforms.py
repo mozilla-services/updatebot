@@ -465,7 +465,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         def try_output():
             nonlocal call_counter
-            if call_counter < 2:
+            if call_counter < 1:
                 call_counter += 1
                 return (1, TRY_LOCKED_OUTPUT)
             return (0, TRY_OUTPUT(expected_values.try_revision_id()))

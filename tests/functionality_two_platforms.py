@@ -58,11 +58,11 @@ def DEFAULT_EXPECTED_VALUES(git_pretty_output_func, try_revisions_func, get_file
 
 def COMMAND_MAPPINGS(expected_values, command_callbacks):
     ret = SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks)
-    ret["./mach try auto --tasks-regex "] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revisions_func()[0]))
+    ret["./mach try auto --push-to-vcs --tasks-regex "] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revisions_func()[0]))
     ret["./mach try fuzzy"] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revisions_func()[0], False))
     ret["./mach try --update --preset"] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revisions_func()[0], False))
     if len(expected_values.try_revisions_func()) > 1:
-        ret['./mach try auto --tasks-regex-exclude '] = lambda: TRY_OUTPUT(expected_values.try_revisions_func()[1])
+        ret['./mach try auto --push-to-vcs --tasks-regex-exclude '] = lambda: TRY_OUTPUT(expected_values.try_revisions_func()[1])
     return ret
 
 

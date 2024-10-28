@@ -160,7 +160,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             platform_filter_args = ["--tasks-regex", platform_filter]
 
         if library.try_preset:
-            try_arguments = ["./mach", "try", "--update", "--preset", "--push-to-vcs", library.try_preset]
+            try_arguments = ["./mach", "try", "--update", "--push-to-vcs", "--preset", library.try_preset]
         elif library.fuzzy_query or library.fuzzy_paths:
             try_arguments = ["./mach", "try", "fuzzy", "--push-to-vcs", "--update"]
             if library.fuzzy_query:

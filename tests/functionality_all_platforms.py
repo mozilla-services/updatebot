@@ -59,7 +59,7 @@ def COMMAND_MAPPINGS(expected_values, command_callbacks):
     ret = SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks)
     ret["./mach try auto"] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revision_id()))
     ret["./mach try fuzzy"] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revision_id(), False))
-    ret["./mach try --update --preset"] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revision_id(), False))
+    ret["./mach try --update --push-to-vcs --preset"] = command_callbacks.get('try_submit', lambda: TRY_OUTPUT(expected_values.try_revision_id(), False))
     return ret
 
 

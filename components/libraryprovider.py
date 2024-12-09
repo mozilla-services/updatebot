@@ -53,6 +53,7 @@ class Library:
         self.fuzzy_paths = dict.get('fuzzy_paths', None)
         self.yaml_path = dict['yaml_path']
         self.tasks = []
+        self.should_show_commit_details = self.name != 'irregexp' and self.flavor != 'individual-files'
 
         for t in dict['tasks']:
             self.tasks.append(Task(t))

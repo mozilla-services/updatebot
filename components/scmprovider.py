@@ -200,8 +200,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 unseen_new_upstream_commits = all_new_upstream_commits
 
             # Step 7: Populate the lists with additional details about the commits
-            [c.populate_details(library.repo_url, self.run) for c in unseen_new_upstream_commits]
-            [c.populate_details(library.repo_url, self.run) for c in all_new_upstream_commits]
+            if library.should_show_commit_details:
+                [c.populate_details(library.repo_url, self.run) for c in unseen_new_upstream_commits]
+                [c.populate_details(library.repo_url, self.run) for c in all_new_upstream_commits]
 
         finally:
             # Step 8 Return us to the origin directory
@@ -247,6 +248,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
             s = "----------------------------------------\n"
             for c in list_of_commits:
+                if not c.populated:
+                    raise Exception("Tried to build bug description; but commit details not populated.")
+
                 s += "%s by %s\n" % (c.revision, c.author)
                 s += c.revision_link + "\n"
 

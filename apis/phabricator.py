@@ -84,6 +84,19 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             if result['error']:
                 raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (p))
 
+
+        # Chain revisions together if needed
+        parent_rev = phab_revisions[0]
+        for child_rev in phab_revisions[1:]:
+            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"parents.add", "value":"%s"}], "objectIdentifier": "%s"}""" % (child_rev, parent_rev))
+            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
+            ret = self.run(cmd, shell=True)
+            result = json.loads(ret.stdout.decode())
+            if result['error']:
+                raise Exception("Got an error from phabricator when trying chain revisions, parent: %s, child %s" % (parent_rev, child_rev))
+            parent_rev = child_rev
+
+
         for p in phab_revisions:
             self.logger.log("Submitted phabricator patch at {0}".format(self.url + p), level=LogLevel.Info)
         return phab_revisions

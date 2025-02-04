@@ -76,19 +76,6 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         # Submit only a single patch
         phab_revisions.append(submit_to_phabricator("tip^"))
 
-        # Associate the patches with the bug
-        @retry
-        def associate_bug_id(phab_revision):
-            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, phab_revision))
-            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
-            ret = self.run(cmd, shell=True)
-            result = json.loads(ret.stdout.decode())
-            if result['error']:
-                raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (phab_revision))
-
-        for p in phab_revisions:
-            associate_bug_id(p)
-
         # Chain revisions together if needed
         @retry
         def chain_revisions(parent_rev, child_rev):
@@ -103,6 +90,19 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         for child_rev in phab_revisions[1:]:
             chain_revisions(parent_rev, child_rev)
             parent_rev = child_rev
+
+        # Associate the patches with the bug
+        @retry
+        def associate_bug_id(phab_revision):
+            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, phab_revision))
+            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
+            ret = self.run(cmd, shell=True)
+            result = json.loads(ret.stdout.decode())
+            if result['error']:
+                raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (phab_revision))
+
+        for p in phab_revisions:
+            associate_bug_id(p)
 
         # Done
         for p in phab_revisions:

@@ -79,12 +79,31 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         # Chain revisions together if needed
         @retry
         def chain_revisions(parent_rev, child_rev):
-            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"parents.add", "value":"%s"}], "objectIdentifier": "%s"}""" % (child_rev, parent_rev))
+            # First get the PHID of the revision
+            cmd = "echo " + quote_echo_string("""{"constraints": {"ids":[%s]}}""" % child_rev)
+            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.search --""" % (_arc(), self.url)
+
+            ret = self.run(cmd, shell=True)
+            result = json.loads(ret.stdout.decode())
+
+            if result['error']:
+                raise Exception("Got an error from phabricator when trying to search for %s" % (child_rev))
+
+            assert 'response' in result
+            assert 'data' in result['response']
+            if len(result['response']['data']) != 1:
+                raise Exception("When querying conduit for diff %s, we got back %i results"
+                                % (child_rev, len(result['response']['data'])))
+
+            child_phid = result['response']['data'][0]['phid']
+
+            # Now connect them
+            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"parents.add", "value":["%s"]}], "objectIdentifier": "%s"}""" % (child_phid, parent_rev))
             cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
             ret = self.run(cmd, shell=True)
             result = json.loads(ret.stdout.decode())
             if result['error']:
-                raise Exception("Got an error from phabricator when trying chain revisions, parent: %s, child %s" % (parent_rev, child_rev))
+                raise Exception("Got an error from phabricator when trying chain revisions, parent: %s, child %s %s" % (parent_rev, child_rev, child_phid))
 
         parent_rev = phab_revisions[0]
         for child_rev in phab_revisions[1:]:

@@ -78,10 +78,11 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         ("hg diff --stat", lambda: " accessible/interfaces/ia2/moz.build |  6 +++---\n 1 files changed, 3 insertions(+), 3 deletions(-)\n"),
         ("arc diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
         ("arcanist diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
-        (echo_str("echo {\"constraints\""), lambda: CONDUIT_USERNAME_SEARCH_OUTPUT),
+        (echo_str("echo {\"constraints\""), lambda: CONDUIT_USERNAME_SEARCH_OUTPUT),  # This is also used for differential.revision.search, that's alright
         (echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""), lambda: CONDUIT_EDIT_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\":\"abandon\""), command_callbacks.get('abandon', AssertFalse)),
         (echo_str("echo {\"transactions\": [{\"type\":\"bugzilla.bug-id\""), lambda: CONDUIT_EDIT_OUTPUT),
+        (echo_str("echo {\"transactions\": [{\"type\":\"parents.add\""), lambda: CONDUIT_EDIT_OUTPUT),
         ("git log -1 --oneline", lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output"),
         ("git clone https://example.invalid .", lambda: ""),
         ("git merge-base", lambda: "_current"),
@@ -162,6 +163,8 @@ Completed
 -> https://phabricator-dev.allizom.org/D%s
 """
 
+# This is also used for differential.revision.search, that's alright, because it returns a PHID
+# even if it's not the right type of PHID.
 CONDUIT_USERNAME_SEARCH_OUTPUT = """
 {"error":null,"errorMessage":null,"response":{"data":[{"id":154,"type":"USER","phid":"PHID-USER-dd6rge2k2csia46r2wcw","fields":{"username":"tjr","realName":"Tom Ritter","roles":["verified","approved","activated"],"dateCreated":1519415695,"dateModified":1519416233,"policy":{"view":"public","edit":"no-one"}},"attachments":[]}],"maps":[],"query":{"queryKey":null},"cursor":{"limit":100,"after":null,"before":null,"order":null}}}
 """

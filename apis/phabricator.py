@@ -37,10 +37,10 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             self.url = config['url']
 
     @logEntryExit
-    @retry
     def submit_patches(self, bug_id, has_patches):
         phab_revisions = []
 
+        @retry
         def submit_to_phabricator(rev_id):
             cmd = [_arc(), "diff", "--verbatim", "--conduit-uri", self.url]
             if rev_id:
@@ -73,17 +73,66 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             # Ask hg to evolve the original second patch on top of the rewritten first patch
             self.run(["hg", "next"])
 
-        # Submit only the topmost patch
+        # Submit only a single patch
         phab_revisions.append(submit_to_phabricator("tip^"))
 
-        for p in phab_revisions:
-            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, p))
+        # Chain revisions together if needed
+        @retry
+        def chain_revisions(parent_rev, child_rev):
+            # First get the PHID of the revision
+            cmd = "echo " + quote_echo_string("""{"constraints": {"ids":[%s]}}""" % child_rev)
+            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.search --""" % (_arc(), self.url)
+
+            ret = self.run(cmd, shell=True)
+            try:
+                result = json.loads(ret.stdout.decode())
+            except Exception:
+                raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
+
+            if result['error']:
+                raise Exception("Got an error from phabricator when trying to search for %s" % (child_rev))
+
+            assert 'response' in result
+            assert 'data' in result['response']
+            if len(result['response']['data']) != 1:
+                raise Exception("When querying conduit for diff %s, we got back %i results"
+                                % (child_rev, len(result['response']['data'])))
+
+            child_phid = result['response']['data'][0]['phid']
+
+            # Now connect them
+            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"parents.add", "value":["%s"]}], "objectIdentifier": "%s"}""" % (child_phid, parent_rev))
             cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
             ret = self.run(cmd, shell=True)
-            result = json.loads(ret.stdout.decode())
+            try:
+                result = json.loads(ret.stdout.decode())
+            except Exception:
+                raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
             if result['error']:
-                raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (p))
+                raise Exception("Got an error from phabricator when trying chain revisions, parent: %s, child %s %s" % (parent_rev, child_rev, child_phid))
 
+        parent_rev = phab_revisions[0]
+        for child_rev in phab_revisions[1:]:
+            chain_revisions(parent_rev, child_rev)
+            parent_rev = child_rev
+
+        # Associate the patches with the bug
+        @retry
+        def associate_bug_id(phab_revision):
+            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, phab_revision))
+            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
+            ret = self.run(cmd, shell=True)
+            try:
+                result = json.loads(ret.stdout.decode())
+            except Exception:
+                raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
+            if result['error']:
+                raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (phab_revision))
+
+        for p in phab_revisions:
+            associate_bug_id(p)
+
+        # Done
         for p in phab_revisions:
             self.logger.log("Submitted phabricator patch at {0}".format(self.url + p), level=LogLevel.Info)
         return phab_revisions
@@ -102,7 +151,10 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             cmd += " | %s call-conduit --conduit-uri=%s user.search --""" % (_arc(), self.url)
 
         ret = self.run(cmd, shell=True)
-        result = json.loads(ret.stdout.decode())
+        try:
+            result = json.loads(ret.stdout.decode())
+        except Exception:
+            raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
 
         if result['error']:
             raise Exception("Got an error from phabricator when trying to search for %s" % (phab_username))
@@ -118,7 +170,10 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}""" % (phid, phab_revision))
         cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
         ret = self.run(cmd, shell=True)
-        result = json.loads(ret.stdout.decode())
+        try:
+            result = json.loads(ret.stdout.decode())
+        except Exception:
+            raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
         if result['error']:
             raise Exception("Got an error from phabricator when trying to set reviewers to %s (%s) for %s: %s" % (phab_username, phid, phab_revision, result))
 
@@ -128,7 +183,10 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}""" % phab_revision)
         cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
         ret = self.run(cmd, shell=True)
-        result = json.loads(ret.stdout.decode())
+        try:
+            result = json.loads(ret.stdout.decode())
+        except Exception:
+            raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
         if result['error']:
             if "You can not abandon this revision because it has already been closed." in result['errorMessage']:
                 self.logger.log("Strangely, the phabricator revision %s was already closed when we tried to abandon it. Oh well." % phab_revision, level=LogLevel.Warning)

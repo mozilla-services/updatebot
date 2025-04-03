@@ -106,6 +106,7 @@ class TestFunctionality(SimpleLoggingTest):
                two_phab_revisions=False,
                assert_affected_func=None,
                assert_prior_bug_reference=True,
+               assert_assignee_func=None,
                command_callbacks={},
                keep_tmp_db=False):
         self.server = server.HTTPServer(('', 27490), MockTreeherderServerFactory(treeherder_response))
@@ -131,6 +132,7 @@ class TestFunctionality(SimpleLoggingTest):
                 'get_filed_bug_id_func': get_filed_bug_id_func,
                 'filed_bug_ids_func': filed_bug_ids_func,
                 'assert_affected_func': assert_affected_func,
+                'assert_assignee_func': assert_assignee_func,
                 'assert_prior_bug_reference': assert_prior_bug_reference
             },
             'Mercurial': {},
@@ -861,6 +863,14 @@ class TestFunctionality(SimpleLoggingTest):
                     return "jobs_success_notlinux.txt"
                 self.assertTrue(False, "Should not reach here")
 
+        saw_assignee = False
+
+        def assert_assignee_func(assignee):
+            nonlocal saw_assignee
+            if assignee is not None:
+                saw_assignee = True
+                assert assignee == "dav1d@mozilla.com", "Bugzilla Assignee was incorrect"
+
         call_counter = 0
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -868,8 +878,62 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id':50, 'assigned_to_detail':{'email':'nobody@mozilla.org'}}}),  # filed_bug_ids_func
-            treeherder
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
+            treeherder,
+            assert_assignee_func=assert_assignee_func
+        )
+
+        try:
+            # Check that we created the job successfully
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            call_counter += 1  # See (**)
+
+            # Run it again, this time we'll tell it the jobs are done
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it everything succeeded
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            assert saw_assignee, "Did not see the correct asignee for the bug at any point"
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Create -> Jobs are Running -> All Success
+    @logEntryExitHeaderLine
+    def testAssigneeNotOverwritten(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_all_success.txt"
+                self.assertTrue(False, "Should not reach here")
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                if "80240fe58a7558fc21d4f2499261a53f3a9f6fad" in fullpath:
+                    return "jobs_success_linuxonly.txt"
+                elif "56AAAAAAacfacba40993e47ef8302993c59e264e" in fullpath:
+                    return "jobs_success_notlinux.txt"
+                self.assertTrue(False, "Should not reach here")
+
+        def assert_assignee_func(assignee):
+            if assignee is not None:
+                assert assignee == "tom@mozilla.org", "We did not set the assignee correctly."
+
+        call_counter = 0
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'tom@mozilla.org'}}}),  # filed_bug_ids_func
+            treeherder,
+            assert_assignee_func=assert_assignee_func
         )
 
         try:

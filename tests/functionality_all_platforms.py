@@ -10,6 +10,7 @@ import inspect
 import unittest
 import itertools
 import functools
+from collections import OrderedDict
 
 from http import server
 from threading import Thread
@@ -205,7 +206,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse  # treeherder_response
         )
         try:
@@ -221,7 +222,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda x: [""],  # library_new_version_id
             AssertFalse,  # get_filed_bug_id_func,
-            lambda x: [],  # filed_bug_ids_func
+            lambda x: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'check_for_update': lambda: ""}
         )
@@ -241,7 +242,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda x: [""],  # library_new_version_id
             AssertFalse,  # get_filed_bug_id_func,
-            lambda x: [],  # filed_bug_ids_func
+            lambda x: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'check_for_update': lambda: state_dir_prefix}
         )
@@ -261,7 +262,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'check_for_update': lambda: state_dir_prefix + expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00"}
         )
@@ -285,7 +286,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             two_phab_revisions=True,
             command_callbacks={'patch': patch_callback}
@@ -305,7 +306,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'vendor': lambda: raise_(Exception("No vendoring!"))}
         )
@@ -331,7 +332,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'commit': lambda: raise_(Exception("No committing!"))}
         )
@@ -357,7 +358,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'patch': lambda: raise_(Exception("No patching!"))}
         )
@@ -384,7 +385,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'patch': lambda: "",
                                'commit': lambda: "" if next(commit_calls) < 1 else raise_(Exception("No commiting the patching!"))}
@@ -411,7 +412,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
@@ -438,7 +439,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': lambda: (1, TRY_LOCKED_OUTPUT)}
         )
@@ -474,7 +475,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': try_output}
         )
@@ -493,7 +494,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
@@ -522,7 +523,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'phab_submit': lambda: raise_(Exception("No submitting to phabricator!"))}
         )
@@ -553,7 +554,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder
         )
         try:
@@ -585,7 +586,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder
         )
         try:
@@ -622,7 +623,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder
         )
         try:
@@ -672,7 +673,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder,
             command_callbacks={'try_submit': try_submit}
         )
@@ -710,7 +711,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder,
             command_callbacks={'try_submit': lambda cmd: raise_(Exception("No path specified")) if "media/" not in cmd else TRY_OUTPUT(expected_values.try_revision_id(), False)}
         )
@@ -753,7 +754,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             git_pretty_output,
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             AssertFalse
         )
         try:
@@ -790,7 +791,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder
         )
 
@@ -838,7 +839,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder,
             command_callbacks={'abandon': abandon_callback}
         )
@@ -879,7 +880,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder
         )
 
@@ -913,9 +914,9 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -955,9 +956,9 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -1000,7 +1001,7 @@ class TestFunctionality(SimpleLoggingTest):
             library_filter,
             lambda b: ["4173dda99ea962d907e3fa043db5e26711085ed2|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [],  # filed_bug_ids_func
+            lambda b: {},  # filed_bug_ids_func
             treeherder
         )
 
@@ -1040,9 +1041,9 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -1115,8 +1116,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
-            return [50]
+                return {}
+            return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         global was_abandoned
         was_abandoned = False
@@ -1207,8 +1208,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
-            return [50]
+                return {}
+            return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         global was_abandoned
         was_abandoned = False
@@ -1305,13 +1306,13 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter == 2:
                 if only_open:
-                    return [51]
-                return [50, 51]
+                    return OrderedDict({51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             self.assertFalse(True)
 
         global abandon_count
@@ -1425,12 +1426,12 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif only_open:
-                return [51]
-            return [50, 51]
+                return OrderedDict({51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+            return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.com'}}})
 
         global abandon_count
         abandon_count = 0
@@ -1517,8 +1518,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
-            return [50]
+                return {}
+            return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         global was_marked_affected
         was_marked_affected = False
@@ -1633,18 +1634,18 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter == 2:
                 if only_open:
-                    return [50, 51]
-                return [50, 51]
+                    return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter == 3:
                 if only_open:
                     # This is the important bit: the first bug is open, the second is closed.
-                    return [50, 52]
-                return [50, 51, 52]
+                    return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             else:
                 self.assertTrue(False, "Should not have reached here")
 
@@ -1775,10 +1776,10 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter == 1:
-                return [50]
-            return [51]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+            return OrderedDict({51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         def git_pretty_output(since_last_job):
             lines = [
@@ -1929,10 +1930,10 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return []
-            return [51]
+                return {}
+            return OrderedDict({51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         def git_pretty_output(since_last_job):
             lines = [
@@ -2069,12 +2070,12 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return []
+                return {}
             elif call_counter == 2:
-                return []
-            return [52]
+                return {}
+            return OrderedDict({52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         def git_pretty_output(since_last_job):
             lines = [

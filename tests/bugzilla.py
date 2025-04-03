@@ -63,14 +63,14 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
             assert False, "Got a path %s I didn't expect" % self.path
 
     def do_GET(self):
-        expectedPath_find = "/bug?resolution=---&id=1,2,3&include_fields=id"
+        expectedPath_find = "/bug?resolution=---&id="
 
         self.send_response(200)
         self.send_header("Content-type", "application/json")
         self.end_headers()
 
-        if expectedPath_find == self.path:
-            self.wfile.write('{"bugs":[{"id":2}]}'.encode())
+        if expectedPath_find in self.path:
+            self.wfile.write('{"bugs":[{"id":2,"assigned_to_detail":{"id":578488,"email":"tom@mozilla.com","real_name":"Tom Ritter [:tjr]","name":"tom@mozilla.com","nick":"tjr"},"assigned_to":"tom@mozilla.com"}],"faults":[]}'.encode())
         else:
             assert False, "Got a path %s I didn't expect" % self.path
 
@@ -184,7 +184,7 @@ class TestBugzillaProvider(unittest.TestCase):
         self.bugzillaProvider.mark_ff_version_affected(456, 76)
 
     def testGet(self):
-        self.assertEqual([2], self.bugzillaProvider.find_open_bugs([1, 2, 3]))
+        self.assertEqual({2: {'id': 2, "assigned_to_detail": {"id": 578488, "email": "tom@mozilla.com", "real_name": "Tom Ritter [:tjr]", "name": "tom@mozilla.com", "nick": "tjr"}, "assigned_to": "tom@mozilla.com"}}, self.bugzillaProvider.find_open_bugs_info([1, 2, 3]))
 
     def testClose(self):
         self.bugzillaProvider.wontfix_bug(7890, "Hello World")

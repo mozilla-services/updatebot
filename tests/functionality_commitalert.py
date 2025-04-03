@@ -104,7 +104,7 @@ class MockedBugzillaProvider(BaseProvider):
     def dupe_bug(self, bug_id, comment, dup_id):
         pass
 
-    def find_open_bugs(self, bug_ids):
+    def find_open_bugs_info(self, bug_ids):
         return self._filed_bug_ids_func(ONLY_OPEN)
 
     def mark_ff_version_affected(self, bug_id, ff_version, affected):
@@ -220,7 +220,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: "",  # new_library_version_func
             lambda: 0,   # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
-            lambda x: [],  # filed_bug_ids_func
+            lambda x: {},  # filed_bug_ids_func
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -238,7 +238,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: COMMITS_MAIN[0],  # new_library_version_func
             lambda: 1,  # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
-            lambda x: [],  # filed_bug_ids_func
+            lambda x: {},  # filed_bug_ids_func
             library_filter)
         u.run(library_filter=library_filter)
 
@@ -257,7 +257,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: COMMITS_BRANCH1[0],  # new_library_version_func
             lambda: 1,   # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
-            lambda x: [],  # filed_bug_ids_func
+            lambda x: {},  # filed_bug_ids_func
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)
@@ -280,7 +280,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: COMMITS_BRANCH1[0],  # new_library_version_func
             lambda: 2,   # expected_commits_seen_func
             lambda: 5,   # get_filed_bug_id_func,
-            lambda x: [],  # filed_bug_ids_func
+            lambda x: {},  # filed_bug_ids_func
             library_filter,
             branch="somebranch")
         u.run(library_filter=library_filter)

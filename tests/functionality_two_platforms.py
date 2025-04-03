@@ -10,6 +10,7 @@ import inspect
 import unittest
 import itertools
 import functools
+from collections import OrderedDict
 
 from http import server
 from threading import Thread
@@ -227,7 +228,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse  # treeherder_response
         )
         try:
@@ -253,7 +254,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             two_phab_revisions=True,
             command_callbacks={'patch': patch_callback}
@@ -275,7 +276,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'vendor': lambda: raise_(Exception("No vendoring!"))}
         )
@@ -303,7 +304,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'commit': lambda: raise_(Exception("No committing!"))}
         )
@@ -331,7 +332,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'patch': lambda: raise_(Exception("No patching!"))}
         )
@@ -360,7 +361,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'patch': lambda: "",
                                'commit': lambda: "" if next(commit_calls) < 1 else raise_(Exception("No commiting the patching!"))}
@@ -389,7 +390,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
@@ -417,7 +418,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': lambda: (1, TRY_LOCKED_OUTPUT)}
         )
@@ -453,7 +454,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': try_output}
         )
@@ -474,7 +475,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'try_submit': lambda: raise_(Exception("No submitting to try!"))}
         )
@@ -505,7 +506,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["try_rev"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
             command_callbacks={'phab_submit': lambda: raise_(Exception("No submitting to phabricator!"))}
         )
@@ -555,7 +556,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["48f23619ddb818d8b32571e1e673bc2239e791af|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             treeherder,
             command_callbacks={'try_submit': try_output}
         )
@@ -615,7 +616,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["48f23619ddb818d8b32571e1e673bc2239e791af|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             treeherder,
             command_callbacks={'try_submit': try_output}
         )
@@ -675,7 +676,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["48f23619ddb818d8b32571e1e673bc2239e791af|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             treeherder,
             command_callbacks={'try_submit': try_output}
         )
@@ -720,7 +721,7 @@ class TestFunctionality(SimpleLoggingTest):
             git_pretty_output,
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             AssertFalse
         )
         try:
@@ -767,7 +768,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["48f23619ddb818d8b32571e1e673bc2239e791af|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["48f23619ddb818d8b32571e1e673bc2239e791af", "456dc4f24e790a9edb3f45eca85104607ca52168"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             treeherder
         )
 
@@ -818,7 +819,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["45cf941f54e2d5a362ed08dfd61ba3922a47fdc3|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["45cf941f54e2d5a362ed08dfd61ba3922a47fdc3"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             treeherder,
             command_callbacks={'abandon': abandon_callback}
         )
@@ -867,7 +868,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["80240fe58a7558fc21d4f2499261a53f3a9f6fad", "56AAAAAAacfacba40993e47ef8302993c59e264e"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id':50, 'assigned_to_detail':{'email':'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             treeherder
         )
 
@@ -904,9 +905,9 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -947,9 +948,9 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
@@ -1003,7 +1004,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["ec74c1b52c533106d7e3d15f3c75cfd57355a885|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["ec74c1b52c533106d7e3d15f3c75cfd57355a885", "2529ff21c5717182ebf32e180dcc6bfd3917a78c"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             treeherder
         )
 
@@ -1053,7 +1054,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda b: ["fa34db961043c78c150bef6b03d7426501aabd8b|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: ["fa34db961043c78c150bef6b03d7426501aabd8b", "3fe6e60f4126d7a9737480f17d1e3e8da384ca75"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: [] if call_counter == 0 else [50],  # filed_bug_ids_func
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
             treeherder
         )
 
@@ -1115,11 +1116,11 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter < 3:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter == 3:
-                return [50, 51]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.com'}}})
             self.assertTrue(False)
 
         global was_abandoned
@@ -1223,11 +1224,11 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter == 1:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter >= 2:
-                return [50, 51]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.com'}}})
             self.assertTrue(False)
 
         global was_abandoned
@@ -1334,17 +1335,17 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter in [1, 2]:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter in [3, 4]:
                 if only_open:
-                    return [51]
-                return [50, 51]
+                    return OrderedDict({51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.com'}}})
             elif call_counter == 5:
                 if only_open:
-                    return [52]
-                return [50, 51, 52]
+                    return OrderedDict({52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             self.assertFalse(True)
 
         global abandon_count
@@ -1471,17 +1472,17 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter in [1]:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter in [2]:
                 if only_open:
-                    return [50, 51]
-                return [50, 51]
+                    return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.com'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.com'}}})
             elif call_counter in [3]:
                 if only_open:
-                    return [52]
-                return [50, 51, 52]
+                    return OrderedDict({52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             self.assertFalse(True)
 
         global abandon_count
@@ -1592,8 +1593,8 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
-            return [50]
+                return {}
+            return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
         global was_marked_affected
         was_marked_affected = False
@@ -1702,17 +1703,17 @@ class TestFunctionality(SimpleLoggingTest):
 
         def get_filed_bugs(only_open):
             if call_counter == 0:
-                return []
+                return {}
             elif call_counter in [1]:
-                return [50]
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             elif call_counter in [2]:
                 if only_open:
-                    return [50, 51]
-                return [50, 51]
+                    return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.com'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.com'}}})
             elif call_counter in [3]:
                 if only_open:
-                    return [50, 52]
-                return [50, 51, 52]
+                    return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 51: {'id': 51, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}, 52: {'id': 52, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
             self.assertFalse(True)
 
         global abandon_count

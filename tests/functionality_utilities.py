@@ -241,15 +241,15 @@ class MockedBugzillaProvider(BaseProvider, INeedsLoggingProvider):
     @logEntryExit
     def dupe_bug(self, bug_id, comment, dup_id):
         assert self.config['expect_a_dupe'], "We marked a bug as a duplicate when we weren't execting to."
-        assert bug_id == self._filed_bug_ids_func(ALL_BUGS)[-1], \
+        assert bug_id == list(self._filed_bug_ids_func(ALL_BUGS).keys())[-1], \
             "We expected to close %s as a dupe, but it was actually %s" % (
-                self._filed_bug_ids_func(ALL_BUGS)[-1], bug_id)
+                list(self._filed_bug_ids_func(ALL_BUGS).keys())[-1], bug_id)
         assert dup_id == self._get_filed_bug_id_func(), \
             "We expected to mark %s as a dupe of %s as a dupe, but we actually marked it a dupe of %s" % (
                 bug_id, self._get_filed_bug_id_func(), dup_id)
 
     @logEntryExit
-    def find_open_bugs(self, bug_ids):
+    def find_open_bugs_info(self, bug_ids):
         return self._filed_bug_ids_func(ONLY_OPEN)
 
     @logEntryExit

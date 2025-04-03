@@ -215,6 +215,10 @@ class MockedBugzillaProvider(BaseProvider, INeedsLoggingProvider):
         else:
             self._assert_affected_func = AssertFalse
         self._assert_prior_bug_reference = config['assert_prior_bug_reference']
+        if config['assert_assignee_func']:
+            self._assert_assignee_func = config['assert_assignee_func']
+        else:
+            self._assert_assignee_func = lambda x: x
 
     @logEntryExit
     def file_bug(self, library, summary, description, cc, needinfo=None, see_also=None, blocks=None):
@@ -230,6 +234,7 @@ class MockedBugzillaProvider(BaseProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
+        self._assert_assignee_func(assignee)
         if len(comment) > 65535:
             assert False, "Bug comment cannot be longer than 65535 characters"
         pass

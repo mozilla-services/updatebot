@@ -98,6 +98,7 @@ class TestFunctionality(SimpleLoggingTest):
                two_phab_revisions=False,
                assert_affected_func=None,
                assert_prior_bug_reference=True,
+               assert_assignee_func=None,
                command_callbacks={},
                keep_tmp_db=False):
         self.server = server.HTTPServer(('', 27490), MockTreeherderServerFactory(treeherder_response))
@@ -122,6 +123,7 @@ class TestFunctionality(SimpleLoggingTest):
                 'get_filed_bug_id_func': get_filed_bug_id_func,
                 'filed_bug_ids_func': filed_bug_ids_func,
                 'assert_affected_func': assert_affected_func,
+                'assert_assignee_func': assert_assignee_func,
                 'assert_prior_bug_reference': assert_prior_bug_reference
             },
             'Mercurial': {},
@@ -866,6 +868,8 @@ class TestFunctionality(SimpleLoggingTest):
     # Create -> Jobs are Running -> All Success
     @logEntryExitHeaderLine
     def testExistingJobAllSuccess(self):
+        call_counter = 0
+
         @treeherder_response
         def treeherder(request_type, fullpath):
             if request_type == TYPE_HEALTH:
@@ -875,13 +879,28 @@ class TestFunctionality(SimpleLoggingTest):
                     return "jobs_still_running.txt"
                 return "jobs_all_success.txt"
 
+        saw_assignee = False
+
+        def assert_assignee_func(assignee):
+            nonlocal saw_assignee
+            if assignee is not None:
+                saw_assignee = True
+                assert assignee == "dav1d@mozilla.com", "Bugzilla Assignee was incorrect"
+
+        def get_filed_bugs(only_open):
+            if call_counter == 0:
+                return {}
+            elif call_counter == 1:
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: {},  # filed_bug_ids_func
-            treeherder
+            get_filed_bugs,  # filed_bug_ids_func
+            treeherder,
+            assert_assignee_func=assert_assignee_func
         )
 
         try:
@@ -889,6 +908,9 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            call_counter += 1
+
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
             # Should still be Awaiting Try Results
@@ -897,6 +919,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE and Success.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+            assert saw_assignee, "Did not see the correct asignee for the bug at any point"
         finally:
             self._cleanup(u, expected_values)
 

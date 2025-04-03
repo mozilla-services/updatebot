@@ -923,6 +923,59 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
+    # Create -> Jobs are Running -> All Success
+    @logEntryExitHeaderLine
+    def testAssigneeNotOverwritten(self):
+        call_counter = 0
+
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_all_success.txt"
+            else:  # TYPE_JOBS
+                if treeherder.jobs_calls == 0:
+                    return "jobs_still_running.txt"
+                return "jobs_all_success.txt"
+
+        def assert_assignee_func(assignee):
+            if assignee is not None:
+                assert assignee == "tom@mozilla.org", "We did not set the assignee correctly."
+
+        def get_filed_bugs(only_open):
+            if call_counter == 0:
+                return {}
+            elif call_counter == 1:
+                return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'tom@mozilla.org'}}})
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["56082fc4acfacba40993e47ef8302993c59e264e|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            get_filed_bugs,  # filed_bug_ids_func
+            treeherder,
+            assert_assignee_func=assert_assignee_func
+        )
+
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            call_counter += 1
+
+            # Run it again, this time we'll tell it the jobs are still in process
+            u.run(library_filter=library_filter)
+            # Should still be Awaiting Try Results
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            # Run it again, this time we'll tell it a build job failed
+            u.run(library_filter=library_filter)
+            # Should be DONE and Success.
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+        finally:
+            self._cleanup(u, expected_values)
+
     # Create -> Decision Task Exception
     @logEntryExitHeaderLine
     def testDecisionException(self):

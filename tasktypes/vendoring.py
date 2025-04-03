@@ -32,9 +32,11 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Collect all the existing jobs, and figure out which have open bugs
         all_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.VENDORING)
-        open_bugs = self.bugzillaProvider.find_open_bugs([j.bugzilla_id for j in all_jobs])
+        open_bugs = self.bugzillaProvider.find_open_bugs_info([j.bugzilla_id for j in all_jobs])
         for j in all_jobs:
             j.bugzilla_is_open = j.bugzilla_id in open_bugs
+            j.bugzilla_assignee = open_bugs[j.bugzilla_id]['assigned_to_detail']['email'] if j.bugzilla_id in open_bugs else None
+            j.bugzilla_assignee = None if j.bugzilla_assignee in ["nobody@mozilla.org", "update-bot@bmo.tld"] else j.bugzilla_assignee
 
         # Get the list of all jobs we want to do something about
         all_jobs_not_done = [j for j in all_jobs if j.status != JOBSTATUS.DONE or j.bugzilla_is_open]
@@ -599,7 +601,7 @@ class VendorTaskRunner(BaseTaskRunner):
             existing_job.bugzilla_id,
             CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library),
             needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None,
-            assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+            assignee=(existing_job.bugzilla_assignee or library.maintainer_bz) if existing_job.bugzilla_is_open else None)
 
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.UNCLASSIFIED_FAILURES)
 
@@ -617,7 +619,7 @@ class VendorTaskRunner(BaseTaskRunner):
         self.bugzillaProvider.comment_on_bug(
             existing_job.bugzilla_id,
             CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library),
-            assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+            assignee=(existing_job.bugzilla_assignee or library.maintainer_bz) if existing_job.bugzilla_is_open else None)
 
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
 
@@ -642,7 +644,7 @@ class VendorTaskRunner(BaseTaskRunner):
         self.bugzillaProvider.comment_on_bug(
             existing_job.bugzilla_id,
             CommentTemplates.DONE_ALL_SUCCESS(),
-            assignee=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+            assignee=(existing_job.bugzilla_assignee or library.maintainer_bz) if existing_job.bugzilla_is_open else None)
 
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
 

@@ -39,7 +39,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
 
         # ==========================================================================================
         # We need to mark previously opened bugs as affected or not.
-        open_bugs = self.bugzillaProvider.find_open_bugs([j.bugzilla_id for j in all_library_jobs])
+        open_bugs = self.bugzillaProvider.find_open_bugs_info([j.bugzilla_id for j in all_library_jobs])
         jobs_with_open_bugs = [j for j in all_library_jobs if j.bugzilla_id in open_bugs]
         self.logger.log("We need to potentially update the FF version on %s open bugs." % len(open_bugs), level=LogLevel.Info)
         for j in jobs_with_open_bugs:
@@ -103,7 +103,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
             raise Exception("In a commit-alert task for library %s I got a filter '%s' I don't know how to handle." % (library.name, task.filter))
 
         depends_on = all_library_jobs[0].bugzilla_id if all_library_jobs else None
-        open_dependencies = self.bugzillaProvider.find_open_bugs([j.bugzilla_id for j in all_library_jobs])
+        open_dependencies = self.bugzillaProvider.find_open_bugs_info([j.bugzilla_id for j in all_library_jobs])
 
         description = CommentTemplates.EXAMINE_COMMITS_BODY(library, task, self.scmProvider.build_bug_description(filtered_commits, 65534 - 500), open_dependencies)
 

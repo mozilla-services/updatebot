@@ -148,8 +148,8 @@ def closeBug(url, apikey, bugID, resolution, comment, dup_id=None):
     raise Exception(j)
 
 
-def findOpenBugs(url, bugIDs):
-    r = requests.get(url + "bug?resolution=---&id=%s&include_fields=id" % ",".join([str(b) for b in bugIDs]))
+def openBugsMetadata(url, bugIDs):
+    r = requests.get(url + "bug?resolution=---&id=%s&include_fields=id,assigned_to" % ",".join([str(b) for b in bugIDs]))
 
     try:
         j = json.loads(r.text)
@@ -157,7 +157,7 @@ def findOpenBugs(url, bugIDs):
         raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
 
     try:
-        return [b['id'] for b in j['bugs']]
+        return {b['id']: b for b in j['bugs']}
     except KeyError as e:
         raise Exception(j) from e
 

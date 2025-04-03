@@ -3,7 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from apis.bugzilla_api import fileBug, commentOnBug, closeBug, findOpenBugs, markFFVersionAffected
+from apis.bugzilla_api import fileBug, commentOnBug, closeBug, openBugsMetadata, markFFVersionAffected
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel, logEntryExit
 
@@ -241,10 +241,10 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
         closeBug(self.config['url'], self.config['apikey'], bug_id, 'DUPLICATE', comment, dup_id=dup_id)
 
     @logEntryExit
-    def find_open_bugs(self, bug_ids):
+    def find_open_bugs_info(self, bug_ids):
         filtered_ids = [b for b in bug_ids if b > 0]
         if len(filtered_ids) > 0:
-            return findOpenBugs(self.config['url'], filtered_ids)
+            return openBugsMetadata(self.config['url'], filtered_ids)
         return []
 
     @logEntryExit

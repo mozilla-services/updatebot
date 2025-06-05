@@ -8,6 +8,8 @@ import os
 import json
 import requests
 
+from components.utilities import retry
+
 
 def sq(s):
     return '[' + s + ']'
@@ -148,6 +150,7 @@ def closeBug(url, apikey, bugID, resolution, comment, dup_id=None):
     raise Exception(j)
 
 
+@retry
 def openBugsMetadata(url, bugIDs):
     r = requests.get(url + "bug?resolution=---&id=%s&include_fields=id,assigned_to" % ",".join([str(b) for b in bugIDs]))
 

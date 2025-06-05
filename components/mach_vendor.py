@@ -4,7 +4,7 @@
 
 import subprocess
 
-from components.utilities import string_date_to_uniform_string_date
+from components.utilities import string_date_to_uniform_string_date, retry
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -20,6 +20,7 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
     def __init__(self, config):
         pass
 
+    @retry
     @logEntryExit
     def check_for_update(self, library):
         result = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip()

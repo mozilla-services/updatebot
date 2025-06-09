@@ -323,6 +323,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         return self.url_treeherder + "api/jobs/?push_id=%s" % push_id
 
     @logEntryExit
+    @retry
     def get_job_details(self, revision):
         push_list_url = self._get_push_list_url(revision)
         self.logger.log("Requesting revision %s from %s" % (revision, push_list_url), level=LogLevel.Info)
@@ -379,6 +380,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         return self.url_treeherder + "api/%spush/health/?revision=%s" % (self.url_project_path, revision)
 
     @logEntryExit
+    @retry
     def get_push_health(self, revision):
         push_health_url = self._get_push_health_url(revision)
         self.logger.log("Requesting push health for revision %s from %s" % (revision, push_health_url), level=LogLevel.Info)

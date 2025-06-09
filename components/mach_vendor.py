@@ -20,8 +20,8 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
     def __init__(self, config):
         pass
 
-    @retry
     @logEntryExit
+    @retry
     def check_for_update(self, library):
         result = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip()
 

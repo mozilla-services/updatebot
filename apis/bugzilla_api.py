@@ -33,6 +33,22 @@ def is_prod(url):
     return "allizom" not in url
 
 
+def _load_json_or_raise(r, where: str):
+    # Work off bytes, decode once, tolerate bad unicode, and truncate preview.
+    raw = getattr(r, "content", b"") or b""
+    body = raw.decode("utf-8", errors="replace")
+    try:
+        return json.loads(body)
+    except Exception as e:
+        status = getattr(r, "status_code", "unknown")
+        ctype = getattr(r, "headers", {}).get("Content-Type", "unknown")
+        preview = body[:2000]
+        raise Exception(
+            f"{where}: Could not decode a Bugzilla response as JSON "
+            f"(status={status}, content_type={ctype}, len={len(body)}): {preview}"
+        ) from e
+
+
 def fileBug(url, apikey, ff_version, product, component, summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential):
     assert isinstance(cc_list, list)
 
@@ -74,10 +90,7 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, c
 
     r = requests.post(url + "bug?api_key=" + apikey, json=data)
 
-    try:
-        j = json.loads(r.text)
-    except Exception as e:
-        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+    j = _load_json_or_raise(r, "fileBug")
 
     if 'id' in j:
         return j['id']
@@ -106,10 +119,7 @@ def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
         json=data
     )
 
-    try:
-        j = json.loads(r.text)
-    except Exception as e:
-        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+    j = _load_json_or_raise(r, "commentOnBug")
 
     if 'bugs' in j:
         if len(j['bugs']) > 0:
@@ -137,10 +147,7 @@ def closeBug(url, apikey, bugID, resolution, comment, dup_id=None):
         json=data
     )
 
-    try:
-        j = json.loads(r.text)
-    except Exception as e:
-        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+    j = _load_json_or_raise(r, "closeBug")
 
     if 'bugs' in j:
         if len(j['bugs']) > 0:
@@ -154,10 +161,7 @@ def closeBug(url, apikey, bugID, resolution, comment, dup_id=None):
 def openBugsMetadata(url, bugIDs):
     r = requests.get(url + "bug?resolution=---&id=%s&include_fields=id,assigned_to" % ",".join([str(b) for b in bugIDs]))
 
-    try:
-        j = json.loads(r.text)
-    except Exception as e:
-        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+    j = _load_json_or_raise(r, "openBugsMetadata")
 
     try:
         return {b['id']: b for b in j['bugs']}
@@ -179,10 +183,7 @@ def markFFVersionAffected(url, apikey, bugID, ff_version, affected):
         json=data
     )
 
-    try:
-        j = json.loads(r.text)
-    except Exception as e:
-        raise Exception("Could not decode a bugzilla response as JSON: " + r.text) from e
+    j = _load_json_or_raise(r, "markFFVersionAffected")
 
     if 'bugs' in j:
         if len(j['bugs']) > 0:

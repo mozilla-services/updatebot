@@ -348,7 +348,7 @@
                     "config": "opt",
                     "key": "tLeakSanitizerleakatjs_pod_arena_mallocmaybe_pod_arena_mallocjsdetailOrderedHashTablepod_mallocoptlinux180464asantestlinux180464asanoptmochitestbrowserchromee10s1Mochitests",
                     "jobKey": "optlinux1804-64-asantest-linux1804-64-asan/opt-mochitest-browser-chrome-e10s-1Mochitests",
-                    "suggestedClassification": "fixedByCommit",
+                    "suggestedClassification": "intermittent needs bugid",
                     "confidence": 100,
                     "tier": 1,
                     "failedInParent": false,

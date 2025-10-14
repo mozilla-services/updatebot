@@ -44,11 +44,11 @@ class Classification(IntEnum):
             return Classification.NewFailure
         elif s == "new failure not classified":  # from TC
             return Classification.NewFailure
-        elif s == "fixedByCommit":  # from Push Health
+        elif s in ["fixedByCommit", "intermittent needs bugid"]:  # from Push Health
             return Classification.NotYourFault
         elif s in ["autoclassified intermittent", "expected fail", "fixed by commit", "infra"]:  # from TC
             return Classification.NotYourFault
-        elif s == "intermittent":  # from Push Health
+        elif s in ["intermittent"]:  # from Push Health
             return Classification.PossibleIntermittent
         elif s in ["intermittent", "not classified"]:  # from TC
             return Classification.PossibleIntermittent

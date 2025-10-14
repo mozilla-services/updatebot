@@ -32,7 +32,7 @@ from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
-from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
+from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, ARC_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH
@@ -662,7 +662,7 @@ class TestFunctionality(SimpleLoggingTest):
 
         def try_submit(cmd):
             nonlocal try_fails
-            if try_fails == 0:
+            if try_fails < 2:
                 try_fails += 1
                 raise Exception("No worky!")
             if "./mach try auto" in cmd:
@@ -694,6 +694,37 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Should be DONE
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Fail the first time, then work.
+    @logEntryExitHeaderLine
+    def testPhabRetryFunctionality(self):
+        try_fails = 0
+
+        def phab_submit(cmd):
+            nonlocal try_fails
+            if try_fails == 0:
+                try_fails += 1
+                raise Exception("No worky!")
+            if "--trace" not in cmd:
+                raise Exception("Expected to see --trace in the phabricator command")
+            return ARC_OUTPUT % (83000 + 50, 83000 + 50)
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'phab_submit': phab_submit}
+        )
+        try:
+            # Run it
+            u.run(library_filter=library_filter)
+            # Check that we created the job successfully
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
         finally:
             self._cleanup(u, expected_values)
 

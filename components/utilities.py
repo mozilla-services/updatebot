@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import copy
+import inspect
 import pickle
 import functools
 import time
@@ -144,28 +145,25 @@ def static_vars(**kwargs):
 # Retry calling a function `times` times, sleeping between each tries, with an exponential backoff
 # This is to be used on API calls, that are likely to fail
 
-RETRY_TIMES = 10
+def retry(_func=None, *, times=10, sleep_s=1, exp=2, exceptions=(Exception,), attempt_kw="retry_attempt"):
+    def decorator(func):
+        sig = inspect.signature(func)
+        accepts_attempt = attempt_kw in sig.parameters
 
-
-def retry(_func=None, *, sleep_s=1, exp=2):
-    def decorator_retry(func):
         @functools.wraps(func)
-        def wrapper_retry(*args, **kwargs):
-            global RETRY_TIMES
-            retries_try = RETRY_TIMES
-            sleep_duration = sleep_s
-            while retries_try > 0:
+        def wrapper(*args, **kwargs):
+            backoff = sleep_s
+            for attempt in range(1, times + 1):
                 try:
-                    return func(*args, **kwargs)
-                except BaseException as e:
-                    retries_try -= 1
-                    time.sleep(sleep_duration)
-                    sleep_duration *= exp
-                    if retries_try == 0:
-                        raise e
-        return wrapper_retry
+                    call_kwargs = dict(kwargs)
+                    if accepts_attempt:
+                        call_kwargs[attempt_kw] = attempt
+                    return func(*args, **call_kwargs)
+                except exceptions:
+                    if attempt == times:
+                        raise  # preserves the original traceback
+                    time.sleep(backoff)
+                    backoff *= exp
+        return wrapper
 
-    if _func is None:
-        return decorator_retry
-    else:
-        return decorator_retry(_func)
+    return decorator if _func is None else decorator(_func)

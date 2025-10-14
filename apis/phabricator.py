@@ -41,8 +41,10 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         phab_revisions = []
 
         @retry
-        def submit_to_phabricator(rev_id):
+        def submit_to_phabricator(rev_id, retry_attempt=None):
             cmd = [_arc(), "diff", "--verbatim", "--conduit-uri", self.url]
+            if retry_attempt > 1:
+                cmd.append("--trace")
             if rev_id:
                 cmd.append(rev_id)
             cmd.append("--")

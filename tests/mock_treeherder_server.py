@@ -13,7 +13,7 @@ from components.logging import log, LogLevel
 TYPE_HEALTH = "health"
 TYPE_JOBS = "jobs"
 
-FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id":3,"name":"expected fail"},{"id":2,"name":"fixed by commit"},{"id":5,"name":"infra"},{"id":4,"name":"intermittent"},{"id":1,"name":"not classified"}]"""
+FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id":8,"name":"intermittent needs bugid"},{"id":3,"name":"expected fail"},{"id":2,"name":"fixed by commit"},{"id":5,"name":"infra"},{"id":4,"name":"intermittent"},{"id":1,"name":"not classified"}]"""
 
 EXPECTEDPATH_PUSH = "push/?revision="
 EXPECTEDPATH_JOBS = "jobs/?push_id="

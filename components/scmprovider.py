@@ -115,7 +115,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
     @logEntryExit
     @Memoize
-    def check_for_update(self, library, task, new_version, most_recent_job):
+    def check_for_update(self, library, task, new_version, most_recent_job_version):
         # This function uses two tricky variable names:
         #  all_upstream_commits - This means the commits that have occured upstream, on the branch we care about,
         #                         between the library's current revision and the tip of the branch.
@@ -159,8 +159,8 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             #        in m-c we update the library to B (or maybe even a new rev C with no job)
             #        Resulting in the most recent job (which was for B) occured _before_ the library's current revision
             # We can only do this if we have a most recent job, if we don't we're processing this library for the first time
-            if most_recent_job:
-                most_recent_job_newer_than_library_rev = most_recent_job.version in [c.revision for c in all_new_upstream_commits]
+            if most_recent_job_version:
+                most_recent_job_newer_than_library_rev = most_recent_job_version in [c.revision for c in all_new_upstream_commits]
                 if most_recent_job_newer_than_library_rev:
                     self.logger.log("The most recent job we have run is for a revision still upstream and not in the mozilla repo.", level=LogLevel.Debug)
                 else:
@@ -172,11 +172,11 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             unseen_new_upstream_commits = []
             if most_recent_job_newer_than_library_rev:
                 # Step 5: Get the list of commits between the revision for the most recent job
-                # and new_version. (We previously confirmed that most_recent_job.version is in the sequence
+                # and new_version. (We previously confirmed that most_recent_job_version is in the sequence
                 # of commits from common_ancestor..new_version)
-                unseen_new_upstream_commits = self._commits_between(most_recent_job.version, new_version)
+                unseen_new_upstream_commits = self._commits_between(most_recent_job_version, new_version)
                 if len(unseen_new_upstream_commits) == 0:
-                    self.logger.log("Already processed revision %s in bug %s" % (most_recent_job.version, most_recent_job.bugzilla_id), level=LogLevel.Info)
+                    self.logger.log("Already processed revision %s" % (most_recent_job_version), level=LogLevel.Info)
                     return all_new_upstream_commits, []
 
                 # Step 6: Ensure that the unseen list of a subset of the 'all-new' list

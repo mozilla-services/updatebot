@@ -92,7 +92,7 @@ class TestCommandRunner(unittest.TestCase):
         new_version = COMMITS_MAIN[0]
         library.revision = COMMITS_MAIN[-1]
         ignoreme = Struct(**{'version': COMMITS_MAIN[3]})
-        all_new_upstream_commits, unseen_new_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, ignoreme)
+        all_new_upstream_commits, unseen_new_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, ignoreme.version)
         self.assertEqual(len(all_new_upstream_commits), len(COMMITS_MAIN) - 1)
         for i in range(len(COMMITS_MAIN) - 1):
             self.assertEqual(all_new_upstream_commits[i].revision, COMMITS_MAIN_R[i + 1])
@@ -115,7 +115,7 @@ class TestCommandRunner(unittest.TestCase):
         new_version = 'v0.0.2'
         library.revision = 'v0.0.1'
         ignoreme = Struct(**{'version': COMMITS_MAIN[-4]})
-        all_new_upstream_commits, unseen_new_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, ignoreme)
+        all_new_upstream_commits, unseen_new_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, ignoreme.version)
         self.assertEqual(len(all_new_upstream_commits), 2)
         self.assertEqual(len(unseen_new_upstream_commits), 1)
 

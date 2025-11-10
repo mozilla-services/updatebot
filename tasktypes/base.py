@@ -65,7 +65,7 @@ class BaseTaskRunner:
                 return False
 
         if commit_count > 0:
-            all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job)
+            all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
             commits_since_in_tree = len(all_upstream_commits)
             commits_since_new_job = len(unseen_upstream_commits)
 

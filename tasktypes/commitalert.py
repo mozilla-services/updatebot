@@ -33,7 +33,7 @@ class CommitAlertTaskRunner(BaseTaskRunner):
         my_ff_version = self.config['General']['ff-version']
 
         all_library_jobs = self.dbProvider.get_all_jobs_for_library(library, JOBTYPE.COMMITALERT)
-        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, task.branch or "HEAD", all_library_jobs[0] if all_library_jobs else None)
+        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, task.branch or "HEAD", all_library_jobs[0].version if all_library_jobs else None)
         self.logger.log("We found %s previous jobs, %s upstream commits, and %s unseen upstream commits." % (
             len(all_library_jobs), len(all_upstream_commits), len(unseen_upstream_commits)), level=LogLevel.Info)
 

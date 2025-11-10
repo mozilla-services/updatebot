@@ -130,7 +130,7 @@ class VendorTaskRunner(BaseTaskRunner):
         self.logger.set_context(library.name, created_job.id)
 
         # File the bug ------------------------
-        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job)
+        all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
         commit_stats = self.mercurialProvider.diff_stats()
         commit_details = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220) if library.should_show_commit_details else ""
 

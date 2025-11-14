@@ -709,7 +709,7 @@ class TestFunctionality(SimpleLoggingTest):
                 raise Exception("No worky!")
             if "--trace" not in cmd:
                 raise Exception("Expected to see --trace in the phabricator command")
-            return ARC_OUTPUT % (83000 + 50, 83000 + 50)
+            return (255, ARC_OUTPUT % (83000 + 50, 83000 + 50))
 
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(

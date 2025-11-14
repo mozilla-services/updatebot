@@ -72,6 +72,12 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
 
         if stdout is None:
             self.logger.log("We did not find a mapped response for the command `%s`." % argument_string, level=LogLevel.Warning)
+
+        def check_returncode():
+            if returncode != 0:
+                raise subprocess.CalledProcessError(returncode, argument_string)
+            pass
         return Struct(**{'stdout':
                          Struct(**{'decode': lambda: stdout}),
-                         'returncode': returncode})
+                         'returncode': returncode,
+                         'check_returncode': check_returncode})

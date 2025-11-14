@@ -49,7 +49,12 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 cmd.append(rev_id)
             cmd.append("--")
 
-            ret = self.run(cmd)
+            ret = self.run(cmd, clean_return=False)
+            if ret.returncode == 255 and retry_attempt > 1:
+                pass  # --trace results in this return code
+            else:
+                ret.check_returncode()
+
             output = ret.stdout.decode()
 
             phab_revision = False

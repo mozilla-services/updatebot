@@ -18,7 +18,7 @@ def repo_and_commit_to_url(repo, commit):
         hostname in repo
         for hostname in [
             "https://chromium.googlesource.com",
-            "https://https://aomedia.googlesource.com",
+            "https://aomedia.googlesource.com",
         ]
     ):
         return repo + "/+/" + commit

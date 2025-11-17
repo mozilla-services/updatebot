@@ -14,7 +14,13 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 
 
 def repo_and_commit_to_url(repo, commit):
-    if "https://chromium.googlesource.com" or 'https://https://aomedia.googlesource.com' in repo:
+    if any(
+        hostname in repo
+        for hostname in [
+            "https://chromium.googlesource.com",
+            "https://https://aomedia.googlesource.com",
+        ]
+    ):
         return repo + "/+/" + commit
 
     # gitlab wants https://domain.com/org/project/-/commit/sha

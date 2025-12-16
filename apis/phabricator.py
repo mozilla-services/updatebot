@@ -15,7 +15,7 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 def _arc():
     if platform.system() == "Windows":
         return "arc.bat"
-    return "arcanist"
+    return "arc"
 
 
 def quote_echo_string(s):

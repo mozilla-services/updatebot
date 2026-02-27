@@ -110,6 +110,9 @@ class MockedBugzillaProvider(BaseProvider):
     def mark_ff_version_affected(self, bug_id, ff_version, affected):
         self._assert_affected_func(bug_id, ff_version, affected)
 
+    def bug_has_landing_link(self, bug_id):
+        return False
+
 
 PROVIDERS = {
     # Not Mocked At All

@@ -261,6 +261,10 @@ class MockedBugzillaProvider(BaseProvider, INeedsLoggingProvider):
     def mark_ff_version_affected(self, bug_id, ff_version, affected):
         self._assert_affected_func(bug_id, ff_version, affected)
 
+    @logEntryExit
+    def bug_has_landing_link(self, bug_id):
+        return False
+
 
 # Decorator for the response callback given to MockTreeherderServer
 # It will initialize function-static variables `health_calls` and 'jobs_calls'

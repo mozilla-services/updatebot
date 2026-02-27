@@ -95,6 +95,10 @@ class VendorTaskRunner(BaseTaskRunner):
     def _process_prior_job(self, prior_job, superseceding_bugzilla_id):
         self.logger.log("The prior job id %s is not relinquished, so processing it." % prior_job.id, level=LogLevel.Info)
 
+        if prior_job.bugzilla_is_open and not prior_job.relinquished and self.bugzillaProvider.bug_has_landing_link(prior_job.bugzilla_id):
+            self.logger.log("The prior job's bugzilla bug has a landing link, so taking no superseding action.", level=LogLevel.Info)
+            return
+
         if not prior_job.bugzilla_is_open:
             self.logger.log("The prior job's bugzilla bug is closed, so we only need to relinquish it.", level=LogLevel.Info)
         elif superseceding_bugzilla_id:
@@ -115,6 +119,12 @@ class VendorTaskRunner(BaseTaskRunner):
     def _process_new_job(self, library, task, new_version, timestamp, most_recent_job):
         if not self._should_process_new_job(library, task, new_version):
             self.logger.log("Because of the task's frequency restrictions (%s) we are not processing this new revision now." % task.frequency, level=LogLevel.Info)
+            return
+
+        if most_recent_job and not most_recent_job.relinquished and most_recent_job.bugzilla_is_open and most_recent_job.bugzilla_id and self.bugzillaProvider.bug_has_landing_link(most_recent_job.bugzilla_id):
+            self.logger.log(
+                "The most recent bugzilla bug (%s) has a landing link, so we are not creating a new bug." % most_recent_job.bugzilla_id,
+                level=LogLevel.Info)
             return
 
         # Vendor ------------------------------

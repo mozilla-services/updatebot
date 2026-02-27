@@ -24,6 +24,8 @@ TRY_REVISION = "this-is-my-try-link"
 
 
 class MockBugzillaServer(server.BaseHTTPRequestHandler):
+    closed_bug_ids = []
+
     def do_POST(self):
         expectedPath_file = "/bug?api_key=bob"
         size = int(self.headers.get('content-length'))
@@ -64,6 +66,9 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         expectedPath_find = "/bug?resolution=---&id="
+        expectedPath_comments_autoland = "/bug/7892/comment"
+        expectedPath_comments_github = "/bug/7893/comment"
+        expectedPath_comments_mozilla_central = "/bug/7894/comment"
 
         self.send_response(200)
         self.send_header("Content-type", "application/json")
@@ -71,6 +76,14 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
 
         if expectedPath_find in self.path:
             self.wfile.write('{"bugs":[{"id":2,"assigned_to_detail":{"id":578488,"email":"tom@mozilla.com","real_name":"Tom Ritter [:tjr]","name":"tom@mozilla.com","nick":"tjr"},"assigned_to":"tom@mozilla.com"}],"faults":[]}'.encode())
+        elif expectedPath_comments_autoland == self.path:
+            self.wfile.write('{"bugs":{"7892":{"comments":[{"text":"landing: https://hg.mozilla.org/integration/autoland/rev/abc123"}]}}}'.encode())
+        elif expectedPath_comments_github == self.path:
+            self.wfile.write('{"bugs":{"7893":{"comments":[{"text":"landing: https://github.com/mozilla-firefox/firefox/commit/abc123"}]}}}'.encode())
+        elif expectedPath_comments_mozilla_central == self.path:
+            self.wfile.write('{"bugs":{"7894":{"comments":[{"text":"landing: https://hg.mozilla.org/mozilla-central/rev/abc123"}]}}}'.encode())
+        elif "/comment" in self.path:
+            self.wfile.write('{"bugs":{"7891":{"comments":[{"text":"no autoland links here"}]}}}'.encode())
         else:
             assert False, "Got a path %s I didn't expect" % self.path
 
@@ -113,6 +126,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
 
             self.wfile.write("{'bugs':[{'alias':null,'changes':{},'last_change_time':'2020-07-10T18:58:21Z','id':456}]}".replace("'", '"').encode())
         elif expectedPath_close in self.path:
+            MockBugzillaServer.closed_bug_ids.append(int(bug_id))
             assert 'id' in content
             assert 'status' in content
             assert content['status'] == 'RESOLVED'
@@ -189,6 +203,13 @@ class TestBugzillaProvider(unittest.TestCase):
     def testClose(self):
         self.bugzillaProvider.wontfix_bug(7890, "Hello World")
         self.bugzillaProvider.dupe_bug(7891, "Hello Earth", 12345)
+        self.assertIn(7891, MockBugzillaServer.closed_bug_ids)
+
+    def testHasAutolandLink(self):
+        self.assertTrue(self.bugzillaProvider.bug_has_landing_link(7892))
+        self.assertTrue(self.bugzillaProvider.bug_has_landing_link(7893))
+        self.assertTrue(self.bugzillaProvider.bug_has_landing_link(7894))
+        self.assertFalse(self.bugzillaProvider.bug_has_landing_link(7891))
 
 
 if __name__ == '__main__':

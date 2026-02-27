@@ -3,7 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from apis.bugzilla_api import fileBug, commentOnBug, closeBug, openBugsMetadata, markFFVersionAffected
+from apis.bugzilla_api import fileBug, commentOnBug, closeBug, openBugsMetadata, markFFVersionAffected, getBugComments
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel, logEntryExit
 
@@ -181,6 +181,12 @@ def is_needinfo_exception(e):
 
 
 class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
+    PROTECTED_LANDING_LINK_PREFIXES = (
+        "https://hg.mozilla.org/integration/autoland/",
+        "https://github.com/mozilla-firefox/firefox/commit/",
+        "https://hg.mozilla.org/mozilla-central/",
+    )
+
     def __init__(self, config):
         self.config = config
         assert 'apikey' in self.config, "apikey must be provided in the Bugzilla Configration"
@@ -239,6 +245,11 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
     @logEntryExit
     def dupe_bug(self, bug_id, comment, dup_id):
         closeBug(self.config['url'], self.config['apikey'], bug_id, 'DUPLICATE', comment, dup_id=dup_id)
+
+    @logEntryExit
+    def bug_has_landing_link(self, bug_id):
+        bug_comments = getBugComments(self.config['url'], bug_id)
+        return any(any(prefix in c for prefix in self.PROTECTED_LANDING_LINK_PREFIXES) for c in bug_comments)
 
     @logEntryExit
     def find_open_bugs_info(self, bug_ids):

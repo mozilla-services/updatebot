@@ -158,6 +158,21 @@ def closeBug(url, apikey, bugID, resolution, comment, dup_id=None):
 
 
 @retry
+def getBugComments(url, bugID):
+    r = requests.get(url + "bug/" + str(bugID) + "/comment")
+
+    j = _load_json_or_raise(r, "getBugComments")
+
+    try:
+        bugs = j['bugs']
+        bug_data = bugs.get(str(bugID), bugs.get(bugID, {}))
+        comments = bug_data.get('comments', [])
+        return [c.get('text', '') for c in comments if isinstance(c, dict)]
+    except Exception as e:
+        raise Exception(j) from e
+
+
+@retry
 def openBugsMetadata(url, bugIDs):
     r = requests.get(url + "bug?resolution=---&id=%s&include_fields=id,assigned_to" % ",".join([str(b) for b in bugIDs]))
 

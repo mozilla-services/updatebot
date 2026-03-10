@@ -128,7 +128,7 @@ PROVIDERS = {
     'Library': MockLibraryProvider,
     # Not mocked
     'SCM': SCMProvider,
-    'Mercurial': NeverUseMeClass,
+    'Git': NeverUseMeClass,
     'Taskcluster': NeverUseMeClass,
     'Vendor': NeverUseMeClass,
     'Phabricator': NeverUseMeClass,
@@ -159,7 +159,6 @@ class TestFunctionality(SimpleLoggingTest):
                 'env': 'dev',
                 'gecko-path': '.',
                 'ff-version': 87,
-                'repo': 'https://hg.mozilla.org/mozilla-central'
             },
             'Command': {
                 'test_mappings': None,
@@ -174,7 +173,7 @@ class TestFunctionality(SimpleLoggingTest):
                 'filed_bug_ids_func': filed_bug_ids_func,
                 'assert_affected_func': assert_affected_func
             },
-            'Mercurial': {},
+            'Git': {},
             'Taskcluster': {},
             'Phabricator': {},
             'Library': {
@@ -606,7 +605,6 @@ class TestFunctionality(SimpleLoggingTest):
         config_dictionary = copy.deepcopy(u.config_dictionary)
         config_dictionary['Database']['keep_tmp_db'] = False
         config_dictionary['General']['ff-version'] += 1
-        config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
 
         call_counter += 1
 
@@ -710,7 +708,6 @@ class TestFunctionality(SimpleLoggingTest):
         config_dictionary = copy.deepcopy(u.config_dictionary)
         config_dictionary['Database']['keep_tmp_db'] = False
         config_dictionary['General']['ff-version'] += 1
-        config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
 
         call_counter += 1
 
@@ -813,7 +810,6 @@ class TestFunctionality(SimpleLoggingTest):
         config_dictionary = copy.deepcopy(u.config_dictionary)
         config_dictionary['Database']['keep_tmp_db'] = False
         config_dictionary['General']['ff-version'] += 1
-        config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
 
         call_counter += 1
 
@@ -880,7 +876,6 @@ class TestFunctionality(SimpleLoggingTest):
         config_dictionary = copy.deepcopy(u.config_dictionary)
         config_dictionary['Database']['keep_tmp_db'] = False
         config_dictionary['General']['ff-version'] += 1
-        config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
 
         call_counter += 1
 

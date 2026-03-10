@@ -49,10 +49,10 @@ class TestConfigBugzillaProvider(BaseTestConfigProvider):
         self.also_expected = "Made it!"
 
 
-class TestConfigMercurialProvider(BaseTestConfigProvider):
+class TestConfigGitProvider(BaseTestConfigProvider):
     def __init__(self, config):
-        self.expected = 'mercurial!'
-        super(TestConfigMercurialProvider, self).__init__(config)
+        self.expected = 'git!'
+        super(TestConfigGitProvider, self).__init__(config)
 
     def _update_config(self, config):
         self.also_expected = "Made it!"
@@ -122,12 +122,11 @@ class TestCommandRunner(unittest.TestCase):
                 'env': 'dev',
                 'gecko-path': 'nowhere',
                 'ff-version': 87,
-                'repo': 'https://hg.mozilla.org/mozilla-central'
             },
             'Database': {'specialkey': 'database!'},
             'Vendor': {'specialkey': 'vendor!'},
             'Bugzilla': {'specialkey': 'bugzilla!'},
-            'Mercurial': {'specialkey': 'mercurial!'},
+            'Git': {'specialkey': 'git!'},
             'Taskcluster': {'specialkey': 'taskcluster!'},
             'Phabricator': {'specialkey': 'phab!'},
             'Command': {'specialkey': 'command!'},
@@ -139,7 +138,7 @@ class TestCommandRunner(unittest.TestCase):
             'Database': TestConfigDatabaseProvider,
             'Vendor': TestConfigVendorProvider,
             'Bugzilla': TestConfigBugzillaProvider,
-            'Mercurial': TestConfigMercurialProvider,
+            'Git': TestConfigGitProvider,
             'Taskcluster': TestConfigTaskclusterProvider,
             'Phabricator': TestConfigPhabricatorProvider,
             'Logging': TestConfigLoggingProvider,

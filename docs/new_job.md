@@ -44,7 +44,7 @@ graph TD
 
     CommentMozBuild[Comment on<br />the bug about error] --> Commit
 
-    Commit[Mercurial Commit] -->HasPatches
+    Commit[Git Commit] -->HasPatches
 
     HasPatches{Are there <br />patches to <br />apply?}
     HasPatches --> |Yes| ApplyPatches[Apply Patches] --> CommitPatches[Commit Patches] --> PushToTry

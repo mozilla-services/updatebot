@@ -159,7 +159,6 @@ class TestBugzillaProvider(unittest.TestCase):
             'General': {
                 'env': 'dev',
                 'ff-version': 88,
-                'repo': 'https://hg.mozilla.org/mozilla-central'
             },
             'apikey': 'bob',
             'url': 'http://localhost:27489/',

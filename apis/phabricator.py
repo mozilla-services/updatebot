@@ -71,17 +71,17 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         # arc diff will squash all commits into a single commit, so we need to jump through some hoops.
         # Conceptually, we are only commiting the top-most commit in the repo (and not any subsequent commits)
-        # If we have two commits, we'll go backwards and grab only the first commit, then go back to tip
+        # If we have two commits, we'll go backwards and grab only the first commit, then go back to HEAD
         if has_patches:
             # Checkout to the first patch
-            self.run(["hg", "checkout", "tip^"])
+            self.run(["git", "checkout", "HEAD~1"])
             # Tell phabricator to submit from the base to the current working tree
             phab_revisions.append(submit_to_phabricator(""))
-            # Ask hg to evolve the original second patch on top of the rewritten first patch
-            self.run(["hg", "next"])
+            # Return to the original branch tip
+            self.run(["git", "checkout", "-"])
 
         # Submit only a single patch
-        phab_revisions.append(submit_to_phabricator("tip^"))
+        phab_revisions.append(submit_to_phabricator("HEAD~1"))
 
         # Chain revisions together if needed
         @retry

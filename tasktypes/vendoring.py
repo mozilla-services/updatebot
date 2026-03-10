@@ -14,7 +14,7 @@ from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
-from components.hg import reset_repository
+from components.git import reset_repository
 
 
 class VendorTaskRunner(BaseTaskRunner):
@@ -87,7 +87,7 @@ class VendorTaskRunner(BaseTaskRunner):
         self.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)
 
         # If we are on TC, update to the HEAD commit to avoid stripping WIP commits on holly
-        self.cmdProvider.run(["hg", "status"])
+        self.cmdProvider.run(["git", "status"])
         reset_repository(self.cmdProvider)
 
     # ====================================================================
@@ -137,7 +137,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # File the bug ------------------------
         all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
-        commit_stats = self.mercurialProvider.diff_stats()
+        commit_stats = self.gitProvider.diff_stats()
         commit_details = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220) if library.should_show_commit_details else ""
 
         created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_details), task.cc, blocks=task.blocking)
@@ -166,7 +166,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Commit ------------------------------
         try:
-            self.mercurialProvider.commit(library, created_job.bugzilla_id, new_version)
+            self.gitProvider.commit(library, created_job.bugzilla_id, new_version)
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."), needinfo=library.maintainer_bz)
@@ -187,7 +187,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 return
             # Commit Patches ------------------
             try:
-                self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)
+                self.gitProvider.commit_patches(library, created_job.bugzilla_id, new_version)
             except Exception as e:
                 self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES)
                 self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit after applying mozilla patches."), needinfo=library.maintainer_bz)
@@ -500,7 +500,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Re-Commit -------------------
         try:
-            self.mercurialProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
+            self.gitProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
         except Exception as e:
             self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT)
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."), needinfo=library.maintainer_bz)
@@ -521,7 +521,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 return
             # Commit Patches ------------------
             try:
-                self.mercurialProvider.commit_patches(library, existing_job.bugzilla_id, existing_job.version)
+                self.gitProvider.commit_patches(library, existing_job.bugzilla_id, existing_job.version)
             except Exception as e:
                 self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES)
                 self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit after applying mozilla patches."), needinfo=library.maintainer_bz)

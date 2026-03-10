@@ -27,7 +27,7 @@ from components.logging import SimpleLoggingTest, LoggingProvider, log, logEntry
 from components.dbc import DatabaseProvider
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
-from components.hg import MercurialProvider
+from components.git import GitProvider
 from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
@@ -86,7 +86,7 @@ PROVIDERS = {
     # bugzilla server which provides no additional logic coverage
     'Bugzilla': MockedBugzillaProvider,
     # Not Mocked At All
-    'Mercurial': MercurialProvider,
+    'Git': GitProvider,
     # Not Mocked At All, but does point to a fake server
     'Taskcluster': TaskclusterProvider,
     # Not Mocked At All
@@ -121,7 +121,6 @@ class TestFunctionality(SimpleLoggingTest):
                 'env': 'dev',
                 'gecko-path': '.',
                 'ff-version': 87,
-                'repo': 'https://hg.mozilla.org/mozilla-central',
                 'separate-platforms': True
             },
             'Command': {'test_mappings': None},
@@ -135,7 +134,7 @@ class TestFunctionality(SimpleLoggingTest):
                 'assert_assignee_func': assert_assignee_func,
                 'assert_prior_bug_reference': assert_prior_bug_reference
             },
-            'Mercurial': {},
+            'Git': {},
             'Taskcluster': {
                 'url_treeherder': 'http://localhost:27490/',
                 'url_taskcluster': 'http://localhost:27490/',
@@ -1713,7 +1712,6 @@ class TestFunctionality(SimpleLoggingTest):
             config_dictionary = copy.deepcopy(u.config_dictionary)
             config_dictionary['Database']['keep_tmp_db'] = False
             config_dictionary['General']['ff-version'] += 1
-            config_dictionary['General']['repo'] = "https://hg.mozilla.org/mozilla-beta"
 
             u = Updatebot(config_dictionary, PROVIDERS)
 

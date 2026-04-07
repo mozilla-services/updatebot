@@ -12,6 +12,8 @@ import time
 
 from dateutil.parser import parse
 
+RETRY_TIMES_OVERRIDE = None
+
 
 class Struct:
     def __init__(self, **entries):
@@ -152,15 +154,16 @@ def retry(_func=None, *, times=10, sleep_s=1, exp=2, exceptions=(Exception,), at
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            effective_times = RETRY_TIMES_OVERRIDE if RETRY_TIMES_OVERRIDE is not None else times
             backoff = sleep_s
-            for attempt in range(1, times + 1):
+            for attempt in range(1, effective_times + 1):
                 try:
                     call_kwargs = dict(kwargs)
                     if accepts_attempt:
                         call_kwargs[attempt_kw] = attempt
                     return func(*args, **call_kwargs)
                 except exceptions:
-                    if attempt == times:
+                    if attempt == effective_times:
                         raise  # preserves the original traceback
                     time.sleep(backoff)
                     backoff *= exp

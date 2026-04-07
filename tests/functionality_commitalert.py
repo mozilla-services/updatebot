@@ -13,7 +13,7 @@ import functools
 sys.path.append(".")
 sys.path.append("..")
 import components.utilities
-components.utilities.RETRY_TIMES = 2
+components.utilities.RETRY_TIMES_OVERRIDE = 3
 
 from automation import Updatebot
 

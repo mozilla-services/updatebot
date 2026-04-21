@@ -138,10 +138,15 @@ class VendorTaskRunner(BaseTaskRunner):
         # File the bug ------------------------
         all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
         commit_stats = self.mercurialProvider.diff_stats()
-        commit_details = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220) if library.should_show_commit_details else ""
+        if library.should_show_commit_details:
+            commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220, library.repo_url)
+        else:
+            commit_chunks = [""]
 
-        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_details), task.cc, blocks=task.blocking)
+        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_chunks[0]), task.cc, blocks=task.blocking)
         self.dbProvider.update_job_add_bug_id(created_job, created_job.bugzilla_id)
+        for chunk in commit_chunks[1:]:
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, chunk)
 
         # Address any prior bug ---------------
         if most_recent_job and not most_recent_job.relinquished:

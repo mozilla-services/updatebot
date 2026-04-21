@@ -30,6 +30,12 @@ def repo_and_commit_to_url(repo, commit):
     return repo.replace(".git", "") + "/commit/" + commit
 
 
+def repo_and_compare_url(repo, old_commit, new_commit):
+    if not repo or not any(h in repo for h in ["github.com", "gitlab.com"]):
+        return None
+    return repo.replace(".git", "") + "/compare/" + old_commit + "..." + new_commit
+
+
 class Commit:
     def __init__(self, pretty_line):
         parts = pretty_line.split("|")
@@ -239,70 +245,70 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             self.logger.log("  - %s" % c, level=LogLevel.Error)
         raise Exception(problem)
 
-    def build_bug_description(self, list_of_commits, max_length):
+    def build_bug_description(self, list_of_commits, max_length, repo_url=None):
         # The commits are ordered oldest to newest.
         # But when we file a bug we want the newest commit to be at the top.
         list_of_commits = copy.deepcopy(list_of_commits)
+        oldest_revision = list_of_commits[0].revision
+        newest_revision = list_of_commits[-1].revision
         list_of_commits.reverse()
 
-        def _get_details(verbosity):
-            if verbosity == 0:
-                s = "----------------------------------------\n"
-                s += "%s commits elided, as they are too long for a bugzilla comment.\n\n" % len(list_of_commits)
-                s += "----------------------------------------\n"
-                return s
+        SEPARATOR = "----------------------------------------\n"
 
-            s = "----------------------------------------\n"
-            for c in list_of_commits:
-                if not c.populated:
-                    raise Exception("Tried to build bug description; but commit details not populated.")
-
-                s += "%s by %s\n" % (c.revision, c.author)
-                s += c.revision_link + "\n"
-
-                if verbosity >= 2:
-                    s += "Authored: %s\n" % (c.author_date)
-                    s += "Committed: %s\n" % (c.commit_date)
-                    s += "\n"
-                    s += c.summary + "\n"
-
-                if verbosity >= 3:
-                    s += "\n"
-                    s += c.description + "\n"
-
-                    if c.files_added:
-                        s += "\n"
-                        s += "Files Added:\n"
-                        for f in c.files_added:
-                            s += "  - %s\n" % f
-
-                    if c.files_deleted:
-                        s += "\n"
-                        s += "Files Deleted:\n"
-                        for f in c.files_deleted:
-                            s += "  - %s\n" % f
-
-                    if c.files_modified:
-                        s += "\n"
-                        s += "Files Modified:\n"
-                        for f in c.files_modified:
-                            s += "  - %s\n" % f
-
-                    if c.files_other:
-                        s += "\n"
-                        s += "Files Changed:\n"
-                        for f in c.files_other:
-                            s += "  - %s\n" % f
-                s += "\n----------------------------------------\n"
-
+        def _commit_block(c):
+            if not c.populated:
+                raise Exception("Tried to build bug description; but commit details not populated.")
+            s = "%s by %s\n" % (c.revision, c.author)
+            s += c.revision_link + "\n"
+            s += "\n"
+            s += c.summary + "\n"
+            s += "Authored: %s\n" % c.author_date
+            s += "Committed: %s\n" % c.commit_date
+            if c.description:
+                s += "\n"
+                s += c.description + "\n"
+            if c.files_added:
+                s += "\nFiles Added:\n"
+                for f in c.files_added:
+                    s += "  - %s\n" % f
+            if c.files_deleted:
+                s += "\nFiles Deleted:\n"
+                for f in c.files_deleted:
+                    s += "  - %s\n" % f
+            if c.files_modified:
+                s += "\nFiles Modified:\n"
+                for f in c.files_modified:
+                    s += "  - %s\n" % f
+            if c.files_other:
+                s += "\nFiles Changed:\n"
+                for f in c.files_other:
+                    s += "  - %s\n" % f
             return s
 
-        # Bugzilla's limit is 65535
-        details = _get_details(verbosity=3)
-        if len(details) > max_length:
-            details = _get_details(verbosity=2)
-        if len(details) > max_length:
-            details = _get_details(verbosity=1)
-        if len(details) > max_length:
-            details = _get_details(verbosity=0)
-        return details
+        entries = [_commit_block(c) + "\n" + SEPARATOR for c in list_of_commits]
+
+        def _pack(entries, max_length, first_header=""):
+            chunks = []
+            current = first_header + SEPARATOR
+            has_entries = False
+            for entry in entries:
+                if has_entries and len(current) + len(entry) > max_length:
+                    chunks.append(current)
+                    current = SEPARATOR + entry
+                    has_entries = True
+                else:
+                    current += entry
+                    has_entries = True
+            if has_entries:
+                chunks.append(current)
+            return chunks or [first_header + SEPARATOR]
+
+        chunks = _pack(entries, max_length)
+        if len(chunks) == 1:
+            return chunks
+
+        compare_url = repo_and_compare_url(repo_url, oldest_revision, newest_revision) if repo_url else None
+        first_header = ""
+        if compare_url:
+            first_header = "All %s commits: %s\n(continued in following comments)\n\n" % (len(list_of_commits), compare_url)
+        return _pack(entries, max_length, first_header)

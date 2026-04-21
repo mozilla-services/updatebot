@@ -5,7 +5,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from enum import unique, IntEnum
-import json
 import jsone
 import platform
 import requests
@@ -442,13 +441,12 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             template = retrigger_action['hookPayload']
 
             payload = jsone.render(template, context)
-            payload = json.dumps(payload).replace("\\n", " ")
 
             trigger_url = self.url_taskcluster + "api/hooks/v1/hooks/%s/%s/trigger" % \
                 (quote_plus(retrigger_action["hookGroupId"]), quote_plus(retrigger_action["hookId"]))
 
             self.logger.log("Issuing a retrigger to %s" % (trigger_url), level=LogLevel.Info)
-            r = requests.post(trigger_url, data=payload)
+            r = requests.post(trigger_url, json=payload)
             try:
                 if r.status_code == 200:
                     output = r.json()

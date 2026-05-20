@@ -105,7 +105,10 @@ class CommitAlertTaskRunner(BaseTaskRunner):
         depends_on = all_library_jobs[0].bugzilla_id if all_library_jobs else None
         open_dependencies = self.bugzillaProvider.find_open_bugs_info([j.bugzilla_id for j in all_library_jobs])
 
-        description = CommentTemplates.EXAMINE_COMMITS_BODY(library, task, self.scmProvider.build_bug_description(filtered_commits, 65534 - 500), open_dependencies)
+        commit_chunks = self.scmProvider.build_bug_description(filtered_commits, 65534 - 500, library.repo_url)
+        description = CommentTemplates.EXAMINE_COMMITS_BODY(library, task, commit_chunks[0], open_dependencies)
 
         bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.EXAMINE_COMMITS_SUMMARY(library, new_commits), description, task.cc, needinfo=task.needinfo, depends_on=depends_on, blocks=task.blocking, moco_confidential=True)
+        for chunk in commit_chunks[1:]:
+            self.bugzillaProvider.comment_on_bug(bugzilla_id, chunk)
         self.dbProvider.create_job(JOBTYPE.COMMITALERT, library, newest_commit.revision, JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS, bugzilla_id)

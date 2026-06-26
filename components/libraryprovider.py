@@ -105,6 +105,8 @@ class Task:
         self.frequency = dict['frequency']
         self.platform = dict['platform']
         self.blocking = dict['blocking']
+        # Each option named in the moz.yaml is stored as a key set to True.
+        self.options = {option: True for option in dict['options']}
 
         if self.type == 'commit-alert':
             self.filter = dict['filter']
@@ -298,6 +300,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         validated_task['needinfo'] = get_key_or_default('needinfo', task_dict, [])
         validated_task['frequency'] = get_key_or_default('frequency', task_dict, 'every')
         validated_task['blocking'] = get_key_or_default('blocking', task_dict, None)
+        validated_task['options'] = get_key_or_default('options', task_dict, [])
 
         if validated_task['platform'] not in ('windows', 'linux'):
             raise AttributeError('library {0} task has an invalid value for a platform: {1}'.format(library_name, validated_task['platform']))

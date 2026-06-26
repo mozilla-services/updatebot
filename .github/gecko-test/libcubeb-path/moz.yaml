@@ -35,3 +35,4 @@ updatebot:
     - type: vendoring
       enabled: True
       blocking: 1234
+      options: ["one", "two"]

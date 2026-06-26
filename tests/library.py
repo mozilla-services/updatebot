@@ -72,7 +72,8 @@ LIBRARIES = [
                     LibraryProvider.validate_task({
                         'type': "vendoring",
                         'enabled': True,
-                        'blocking': '1234'
+                        'blocking': '1234',
+                        'options': ['one', 'two']
                     }, "n/a")
         ],
         "yaml_path": ".github/gecko-test/libcubeb-path/moz.yaml".replace("/", os.path.sep)

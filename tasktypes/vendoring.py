@@ -17,6 +17,14 @@ from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
 from components.hg import reset_repository
 
 
+def _patch_exception_message(e):
+    if isinstance(e, subprocess.CalledProcessError):
+        msg = ("stderr:\n" + e.stderr.decode().rstrip() + "\n\n") if e.stderr else ""
+        msg += ("stdout:\n" + e.stdout.decode().rstrip()) if e.stdout else ""
+        return msg
+    return str(e)
+
+
 class VendorTaskRunner(BaseTaskRunner):
     def __init__(self, provider_dictionary, config_dictionary):
         self.jobType = JOBTYPE.VENDORING
@@ -177,19 +185,48 @@ class VendorTaskRunner(BaseTaskRunner):
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."), needinfo=library.maintainer_bz)
             raise e
 
+        ai_resolved_conflicts = False
         if library.has_patches:
             # Apply Patches -------------------
             try:
                 self.vendorProvider.patch(library, new_version)
             except Exception as e:
-                if isinstance(e, subprocess.CalledProcessError):
-                    msg = ("stderr:\n" + e.stderr.decode().rstrip() + "\n\n") if e.stderr else ""
-                    msg += ("stdout:\n" + e.stdout.decode().rstrip()) if e.stdout else ""
-                else:
-                    msg = str(e)
-                self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
-                return
+                msg = _patch_exception_message(e)
+
+                # The mozilla patches didn't apply cleanly. Ask the AI to try to
+                # resolve the conflicts (updating the .patch files / moz.yaml).
+                potential_commit_message = "Bug %s - Update %s local patches to apply cleanly" % (
+                    created_job.bugzilla_id, library.name)
+                resolution = self.aiProvider.resolve_patch_conflicts(
+                    library.yaml_path, potential_commit_message, cwd=self.config['General'].get('gecko-path'))
+                outcome = resolution.get("outcome") if resolution else "failure"
+                ai_details = "\n".join(resolution.get("details", [])) if resolution else ""
+
+                if outcome == "failure":
+                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR_WITH_AI("apply the mozilla patches.", initialerrormessage=msg, ai_outcome=outcome, ai_details=ai_details), needinfo=library.maintainer_bz)
+                    return
+
+                # The AI reports it resolved the conflicts (and committed the
+                # updated .patch files). Record the outcome on the bug, flagging
+                # the maintainer for review when it's only 'uncertain success'.
+                needinfo = library.maintainer_bz if outcome == "uncertain success" else None
+                self.bugzillaProvider.comment_on_bug(
+                    created_job.bugzilla_id,
+                    CommentTemplates.AI_RESOLVED_PATCH_CONFLICTS(outcome, ai_details),
+                    needinfo=needinfo)
+
+                # Re-apply the now-updated patches so the vendored tree is patched.
+                try:
+                    self.vendorProvider.patch(library, new_version)
+                except Exception as e2:
+                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=_patch_exception_message(e2)), needinfo=library.maintainer_bz)
+                    return
+
+                # The AI added its own commit for the .patch/moz.yaml fixes, so
+                # there is now an extra commit to submit to Phabricator.
+                ai_resolved_conflicts = True
             # Commit Patches ------------------
             try:
                 self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)

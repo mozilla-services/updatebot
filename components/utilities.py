@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import copy
 import inspect
 import pickle
@@ -13,6 +14,20 @@ import time
 from dateutil.parser import parse
 
 RETRY_TIMES_OVERRIDE = None
+
+PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompts")
+
+
+def load_prompt(name, **substitutions):
+    """
+    Load the prompt template prompts/<name>.md and substitute any
+    {{ key }} placeholders with the provided keyword arguments.
+    """
+    with open(os.path.join(PROMPTS_DIR, name + ".md")) as f:
+        text = f.read()
+    for key, value in substitutions.items():
+        text = text.replace("{{ %s }}" % key, value)
+    return text
 
 
 class Struct:

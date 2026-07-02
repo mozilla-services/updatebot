@@ -30,6 +30,16 @@ def repo_and_commit_to_url(repo, commit):
     return repo.replace(".git", "") + "/commit/" + commit
 
 
+def repo_and_compare_url(repo, old_commit, new_commit):
+    if not repo or not any(h in repo for h in ["github.com", "gitlab.com"]):
+        return None
+    return repo.replace(".git", "") + "/compare/" + old_commit + "..." + new_commit
+
+
+# Separator line placed between commit blocks in generated bug comments.
+COMMENT_SEPARATOR = "----------------------------------------\n"
+
+
 class Commit:
     def __init__(self, pretty_line):
         parts = pretty_line.split("|")
@@ -42,6 +52,10 @@ class Commit:
         self.files_deleted = []
         self.files_other = []
 
+        # The parent (first-parent) revision, resolved to a concrete hash in
+        # populate_details. Used to build a compare URL whose range includes
+        # this commit.
+        self.parent_revision = None
         self.populated = False
 
     def populate_details(self, repo, run):
@@ -49,6 +63,7 @@ class Commit:
             return
 
         rev_range = [self.revision + "^", self.revision]
+        self.parent_revision = run(["git", "rev-parse", self.revision + "^"]).stdout.decode().strip()
 
         files_changed = run(["git", "diff", "--name-status"] + rev_range).stdout.decode().split("\n")
         for f in files_changed:
@@ -239,65 +254,77 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             self.logger.log("  - %s" % c, level=LogLevel.Error)
         raise Exception(problem)
 
-    def build_bug_description(self, list_of_commits, max_length):
-        # The commits are ordered oldest to newest.
-        # But when we file a bug we want the newest commit to be at the top.
-        list_of_commits = copy.deepcopy(list_of_commits)
+    # =================================================================
+
+    def _commit_block(self, c, verbosity):
+        # Render a single commit at the given verbosity:
+        #   1: revision, author and the revision link
+        #   2: + authored/committed dates and the commit summary
+        #   3: + the full description and the lists of changed files
+        if not c.populated:
+            raise Exception("Tried to build bug description; but commit details not populated.")
+
+        s = "%s by %s\n" % (c.revision, c.author)
+        s += c.revision_link + "\n"
+
+        if verbosity >= 2:
+            s += "Authored: %s\n" % (c.author_date)
+            s += "Committed: %s\n" % (c.commit_date)
+            s += "\n"
+            s += c.summary + "\n"
+
+        if verbosity >= 3:
+            s += "\n"
+            s += c.description + "\n"
+
+            if c.files_added:
+                s += "\n"
+                s += "Files Added:\n"
+                for f in c.files_added:
+                    s += "  - %s\n" % f
+
+            if c.files_deleted:
+                s += "\n"
+                s += "Files Deleted:\n"
+                for f in c.files_deleted:
+                    s += "  - %s\n" % f
+
+            if c.files_modified:
+                s += "\n"
+                s += "Files Modified:\n"
+                for f in c.files_modified:
+                    s += "  - %s\n" % f
+
+            if c.files_other:
+                s += "\n"
+                s += "Files Changed:\n"
+                for f in c.files_other:
+                    s += "  - %s\n" % f
+        return s
+
+    # -----------------------------------------------------------------
+
+    def _build_single_comment_description(self, list_of_commits, max_length):
+        # Render all the commits into a single comment.
+        # Reducing the verbosity until the result fits within max_length.
+
+        # The caller has already copied the list; reorder it newest-first for display.
         list_of_commits.reverse()
 
         def _get_details(verbosity):
             if verbosity == 0:
-                s = "----------------------------------------\n"
+                s = COMMENT_SEPARATOR
                 s += "%s commits elided, as they are too long for a bugzilla comment.\n\n" % len(list_of_commits)
-                s += "----------------------------------------\n"
+                s += COMMENT_SEPARATOR
                 return s
 
-            s = "----------------------------------------\n"
+            s = COMMENT_SEPARATOR
             for c in list_of_commits:
-                if not c.populated:
-                    raise Exception("Tried to build bug description; but commit details not populated.")
-
-                s += "%s by %s\n" % (c.revision, c.author)
-                s += c.revision_link + "\n"
-
-                if verbosity >= 2:
-                    s += "Authored: %s\n" % (c.author_date)
-                    s += "Committed: %s\n" % (c.commit_date)
-                    s += "\n"
-                    s += c.summary + "\n"
-
-                if verbosity >= 3:
-                    s += "\n"
-                    s += c.description + "\n"
-
-                    if c.files_added:
-                        s += "\n"
-                        s += "Files Added:\n"
-                        for f in c.files_added:
-                            s += "  - %s\n" % f
-
-                    if c.files_deleted:
-                        s += "\n"
-                        s += "Files Deleted:\n"
-                        for f in c.files_deleted:
-                            s += "  - %s\n" % f
-
-                    if c.files_modified:
-                        s += "\n"
-                        s += "Files Modified:\n"
-                        for f in c.files_modified:
-                            s += "  - %s\n" % f
-
-                    if c.files_other:
-                        s += "\n"
-                        s += "Files Changed:\n"
-                        for f in c.files_other:
-                            s += "  - %s\n" % f
-                s += "\n----------------------------------------\n"
+                s += self._commit_block(c, verbosity)
+                s += "\n" + COMMENT_SEPARATOR
 
             return s
 
-        # Bugzilla's limit is 65535
         details = _get_details(verbosity=3)
         if len(details) > max_length:
             details = _get_details(verbosity=2)
@@ -305,4 +332,80 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             details = _get_details(verbosity=1)
         if len(details) > max_length:
             details = _get_details(verbosity=0)
-        return details
+        return [details]
+
+    # -----------------------------------------------------------------
+
+    def _commit_entry(self, c, max_length):
+        # A commit block plus its trailing separator, rendered at the highest
+        # verbosity (3 -> 1) that fits within max_length.
+        # In theory, it falls back to the least verbose form if even that is
+        # too long to fit, but this will never happen in practice (knock on wood)
+        for verbosity in (3, 2, 1):
+            entry = self._commit_block(c, verbosity) + "\n" + COMMENT_SEPARATOR
+            if len(entry) <= max_length:
+                return entry
+        return entry
+
+    def _chunk_comments(self, entries, max_length, first_header=""):
+        # Greedily group the already-rendered commit entries into comment-sized
+        # strings, each kept under max_length. first_header goes on the first
+        # comment only. entries is assumed non-empty; the first comment is
+        # seeded with the first entry, then each subsequent entry starts a new
+        # comment whenever it would overflow the current one.
+        comments = []
+        current = first_header + COMMENT_SEPARATOR + entries[0]
+        for entry in entries[1:]:
+            if len(current) + len(entry) > max_length:
+                comments.append(current)
+                current = COMMENT_SEPARATOR + entry
+            else:
+                current += entry
+        comments.append(current)
+        return comments
+
+    def _build_chained_comment_description(self, list_of_commits, max_length, repo_url):
+        # Always emit full commit details, split across as many comments as needed.
+        if not list_of_commits:
+            return [""]
+
+        # The compare URL must start at the parent of the oldest commit so that
+        # the oldest commit itself is included in the range (a `A...B` compare
+        # excludes A).
+        base_revision = list_of_commits[0].parent_revision
+        newest_revision = list_of_commits[-1].revision
+        # The caller has already copied the list; reorder it newest-first.
+        list_of_commits.reverse()
+
+        # Format each commit at full detail, but drop to a lower verbosity for
+        # any single commit whose block would not otherwise fit in a comment.
+        # A comment is a leading separator followed by entries, so budget for it.
+        entry_budget = max_length - len(COMMENT_SEPARATOR)
+        entries = [self._commit_entry(c, entry_budget) for c in list_of_commits]
+
+        # If the whole thing fits in one comment, post it as-is, with no header.
+        whole_length = len(COMMENT_SEPARATOR) + sum(len(e) for e in entries)
+        if whole_length <= max_length:
+            return [COMMENT_SEPARATOR + "".join(entries)]
+
+        # It needs multiple comments: head the first one with a link to the
+        # whole commit range so it can be reviewed at a glance. Passing the
+        # header to _chunk_comments lets its length count against the budget.
+        compare_url = repo_and_compare_url(repo_url, base_revision, newest_revision) if (repo_url and base_revision) else None
+
+        if compare_url:
+            first_header = "All %s commits: %s\n(continued in following comments)\n\n" % (len(list_of_commits), compare_url)
+        else:
+            first_header = ""
+        return self._chunk_comments(entries, max_length, first_header)
+
+    # -----------------------------------------------------------------
+
+    def build_bug_description(self, list_of_commits, max_length, repo_url=None, options=None):
+        # The commits are ordered oldest to newest. Copy once here since both
+        # builders reorder the list in place, then dispatch on the task options.
+        options = options or {}
+        list_of_commits = copy.deepcopy(list_of_commits)
+        if 'verbose-diff' in options:
+            return self._build_chained_comment_description(list_of_commits, max_length, repo_url)
+        return self._build_single_comment_description(list_of_commits, max_length)

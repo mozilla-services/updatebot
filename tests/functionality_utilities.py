@@ -86,6 +86,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         ("git log -1 --oneline", lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output"),
         ("git clone https://example.invalid .", lambda: ""),
         ("git merge-base", lambda: "_current"),
+        ("git rev-parse", lambda: "abcdef1234567890abcdef1234567890abcdef12"),
         ("git log --pretty=%H|%ai|%ci", lambda cmd: "\n".join(expected_values.git_pretty_output_func("_current" not in cmd))),
         ("git diff --name-status", lambda: GIT_DIFF_FILES_CHANGES),
         ("git log --pretty=%s", lambda: "Roll SPIRV-Tools from a61d07a72763 to 1cda495274bb (1 revision)"),

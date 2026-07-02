@@ -251,11 +251,19 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Submit Phab Revision ----------------
         try:
-            phab_revisions = self.phabricatorProvider.submit_patches(created_job.bugzilla_id, library.has_patches)
-            assert len(phab_revisions) == 2 if library.has_patches else 1, "We don't have the correct number of phabricator patches; we have %s, expected %s" % (len(phab_revisions), 2 if library.has_patches else 1)
-            self.dbProvider.add_phab_revision(created_job, phab_revisions[0], 'vendoring commit')
-            if len(phab_revisions) > 1:
-                self.dbProvider.add_phab_revision(created_job, phab_revisions[1], 'patches commit')
+            # One commit for the vendoring, plus one for the patches (if any),
+            # plus one more if the AI added a commit resolving patch conflicts.
+            num_commits = 1 + (1 if library.has_patches else 0) + (1 if ai_resolved_conflicts else 0)
+            phab_revisions = self.phabricatorProvider.submit_patches(created_job.bugzilla_id, num_commits)
+            assert len(phab_revisions) == num_commits, "We don't have the correct number of phabricator patches; we have %s, expected %s" % (len(phab_revisions), num_commits)
+            # Revisions come back bottom-up, matching the order the commits were made.
+            purposes = ['vendoring commit']
+            if ai_resolved_conflicts:
+                purposes.append('patch conflict resolution commit')
+            if library.has_patches:
+                purposes.append('patches commit')
+            for revision, purpose in zip(phab_revisions, purposes):
+                self.dbProvider.add_phab_revision(created_job, revision, purpose)
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to phabricator."), needinfo=library.maintainer_bz)

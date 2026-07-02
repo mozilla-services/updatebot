@@ -115,6 +115,15 @@ class TestConfigSCMProvider(BaseTestConfigProvider):
         self.also_expected = "Made it!"
 
 
+class TestConfigAIProvider(BaseTestConfigProvider):
+    def __init__(self, config):
+        self.expected = 'ai!'
+        super(TestConfigAIProvider, self).__init__(config)
+
+    def _update_config(self, config):
+        self.also_expected = "Made it!"
+
+
 class TestCommandRunner(unittest.TestCase):
     def testConfigurationPassing(self):
         configs = {
@@ -134,6 +143,7 @@ class TestCommandRunner(unittest.TestCase):
             'Logging': {'specialkey': 'logging!'},
             'Library': {'specialkey': 'library!'},
             'SCM': {'specialkey': 'scm!'},
+            'AI': {'specialkey': 'ai!'},
         }
         providers = {
             'Database': TestConfigDatabaseProvider,
@@ -145,7 +155,8 @@ class TestCommandRunner(unittest.TestCase):
             'Logging': TestConfigLoggingProvider,
             'Command': TestConfigCommandProvider,
             'Library': TestConfigLibraryProvider,
-            'SCM': TestConfigSCMProvider
+            'SCM': TestConfigSCMProvider,
+            'AI': TestConfigAIProvider
         }
         u = Updatebot(configs, providers)
 

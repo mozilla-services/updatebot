@@ -9,8 +9,12 @@ import json
 import shutil
 import tempfile
 
+from components.utilities import load_prompt
 from components.logging import logEntryExit, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
+
+
+CONFLICT_RESOLUTION_RESULT_FILE = "conflict_resolution_result.json"
 
 
 class AIResult:
@@ -42,7 +46,7 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         self.apikey = config.get('apikey', None)
 
     @logEntryExit
-    def run_prompt(self, prompt, system_prompt=None, cwd=None):
+    def _run_prompt(self, prompt, system_prompt=None, cwd=None):
         tmpdir = tempfile.mkdtemp(prefix="updatebot-claude-")
         try:
             prompt_path = os.path.join(tmpdir, "prompt.txt")
@@ -81,3 +85,28 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
         success = (ret.returncode == 0) and not data.get("is_error", True)
         return AIResult(success, data.get("result", ""), data.get("session_id"))
+
+    @logEntryExit
+    def resolve_patch_conflicts(self, moz_yaml_path, commit_message, cwd=None):
+        # Ask the AI to resolve local-patch conflicts for a library. It works in
+        # the checkout (cwd), updates the .patch files / moz.yaml so they apply,
+        # and writes its verdict to CONFLICT_RESOLUTION_RESULT_FILE. Returns the
+        # parsed {"outcome", "details"} dict, or None if it produced no result.
+        instructions = load_prompt("conflict_resolution_details",
+                                   moz_yaml_path=moz_yaml_path,
+                                   patch_fix_commit_message=commit_message)
+        prompt = load_prompt("conflict_resolution", conflict_resolution_instructions=instructions)
+        system_prompt = load_prompt("system")
+
+        self._run_prompt(prompt, system_prompt=system_prompt, cwd=cwd)
+
+        result_path = os.path.join(cwd, CONFLICT_RESOLUTION_RESULT_FILE) if cwd else CONFLICT_RESOLUTION_RESULT_FILE
+        try:
+            with open(result_path) as f:
+                resolution = json.load(f)
+            os.remove(result_path)
+        except (OSError, ValueError):
+            self.logger.log("Could not read %s after AI conflict resolution." % CONFLICT_RESOLUTION_RESULT_FILE, level=LogLevel.Warning)
+            return None
+        self.logger.log("AI conflict resolution outcome: %s" % resolution.get("outcome"), level=LogLevel.Info)
+        return resolution

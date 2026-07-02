@@ -153,6 +153,40 @@ careful inspection - *not* a rubberstamp.
         return s
 
     @staticmethod
+    def COULD_NOT_GENERAL_ERROR_WITH_AI(action, initialerrormessage=None, ai_outcome=None, ai_details=None):
+        s = "Updatebot encountered an error while trying to %s" % action
+        if initialerrormessage:
+            s += " with the following message:\n\n"
+            for line in initialerrormessage.split("\n"):
+                s += "> " + line + "\n"
+        s += "\nAfter getting this error, Updatebot asked its AI assistant to help"
+        if ai_outcome:
+            s += ", which reported an outcome of '%s'." % ai_outcome
+        else:
+            s += ", which seemingly failed with no outcome at all."
+        if ai_details:
+            s += "\n\n"
+            for line in ai_details.split("\n"):
+                s += "> " + line + "\n"
+        s += "\nUpdatebot will be unable to do anything more for this library version."
+        return s
+
+    @staticmethod
+    def AI_RESOLVED_PATCH_CONFLICTS(outcome, details):
+        explanations = {
+            "trivial success": "This means the patches were updated in a straightforward way and should be reliable.",
+            "uncertain success": "This means resolving the conflicts required non-trivial judgement and the result should be reviewed carefully.",
+        }
+        s = "Updatebot's AI assistant resolved conflicts while applying the local patches and reported an outcome of '%s'.\n\n" % outcome
+        explanation = explanations.get(outcome)
+        if explanation:
+            s += explanation + "\n\n"
+        if details:
+            for line in details.split("\n"):
+                s += "> " + line + "\n"
+        return s
+
+    @staticmethod
     def COULD_NOT_VENDOR_ALL_FILES(library, errormessage):
         s = "`./mach vendor %s` reported an error editing moz.build files:\n" % library.yaml_path
         for line in errormessage.split("\n"):

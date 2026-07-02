@@ -23,7 +23,8 @@ and should be using a ComandProvider.
 """
 
 
-def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, debuglog=do_nothing):
+def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, debuglog=do_nothing,
+         cwd=None, stdin_path=None, timeout=60 * 20, env=None):
     ran_to_completion = False
     stdout = None
     stderr = None
@@ -49,9 +50,15 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
 
     start = time.time()
     infolog("Running", args)
+    # Optionally feed a file to the process's stdin (used to pass large input,
+    # e.g. a Claude prompt, without hitting command-line length limits).
+    stdin_handle = open(stdin_path, "rb") if stdin_path else None
+    # Merge any extra env (e.g. secrets) over the inherited environment.
+    run_env = {**os.environ, **env} if env else None
     try:
         ret = subprocess.run(
-            args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=60 * 20)
+            args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=timeout,
+            cwd=cwd, stdin=stdin_handle, env=run_env)
     except subprocess.TimeoutExpired as e:
         ran_to_completion = False
         stdout = e.stdout
@@ -61,6 +68,9 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
         ran_to_completion = True
         stdout = ret.stdout.decode()
         stderr = ret.stderr.decode()
+    finally:
+        if stdin_handle:
+            stdin_handle.close()
 
     if not ran_to_completion:
         errorlog("Command Timed Out. Will abort....")

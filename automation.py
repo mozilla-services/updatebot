@@ -14,6 +14,7 @@ from components.dbc import DatabaseProvider
 from components.libraryprovider import LibraryProvider
 from components.mach_vendor import VendorProvider
 from components.bugzilla import BugzillaProvider
+from components.aiprovider import AIProvider
 from components.scmprovider import SCMProvider
 from components.hg import MercurialProvider, reset_repository
 from apis.taskcluster import TaskclusterProvider
@@ -32,6 +33,7 @@ DEFAULT_OBJECTS = {
     'Taskcluster': TaskclusterProvider,
     'Phabricator': PhabricatorProvider,
     'SCM': SCMProvider,
+    'AI': AIProvider,
     'VendorTaskRunner': VendorTaskRunner,
     'CommitAlertTaskRunner': CommitAlertTaskRunner
 }
@@ -123,6 +125,7 @@ class Updatebot:
                 'taskclusterProvider': getOr('Taskcluster'),
                 'phabricatorProvider': getOr('Phabricator'),
                 'scmProvider': getOr('SCM'),
+                'aiProvider': getOr('AI'),
             })
             # Step 6
             self.runOnProviders(lambda x: x.update_config(additional_config))

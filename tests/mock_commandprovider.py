@@ -30,7 +30,7 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
         if 'real_runner' in config:
             self.real_runner = config['real_runner']
 
-    def run(self, args, shell=False, clean_return=True):
+    def run(self, args, shell=False, clean_return=True, cwd=None, stdin_path=None, timeout=60 * 20, env=None):
         argument_string = args
         if isinstance(args, list):
             argument_string = " ".join(args)

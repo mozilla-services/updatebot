@@ -26,6 +26,7 @@ from components.scmprovider import SCMProvider
 from components.commandprovider import CommandProvider
 
 from tests.mock_commandprovider import TestCommandProvider, DO_EXECUTE
+from tests.mock_aiprovider import MockAIProvider
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_repository import COMMITS_BRANCH1, COMMITS_MAIN
 from tests.database import transform_db_config_to_tmp_db
@@ -128,6 +129,8 @@ PROVIDERS = {
     'Library': MockLibraryProvider,
     # Not mocked
     'SCM': SCMProvider,
+    # Fully Mocked (commit-alert tasks don't use it, but keep it off the real CLI).
+    'AI': MockAIProvider,
     'Mercurial': NeverUseMeClass,
     'Taskcluster': NeverUseMeClass,
     'Vendor': NeverUseMeClass,

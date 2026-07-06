@@ -34,6 +34,7 @@ from apis.phabricator import PhabricatorProvider
 
 from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
 from tests.mock_commandprovider import TestCommandProvider
+from tests.mock_aiprovider import MockAIProvider
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH
 from tests.database import transform_db_config_to_tmp_db
@@ -91,7 +92,9 @@ PROVIDERS = {
     'Taskcluster': TaskclusterProvider,
     # Not Mocked At All
     'Phabricator': PhabricatorProvider,
-    'SCM': SCMProvider
+    'SCM': SCMProvider,
+    # Fully Mocked; defaults to a 'failure' outcome for patch conflicts.
+    'AI': MockAIProvider
 }
 
 

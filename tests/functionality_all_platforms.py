@@ -34,6 +34,7 @@ from apis.phabricator import PhabricatorProvider
 
 from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, ARC_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
 from tests.mock_commandprovider import TestCommandProvider
+from tests.mock_aiprovider import MockAIProvider
 from tests.mock_libraryprovider import MockLibraryProvider
 from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH
 from tests.database import transform_db_config_to_tmp_db
@@ -85,6 +86,9 @@ PROVIDERS = {
     # Not Mocked At All
     'Phabricator': PhabricatorProvider,
     'SCM': SCMProvider,
+    # Fully Mocked, so we never shell out to a real AI CLI. Defaults to a
+    # 'failure' outcome; individual tests override via the ai_config parameter.
+    'AI': MockAIProvider,
 }
 
 
@@ -100,6 +104,7 @@ class TestFunctionality(SimpleLoggingTest):
                assert_prior_bug_reference=True,
                assert_assignee_func=None,
                command_callbacks={},
+               ai_config=None,
                keep_tmp_db=False):
         self.server = server.HTTPServer(('', 27490), MockTreeherderServerFactory(treeherder_response))
         t = Thread(target=self.server.serve_forever)
@@ -132,6 +137,7 @@ class TestFunctionality(SimpleLoggingTest):
                 'url_taskcluster': 'http://localhost:27490/',
             },
             'Phabricator': {},
+            'AI': ai_config or {},
             'Library': {
                 'vendoring_revision_override': "_current",
             }
@@ -375,6 +381,115 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(JOBOUTCOME.COULD_NOT_PATCH, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_PATCH, got outcome %s" % (j.outcome.name))
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
 
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Create -> patch fails -> AI resolves the conflict -> re-apply succeeds -> proceeds
+    @logEntryExitHeaderLine
+    def testPatchConflictResolvedByAI(self):
+        patch_calls = [0]
+
+        def patch_callback():
+            patch_calls[0] += 1
+            if patch_calls[0] == 1:
+                raise_(Exception("patch does not apply cleanly"))
+            return ""
+
+        arc_calls = [0]
+
+        def phab_submit():
+            arc_calls[0] += 1
+            v = 90000 + arc_calls[0]
+            return ARC_OUTPUT % (v, v)
+
+        library_filter = 'png'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 51,  # get_filed_bug_id_func
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'patch': patch_callback, 'phab_submit': phab_submit},
+            ai_config={'ai_outcome': 'trivial success',
+                       'ai_details': ['Updated the local patch to match the refactored upstream code.']},
+        )
+        try:
+            u.run(library_filter=library_filter)
+
+            self.assertEqual(u.aiProvider.resolve_call_count, 1, "The AI conflict resolver should have been called once")
+            self.assertEqual(patch_calls[0], 2, "The patches should have been re-applied after AI resolution")
+
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, j.status)
+            self.assertEqual(JOBOUTCOME.PENDING, j.outcome)
+            # Three phabricator revisions now: vendoring, the AI patch-fix, and the patches commit.
+            self.assertEqual(len(j.phab_revisions), 3, "Expected 3 phabricator revisions after AI conflict resolution")
+            self.assertEqual([p.purpose for p in j.phab_revisions],
+                             ['vendoring commit', 'patch conflict resolution commit', 'patches commit'])
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Same as above but the AI is only 'uncertain' about the resolution; the job still proceeds.
+    @logEntryExitHeaderLine
+    def testPatchConflictResolvedByAIUncertain(self):
+        patch_calls = [0]
+
+        def patch_callback():
+            patch_calls[0] += 1
+            if patch_calls[0] == 1:
+                raise_(Exception("patch does not apply cleanly"))
+            return ""
+
+        arc_calls = [0]
+
+        def phab_submit():
+            arc_calls[0] += 1
+            v = 91000 + arc_calls[0]
+            return ARC_OUTPUT % (v, v)
+
+        library_filter = 'png'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 53,  # get_filed_bug_id_func
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'patch': patch_callback, 'phab_submit': phab_submit},
+            ai_config={'ai_outcome': 'uncertain success',
+                       'ai_details': ['Reconciled the patch but the surrounding code changed non-trivially; please review.']},
+        )
+        try:
+            u.run(library_filter=library_filter)
+            self.assertEqual(u.aiProvider.resolve_call_count, 1)
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, j.status)
+            self.assertEqual(JOBOUTCOME.PENDING, j.outcome)
+            self.assertEqual(len(j.phab_revisions), 3)
+        finally:
+            self._cleanup(u, expected_values)
+
+    # patch fails -> AI claims success -> but the patches STILL fail to re-apply -> COULD_NOT_PATCH
+    @logEntryExitHeaderLine
+    def testPatchConflictAIResolvedButReapplyStillFails(self):
+        library_filter = 'png'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 54,  # get_filed_bug_id_func
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'patch': lambda: raise_(Exception("patch still does not apply"))},
+            ai_config={'ai_outcome': 'trivial success', 'ai_details': ['I think I fixed it.']},
+        )
+        try:
+            u.run(library_filter=library_filter)
+            self.assertEqual(u.aiProvider.resolve_call_count, 1)
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.DONE, j.status)
+            self.assertEqual(JOBOUTCOME.COULD_NOT_PATCH, j.outcome)
         finally:
             self._cleanup(u, expected_values)
 

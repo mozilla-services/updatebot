@@ -198,7 +198,8 @@ class VendorTaskRunner(BaseTaskRunner):
                 potential_commit_message = "Bug %s - Update %s local patches to apply cleanly" % (
                     created_job.bugzilla_id, library.name)
                 resolution = self.aiProvider.resolve_patch_conflicts(
-                    library.yaml_path, potential_commit_message, cwd=self.config['General'].get('gecko-path'))
+                    library.yaml_path, potential_commit_message, cwd=self.config['General'].get('gecko-path'),
+                    library_name=library.name, job_id=created_job.id)
                 outcome = resolution.get("outcome") if resolution else "failure"
                 ai_details = "\n".join(resolution.get("details", [])) if resolution else ""
 

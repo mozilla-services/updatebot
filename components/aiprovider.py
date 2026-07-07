@@ -44,6 +44,12 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         # the Database password and Bugzilla apikey). Passed to the CLI via the
         # environment variable it expects rather than on the command line.
         self.apikey = config.get('apikey', None)
+        # For debugging: a directory into which each invocation's prompt, system
+        # prompt, and the CLI's raw stdout/stderr are written. None disables it.
+        self.debug_output_dir = config.get('debug-output-dir', None)
+        self._invocation_count = 0
+        # A label (library + job id) folded into debug filenames, set per call.
+        self._debug_label = ""
 
     @logEntryExit
     def _run_prompt(self, prompt, system_prompt=None, cwd=None):
@@ -71,9 +77,39 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             # prints the JSON result we want to read, so don't let run() raise.
             ret = self.run(args, shell=False, clean_return=False, cwd=cwd,
                            stdin_path=prompt_path, timeout=self.timeout, env=env)
+            self._write_debug_output(prompt, system_prompt, ret)
             return self._parse_result(ret)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def _write_debug_output(self, prompt, system_prompt, ret):
+        # When debug-output-dir is configured, dump everything about this
+        # invocation so a live run can be inspected after the fact (the CLI
+        # buffers its JSON until completion, so nothing is available mid-run).
+        if not self.debug_output_dir:
+            return
+        self._invocation_count += 1
+        n = self._invocation_count
+        try:
+            os.makedirs(self.debug_output_dir, exist_ok=True)
+
+            label = ("_" + self._debug_label) if self._debug_label else ""
+
+            def _write(suffix, contents):
+                path = os.path.join(self.debug_output_dir, "claude_%03d%s_%s" % (n, label, suffix))
+                mode = "wb" if isinstance(contents, bytes) else "w"
+                with open(path, mode) as f:
+                    f.write(contents if contents is not None else "")
+
+            _write("prompt.txt", prompt)
+            if system_prompt:
+                _write("system_prompt.txt", system_prompt)
+            _write("stdout.json", ret.stdout)
+            _write("stderr.txt", getattr(ret, "stderr", None))
+            self.logger.log("Wrote AI debug output to %s (invocation %d)" % (
+                self.debug_output_dir, n), level=LogLevel.Info)
+        except OSError as e:
+            self.logger.log("Could not write AI debug output: %s" % e, level=LogLevel.Warning)
 
     def _parse_result(self, ret):
         stdout = ret.stdout.decode() if isinstance(ret.stdout, bytes) else ret.stdout
@@ -87,11 +123,17 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         return AIResult(success, data.get("result", ""), data.get("session_id"))
 
     @logEntryExit
-    def resolve_patch_conflicts(self, moz_yaml_path, commit_message, cwd=None):
+    def resolve_patch_conflicts(self, moz_yaml_path, commit_message, cwd=None,
+                                library_name=None, job_id=None):
         # Ask the AI to resolve local-patch conflicts for a library. It works in
         # the checkout (cwd), updates the .patch files / moz.yaml so they apply,
         # and writes its verdict to CONFLICT_RESOLUTION_RESULT_FILE. Returns the
         # parsed {"outcome", "details"} dict, or None if it produced no result.
+        # library_name/job_id only label debug output; library_name defaults to
+        # the moz.yaml's parent directory name.
+        library = library_name or os.path.basename(os.path.dirname(moz_yaml_path)) or "library"
+        self._debug_label = "%s_job%s" % (library, job_id if job_id is not None else "none")
+
         instructions = load_prompt("conflict_resolution_details",
                                    moz_yaml_path=moz_yaml_path,
                                    patch_fix_commit_message=commit_message)

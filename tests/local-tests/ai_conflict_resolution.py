@@ -95,6 +95,24 @@ def _setup_nestegg_scenario(gecko_path):
     hg(["commit", "-m", SCENARIO_COMMIT_MESSAGE], gecko_path)
 
 
+def restore_checkout(gecko_path, original_rev):
+    # Restore the checkout: discard working changes, strip everything committed on
+    # top of original_rev (the scenario setup + anything updatebot/the AI added),
+    # and purge leftover untracked files, so re-runs start clean. Run every step
+    # even if an earlier one fails, so a single error doesn't leave a commit
+    # checked out / the tree dirty.
+    print("Restoring the checkout to %s ..." % original_rev[:12])
+    for step in (["update", "-C", original_rev],
+                 ["debugstrip", "-r", "children(%s)" % original_rev, "--no-backup"],
+                 ["--config", "extensions.purge=", "purge", "--all"]):
+        try:
+            r = hg(step, gecko_path)
+            if r.returncode != 0:
+                print("WARNING: `hg %s` exited %d:\n%s" % (" ".join(step), r.returncode, r.stderr.strip()))
+        except OSError as e:
+            print("WARNING: could not run `hg %s`: %s" % (" ".join(step), e))
+
+
 def _working_parent_node(gecko_path):
     # Return the single 40-char node of the working-directory parent.
     #
@@ -168,20 +186,7 @@ class TestAIConflictResolutionLive(unittest.TestCase):
         _setup_nestegg_scenario(self.gecko_path)
 
     def _restore(self):
-        # Restore the checkout: discard working changes, strip the setup + AI
-        # commits, and purge any leftover untracked files, so re-runs start clean.
-        # Run every step even if an earlier one fails, so a single error doesn't
-        # leave the AI's commit checked out / the tree dirty.
-        print("Restoring the checkout to %s ..." % self.original_rev[:12])
-        for step in (["update", "-C", self.original_rev],
-                     ["debugstrip", "-r", "children(%s)" % self.original_rev, "--no-backup"],
-                     ["--config", "extensions.purge=", "purge", "--all"]):
-            try:
-                r = hg(step, self.gecko_path)
-                if r.returncode != 0:
-                    print("WARNING: `hg %s` exited %d:\n%s" % (" ".join(step), r.returncode, r.stderr.strip()))
-            except OSError as e:
-                print("WARNING: could not run `hg %s`: %s" % (" ".join(step), e))
+        restore_checkout(self.gecko_path, self.original_rev)
 
     def _resolve_with_real_ai(self):
         from components.commandprovider import CommandProvider

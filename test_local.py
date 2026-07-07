@@ -33,6 +33,7 @@ sys.path.insert(0, LOCAL_TESTS_DIR)
 # Must correspond to the file names in tests/local-tests/
 LOCAL_TESTS = [
     "ai_conflict_resolution",
+    "full_vendor_run_nestegg",
 ]
 
 modules = [importlib.import_module(t) for t in LOCAL_TESTS]

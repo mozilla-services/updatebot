@@ -1,0 +1,18 @@
+Bug 2050000 - Note the RFC 8794 length limit in ne_read_uint. r?kinetik
+
+A local Mozilla patch that documents the EBML integer length limit
+enforced in ne_read_uint.
+
+diff --git a/src/nestegg.c b/src/nestegg.c
+--- a/src/nestegg.c
++++ b/src/nestegg.c
+@@ -1026,7 +1026,8 @@ ne_read_uint(ne_io * io, uint64_t * val, uint64_t length)
+   unsigned char b;
+   int r;
+
+-  if (length == 0 || length > 8)
++  /* Mozilla: EBML unsigned integers are 1..8 bytes wide (RFC 8794 s7.1). */
++  if (length == 0 || length > 8)
+     return -1;
+   r = ne_io_read(io, &b, 1);
+   if (r != 1)

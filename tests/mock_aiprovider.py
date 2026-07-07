@@ -32,7 +32,8 @@ class MockAIProvider(BaseProvider, INeedsLoggingProvider):
         self.ai_details = config.get('ai_details', [])
         self.resolve_call_count = 0
 
-    def resolve_patch_conflicts(self, moz_yaml_path, commit_message, cwd=None):
+    def resolve_patch_conflicts(self, moz_yaml_path, commit_message, cwd=None,
+                                library_name=None, job_id=None):
         self.resolve_call_count += 1
         self.logger.log("MockAIProvider.resolve_patch_conflicts called for %s (outcome=%s)" % (
             moz_yaml_path, self.ai_outcome), level=LogLevel.Info)

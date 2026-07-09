@@ -29,3 +29,4 @@ build-backend = "poetry.masonry.api"
 ignore = "E501,E402,E275"
 in-place = true
 recursive = true
+exclude = ".svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg,.venv,venv"

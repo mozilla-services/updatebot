@@ -3,7 +3,7 @@
 poetry run autopep8 .
 poetry run flake8 .
 
-output=$(find . -type f -name '*.py' -exec awk '
+output=$(find . -type d \( -name .venv -o -name venv \) -prune -o -type f -name '*.py' -exec awk '
     /^[ \t]*@retry[ \t]*$/ {
         getline a
         if (a ~ /^[ \t]*@logEntryExit[ \t]*$/) {

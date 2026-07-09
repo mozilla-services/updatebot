@@ -37,7 +37,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             self.url = config['url']
 
     @logEntryExit
-    def submit_patches(self, bug_id, has_patches):
+    def submit_patches(self, bug_id, num_commits):
         phab_revisions = []
 
         @retry
@@ -69,19 +69,23 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
             return phab_revision
 
-        # arc diff will squash all commits into a single commit, so we need to jump through some hoops.
-        # Conceptually, we are only commiting the top-most commit in the repo (and not any subsequent commits)
-        # If we have two commits, we'll go backwards and grab only the first commit, then go back to tip
-        if has_patches:
-            # Checkout to the first patch
-            self.run(["hg", "checkout", "tip^"])
-            # Tell phabricator to submit from the base to the current working tree
+        # arc diff will squash everything from the base to the working parent into a
+        # single revision, so to submit each commit as its own revision we walk the
+        # stack from the bottom-most commit upward, submitting one commit at a time.
+        # (num_commits is 1 for a plain vendor, 2 when there are local patches, and 3
+        # when the AI added a commit resolving patch conflicts.)
+        if num_commits > 1:
+            # Checkout to the bottom-most commit we're submitting.
+            self.run(["hg", "checkout", "tip~%d" % (num_commits - 1)])
+            # Submit it as the diff from the base to the current working tree.
             phab_revisions.append(submit_to_phabricator(""))
-            # Ask hg to evolve the original second patch on top of the rewritten first patch
-            self.run(["hg", "next"])
-
-        # Submit only a single patch
-        phab_revisions.append(submit_to_phabricator("tip^"))
+            # Then evolve up one commit at a time, submitting each on its own.
+            for _ in range(num_commits - 1):
+                self.run(["hg", "next"])
+                phab_revisions.append(submit_to_phabricator(".^"))
+        else:
+            # Submit only the single (vendoring) commit.
+            phab_revisions.append(submit_to_phabricator("tip^"))
 
         # Chain revisions together if needed
         @retry

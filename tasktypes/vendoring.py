@@ -17,6 +17,14 @@ from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
 from components.hg import reset_repository
 
 
+def _patch_exception_message(e):
+    if isinstance(e, subprocess.CalledProcessError):
+        msg = ("stderr:\n" + e.stderr.decode().rstrip() + "\n\n") if e.stderr else ""
+        msg += ("stdout:\n" + e.stdout.decode().rstrip()) if e.stdout else ""
+        return msg
+    return str(e)
+
+
 class VendorTaskRunner(BaseTaskRunner):
     def __init__(self, provider_dictionary, config_dictionary):
         self.jobType = JOBTYPE.VENDORING
@@ -138,10 +146,15 @@ class VendorTaskRunner(BaseTaskRunner):
         # File the bug ------------------------
         all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
         commit_stats = self.mercurialProvider.diff_stats()
-        commit_details = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220) if library.should_show_commit_details else ""
+        if library.should_show_commit_details:
+            commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220, library.repo_url, options=task.options)
+        else:
+            commit_chunks = [""]
 
-        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_details), task.cc, blocks=task.blocking)
+        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_chunks[0]), task.cc, blocks=task.blocking)
         self.dbProvider.update_job_add_bug_id(created_job, created_job.bugzilla_id)
+        for chunk in commit_chunks[1:]:
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, chunk)
 
         # Address any prior bug ---------------
         if most_recent_job and not most_recent_job.relinquished:
@@ -172,19 +185,49 @@ class VendorTaskRunner(BaseTaskRunner):
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."), needinfo=library.maintainer_bz)
             raise e
 
+        ai_resolved_conflicts = False
         if library.has_patches:
             # Apply Patches -------------------
             try:
                 self.vendorProvider.patch(library, new_version)
             except Exception as e:
-                if isinstance(e, subprocess.CalledProcessError):
-                    msg = ("stderr:\n" + e.stderr.decode().rstrip() + "\n\n") if e.stderr else ""
-                    msg += ("stdout:\n" + e.stdout.decode().rstrip()) if e.stdout else ""
-                else:
-                    msg = str(e)
-                self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
-                return
+                msg = _patch_exception_message(e)
+
+                # The mozilla patches didn't apply cleanly. Ask the AI to try to
+                # resolve the conflicts (updating the .patch files / moz.yaml).
+                potential_commit_message = "Bug %s - Update %s local patches to apply cleanly" % (
+                    created_job.bugzilla_id, library.name)
+                resolution = self.aiProvider.resolve_patch_conflicts(
+                    library.yaml_path, potential_commit_message, cwd=self.config['General'].get('gecko-path'),
+                    library_name=library.name, job_id=created_job.id)
+                outcome = resolution.get("outcome") if resolution else "failure"
+                ai_details = "\n".join(resolution.get("details", [])) if resolution else ""
+
+                if outcome == "failure":
+                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR_WITH_AI("apply the mozilla patches.", initialerrormessage=msg, ai_outcome=outcome, ai_details=ai_details), needinfo=library.maintainer_bz)
+                    return
+
+                # The AI reports it resolved the conflicts (and committed the
+                # updated .patch files). Record the outcome on the bug, flagging
+                # the maintainer for review when it's only 'uncertain success'.
+                needinfo = library.maintainer_bz if outcome == "uncertain success" else None
+                self.bugzillaProvider.comment_on_bug(
+                    created_job.bugzilla_id,
+                    CommentTemplates.AI_RESOLVED_PATCH_CONFLICTS(outcome, ai_details),
+                    needinfo=needinfo)
+
+                # Re-apply the now-updated patches so the vendored tree is patched.
+                try:
+                    self.vendorProvider.patch(library, new_version)
+                except Exception as e2:
+                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=_patch_exception_message(e2)), needinfo=library.maintainer_bz)
+                    return
+
+                # The AI added its own commit for the .patch/moz.yaml fixes, so
+                # there is now an extra commit to submit to Phabricator.
+                ai_resolved_conflicts = True
             # Commit Patches ------------------
             try:
                 self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)
@@ -209,11 +252,19 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Submit Phab Revision ----------------
         try:
-            phab_revisions = self.phabricatorProvider.submit_patches(created_job.bugzilla_id, library.has_patches)
-            assert len(phab_revisions) == 2 if library.has_patches else 1, "We don't have the correct number of phabricator patches; we have %s, expected %s" % (len(phab_revisions), 2 if library.has_patches else 1)
-            self.dbProvider.add_phab_revision(created_job, phab_revisions[0], 'vendoring commit')
-            if len(phab_revisions) > 1:
-                self.dbProvider.add_phab_revision(created_job, phab_revisions[1], 'patches commit')
+            # One commit for the vendoring, plus one for the patches (if any),
+            # plus one more if the AI added a commit resolving patch conflicts.
+            num_commits = 1 + (1 if library.has_patches else 0) + (1 if ai_resolved_conflicts else 0)
+            phab_revisions = self.phabricatorProvider.submit_patches(created_job.bugzilla_id, num_commits)
+            assert len(phab_revisions) == num_commits, "We don't have the correct number of phabricator patches; we have %s, expected %s" % (len(phab_revisions), num_commits)
+            # Revisions come back bottom-up, matching the order the commits were made.
+            purposes = ['vendoring commit']
+            if ai_resolved_conflicts:
+                purposes.append('patch conflict resolution commit')
+            if library.has_patches:
+                purposes.append('patches commit')
+            for revision, purpose in zip(phab_revisions, purposes):
+                self.dbProvider.add_phab_revision(created_job, revision, purpose)
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to phabricator."), needinfo=library.maintainer_bz)

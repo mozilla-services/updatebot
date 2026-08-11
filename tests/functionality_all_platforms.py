@@ -896,6 +896,49 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
+    # Create -> Build Failed leaving dependent tasks Unscheduled (Issue #422)
+    # A build failure can leave dependent tasks in the 'unscheduled' state; they
+    # never run and only expire after ~28 days. Those must be ignored so we still
+    # detect the build failure and finish, rather than waiting forever.
+    @logEntryExitHeaderLine
+    def testExistingJobUnscheduledAfterBuildFailure(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_build_failed.txt"
+            else:  # TYPE_JOBS
+                return "jobs_unscheduled.txt"
+
+        abandoned = [False]
+
+        def abandon_callback(cmd):
+            abandoned[0] = True
+            assert "83050" in cmd, "Did not see the Phabricator revision we expected to when we abandoned one."
+            return CONDUIT_EDIT_OUTPUT
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: {},  # filed_bug_ids_func
+            treeherder,
+            command_callbacks={'abandon': abandon_callback}
+        )
+
+        try:
+            # Create the job and submit to try.
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            # A build failed, leaving dependent tasks unscheduled. We must ignore
+            # the unscheduled tasks, notice the build failure, and finish.
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
+            self.assertTrue(abandoned[0], "Did not successfully abandon the phabricator patch.")
+        finally:
+            self._cleanup(u, expected_values)
+
     # Create -> Jobs are Running -> All Success
     @logEntryExitHeaderLine
     def testExistingJobAllSuccess(self):

@@ -21,7 +21,8 @@ TESTS = [
     "library",
     "lambda_capture",
     "class_passing",
-    "frequency"
+    "frequency",
+    "mach_vendor"
 ]
 
 modules = []

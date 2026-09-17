@@ -35,8 +35,10 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
         if not result:
             return (None, None)
 
-        parts = result.split(" ")
-        return (parts[0], string_date_to_uniform_string_date(parts[1]))
+        # ./mach vendor prints "<revision> <timestamp>", and the timestamp is not
+        # space-free on every host (googlesource: "Wed Sep 09 17:56:48 2026").
+        revision, timestamp = result.split(" ", 1)
+        return (revision, string_date_to_uniform_string_date(timestamp))
 
     @logEntryExit
     def vendor(self, library, revision):

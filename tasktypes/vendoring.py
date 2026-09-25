@@ -439,6 +439,12 @@ class VendorTaskRunner(BaseTaskRunner):
 
     @logEntryExitNoArgs
     def _job_is_completed_without_build_failures(self, library, existing_job, job_list):
+        # Ignore unscheduled tasks. A build failure can leave the tasks that
+        # depended on it in the 'unscheduled' state, where they never run and only
+        # expire after ~28 days; counting them as "not yet completed" would keep us
+        # waiting on the try run forever.
+        job_list = [j for j in job_list if j.state != "unscheduled"]
+
         if not job_list:
             self.logger.log("Try revision had no job results. Skipping this job.", level=LogLevel.Warning)
             return False

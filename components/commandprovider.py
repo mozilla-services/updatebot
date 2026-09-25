@@ -20,6 +20,7 @@ class CommandProvider(BaseProvider, INeedsLoggingProvider):
         self.infolog = partial(self.logger.log, level=LogLevel.Info)
         self.debuglog = partial(self.logger.log, level=LogLevel.Debug)
 
-    def run(self, args, shell=False, clean_return=True):
+    def run(self, args, shell=False, clean_return=True, cwd=None, stdin_path=None, timeout=60 * 20, env=None):
         return _run(args, shell=shell, clean_return=clean_return,
-                    errorlog=self.errorlog, infolog=self.infolog, debuglog=self.debuglog)
+                    errorlog=self.errorlog, infolog=self.infolog, debuglog=self.debuglog,
+                    cwd=cwd, stdin_path=stdin_path, timeout=timeout, env=env)

@@ -24,6 +24,9 @@ localconfig = {
     'Bugzilla': {
         'apikey': '<foobar>'
     },
+    'AI': {
+        'apikey': '<ai-api-key>'
+    },
     'Taskcluster': {
         'url_treeherder': 'https://treeherder.mozilla.org/',
         'url_taskcluster': 'https://firefox-ci-tc.services.mozilla.com/',

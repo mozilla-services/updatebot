@@ -26,6 +26,7 @@ Updatebot has several configurable options:
 1. It can look for updates:
    - every run (6 hours) - good for infrequently updated upstreams
    - every N weeks
+   - every N days
    - every N commits
    - only upon a new Firefox release (good for frequently updated libraries we bump once-per-FF release)
 2. It can track a specific upstream branch, or only look for newly tagged releases

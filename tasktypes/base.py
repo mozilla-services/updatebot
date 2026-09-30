@@ -15,10 +15,14 @@ class BaseTaskRunner:
         def frequency_type():
             if 'commit' in task.frequency and 'week' in task.frequency:
                 return 'commit-and-week'
+            elif 'commit' in task.frequency and 'day' in task.frequency:
+                return 'commit-and-day'
             elif 'commit' in task.frequency:
                 return 'commit'
             elif 'week' in task.frequency:
                 return 'week'
+            elif 'day' in task.frequency:
+                return 'day'
             return task.frequency
 
         if task.frequency == 'every':
@@ -26,7 +30,7 @@ class BaseTaskRunner:
             return True
 
         existing_jobs = self.dbProvider.get_all_jobs_for_library(library, self.jobType)
-        if not existing_jobs and frequency_type() in ['week', 'release']:
+        if not existing_jobs and frequency_type() in ['week', 'day', 'release']:
             self.logger.log("No prior jobs found, so processing the new job.", level=LogLevel.Info)
             return True
 
@@ -39,28 +43,34 @@ class BaseTaskRunner:
                 return True
             return False
 
-        # Check week/commit requirement, but more complicated because you can specify both
+        # Check week-or-day/commit requirement, but more complicated because you can specify both
         week_count = 0
+        day_count = 0
         commit_count = 0
-        if 'week' in task.frequency and 'commit' in task.frequency:
+        has_time = 'week' in task.frequency or 'day' in task.frequency
+        if has_time and 'commit' in task.frequency:
             assert "," in task.frequency
-            week_half, commit_half = task.frequency.split(",")
+            time_half, commit_half = task.frequency.split(",")
         else:
-            week_half = task.frequency if 'week' in task.frequency else ""
+            time_half = task.frequency if has_time else ""
             commit_half = task.frequency if 'commit' in task.frequency else ""
 
         try:
-            if week_half:
-                week_count = int(week_half.strip().split(" ")[0])
+            if time_half:
+                time_count = int(time_half.strip().split(" ")[0])
+                if 'week' in time_half:
+                    week_count = time_count
+                else:
+                    day_count = time_count
             if commit_half:
                 commit_count = int(commit_half.strip().split(" ")[0])
         except Exception as e:
-            raise Exception("Could not parse '%s' or '%s' as a frequency" % (week_half, commit_half), e)
+            raise Exception("Could not parse '%s' or '%s' as a frequency" % (time_half, commit_half), e)
 
-        if week_count > 0 and most_recent_job:
-            do_not_process_job = most_recent_job.created + timedelta(weeks=week_count) > datetime.now()
-            self.logger.log("The most recent job was processed %s and we process jobs every %s weeks, so %sprocessing the new job." % (
-                most_recent_job.created, week_count, "not " if do_not_process_job else ""), level=LogLevel.Info)
+        if (week_count > 0 or day_count > 0) and most_recent_job:
+            do_not_process_job = most_recent_job.created + timedelta(weeks=week_count, days=day_count) > datetime.now()
+            self.logger.log("The most recent job was processed %s and we process jobs every %s, so %sprocessing the new job." % (
+                most_recent_job.created, time_half.strip(), "not " if do_not_process_job else ""), level=LogLevel.Info)
             if do_not_process_job:
                 return False
 

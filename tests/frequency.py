@@ -88,6 +88,30 @@ class TestTaskFrequency(unittest.TestCase):
         bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(weeks=1, hours=1), "version": "whatever"})]
         self.assertTrue(bt._should_process_new_job(library, task))
 
+        task.frequency = '1 day'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: []
+        self.assertTrue(bt._should_process_new_job(library, task))
+
+        task.frequency = '1 day'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(days=1, hours=1)})]
+        self.assertTrue(bt._should_process_new_job(library, task))
+
+        task.frequency = '1 day'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(hours=12)})]
+        self.assertFalse(bt._should_process_new_job(library, task))
+
+        task.frequency = '3 days'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(days=2)})]
+        self.assertFalse(bt._should_process_new_job(library, task))
+
+        task.frequency = '1 day, 3 commits'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(days=1, hours=1), "version": "whatever"})]
+        self.assertFalse(bt._should_process_new_job(library, task))
+
+        task.frequency = '1 day, 2 commits'
+        bt.dbProvider.get_all_jobs_for_library = lambda a, b: [Struct(**{"created": datetime.now() - timedelta(days=1, hours=1), "version": "whatever"})]
+        self.assertTrue(bt._should_process_new_job(library, task))
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

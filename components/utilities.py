@@ -11,6 +11,7 @@ import pickle
 import functools
 import time
 
+from datetime import timezone
 from dateutil.parser import parse
 
 RETRY_TIMES_OVERRIDE = None
@@ -66,7 +67,13 @@ def raise_(e):
 
 
 def string_date_to_uniform_string_date(s):
-    return parse(s).strftime('%Y-%m-%d %H:%M:%S')
+    # Hosts report commit times with an offset (gitlab: "...+10:00"), as UTC
+    # ("...Z"), or with no zone at all (googlesource, which is UTC). Normalize
+    # them all to UTC so the result doesn't depend on the committer's timezone.
+    d = parse(s)
+    if d.tzinfo is not None:
+        d = d.astimezone(timezone.utc)
+    return d.strftime('%Y-%m-%d %H:%M:%S')
 
 
 def merge_dictionaries(a, b, ignored_dicts=[], ignored_keys=[]):

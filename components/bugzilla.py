@@ -11,7 +11,7 @@ from components.logging import LogLevel, logEntryExit
 class CommentTemplates:
     @staticmethod
     def UPDATE_SUMMARY(library, new_release_version, release_timestamp):
-        return "Update %s to new version %s from %s" % (
+        return "Update %s to new version %s from %s UTC" % (
             library.name, new_release_version, release_timestamp)
 
     @staticmethod

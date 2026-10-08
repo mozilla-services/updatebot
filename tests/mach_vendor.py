@@ -45,6 +45,18 @@ class TestVendorProvider(unittest.TestCase):
             self._check_for_update(REVISION + " 2026-09-09T17:56:48Z"),
             (REVISION, "2026-09-09 17:56:48"))
 
+    def testOffsetTimestampIsConvertedToUTC(self):
+        # gitlab and codeberg report the committer's local time with an offset;
+        # the uniform date must be UTC, not the committer's wall-clock time.
+        self.assertEqual(
+            self._check_for_update(REVISION + " 2026-09-25T12:59:00.000+10:00"),
+            (REVISION, "2026-09-25 02:59:00"))
+
+    def testNegativeOffsetCrossesMidnight(self):
+        self.assertEqual(
+            self._check_for_update(REVISION + " 2026-09-17T22:36:18.000-04:00"),
+            (REVISION, "2026-09-18 02:36:18"))
+
     def testNoUpdateAvailable(self):
         self.assertEqual(self._check_for_update(""), (None, None))
 

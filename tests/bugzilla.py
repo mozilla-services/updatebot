@@ -43,7 +43,7 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
                 'product': 'Core',
                 'component': 'ImageLib',
                 'type': "enhancement",
-                'summary': 'Update dav1d to new version V1 from 2020-08-21 15:13:49',
+                'summary': 'Update dav1d to new version V1 from 2020-08-21 13:13:49 UTC',
                 'description': '',
                 'whiteboard': '[3pl-filed]' + task_id_whiteboard(),
                 'cc': ['tom@mozilla.com', 'jewilde@mozilla.com', 'additional@example.com'],

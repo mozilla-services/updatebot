@@ -5,42 +5,54 @@ on:
       - master
   pull_request:
 
+# Python versions: 3.10 is mach's minimum (MIN_PYTHON_VERSION in mozilla-central's
+# `mach`), so developers may still run it. Production runs 3.11 (Debian 12 image)
+# and the Windows task uses MozillaBuild's Python (3.12).
+#
+# Poetry isn't pinned to production's version (2.1.1, from mozilla-central's
+# taskcluster/docker/updatebot/privileged-setup.sh): 2.1.1 creates the virtualenv
+# with its own interpreter rather than the one setup-python provides, so every
+# matrix entry would test the same Python. The check step below guards against that.
+
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        poetry-version: [1.1.0]
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: Install poetry
         run: pipx install poetry
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
       - name: Install updatebot dependencies
         run: poetry install
+      - name: Check poetry is using the matrix Python
+        shell: bash
+        run: poetry run python -c "import sys; v = '%d.%d' % sys.version_info[:2]; assert v == '${{ matrix.python-version }}', v"
   lint:
     needs: build
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.14"]
-        poetry-version: [1.1.0]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: Install poetry
         run: pipx install poetry
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
+      - name: Install updatebot dependencies
+        run: poetry install
       - name: lint codebase
         run: poetry run flake8 --ignore=E501,E402,E275 .
   test:
@@ -49,17 +61,21 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        poetry-version: [1.1.0]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: Install poetry
         run: pipx install poetry
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
+      - name: Install updatebot dependencies
+        run: poetry install
+      - name: Check poetry is using the matrix Python
+        shell: bash
+        run: poetry run python -c "import sys; v = '%d.%d' % sys.version_info[:2]; assert v == '${{ matrix.python-version }}', v"
       - name: Create localconfig for test run
         run: cp localconfig.py.example localconfig.py
       - name: Start MySQL service (Linux)

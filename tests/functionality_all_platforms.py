@@ -470,6 +470,52 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
+    # patch fails -> AI resolves it by removing every patch (e.g. all upstreamed) ->
+    # nothing to re-apply or commit, so only the vendoring and AI commits go to phabricator
+    @logEntryExitHeaderLine
+    def testPatchConflictAIRemovedAllPatches(self):
+        patch_calls = [0]
+
+        def patch_callback():
+            patch_calls[0] += 1
+            if patch_calls[0] == 1:
+                raise_(Exception("Could not apply mozilla.patch, possible reasons:"))
+            raise_(Exception("Patch import was specified but there are no vendored patches defined."))
+
+        arc_calls = [0]
+
+        def phab_submit():
+            arc_calls[0] += 1
+            v = 92000 + arc_calls[0]
+            return ARC_OUTPUT % (v, v)
+
+        library_filter = 'png'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 55,  # get_filed_bug_id_func
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'patch': patch_callback, 'phab_submit': phab_submit},
+            ai_config={'ai_outcome': 'trivial success',
+                       'ai_details': ['The only patch is already applied upstream, so I removed it.']},
+        )
+        u.libraryProvider.config['patches_after_ai'] = False
+        try:
+            u.run(library_filter=library_filter)
+
+            self.assertEqual(u.aiProvider.resolve_call_count, 1, "The AI conflict resolver should have been called once")
+            self.assertEqual(patch_calls[0], 1, "With no patches left, they should not have been re-applied")
+
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, j.status)
+            self.assertEqual(JOBOUTCOME.PENDING, j.outcome)
+            self.assertEqual([p.purpose for p in j.phab_revisions],
+                             ['vendoring commit', 'patch conflict resolution commit'])
+        finally:
+            self._cleanup(u, expected_values)
+
     # patch fails -> AI claims success -> but the patches STILL fail to re-apply -> COULD_NOT_PATCH
     @logEntryExitHeaderLine
     def testPatchConflictAIResolvedButReapplyStillFails(self):

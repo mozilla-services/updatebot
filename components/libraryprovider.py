@@ -197,6 +197,14 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         return self._libraries
 
+    def library_has_patches(self, gecko_path, library):
+        # Re-read the moz.yaml rather than trusting library.has_patches, which
+        # reflects the file as it was when the run started (the AI conflict
+        # resolver may since have removed every patch).
+        with open(os.path.join(gecko_path, library.yaml_path), "r") as mozyaml:
+            contents = yaml.load(mozyaml.read(), Loader=yaml.BaseLoader)
+        return not not contents.get('vendoring', {}).get('patches')
+
     @staticmethod
     def validate_library(yaml_contents, yaml_path):
         library = yaml.load(yaml_contents, Loader=yaml.BaseLoader)

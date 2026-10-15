@@ -186,6 +186,9 @@ class VendorTaskRunner(BaseTaskRunner):
             raise e
 
         ai_resolved_conflicts = False
+        # Whether there's a separate commit applying the mozilla patches. Normally
+        # the same as library.has_patches, but the AI may remove every patch.
+        has_patches_commit = library.has_patches
         if library.has_patches:
             # Apply Patches -------------------
             try:
@@ -217,17 +220,25 @@ class VendorTaskRunner(BaseTaskRunner):
                     CommentTemplates.AI_RESOLVED_PATCH_CONFLICTS(outcome, ai_details),
                     needinfo=needinfo)
 
-                # Re-apply the now-updated patches so the vendored tree is patched.
-                try:
-                    self.vendorProvider.patch(library, new_version)
-                except Exception as e2:
-                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=_patch_exception_message(e2)), needinfo=library.maintainer_bz)
-                    return
+                # If the AI removed every patch (e.g. because they were all
+                # upstreamed), there is nothing left to re-apply or commit.
+                has_patches_commit = self.libraryProvider.library_has_patches(
+                    self.config['General'].get('gecko-path'), library)
+                if has_patches_commit:
+                    # Re-apply the now-updated patches so the vendored tree is patched.
+                    try:
+                        self.vendorProvider.patch(library, new_version)
+                    except Exception as e2:
+                        self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                        self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=_patch_exception_message(e2)), needinfo=library.maintainer_bz)
+                        return
+                else:
+                    self.logger.log("The AI removed every mozilla patch, so there are none to re-apply or commit.", level=LogLevel.Info)
 
                 # The AI added its own commit for the .patch/moz.yaml fixes, so
                 # there is now an extra commit to submit to Phabricator.
                 ai_resolved_conflicts = True
+        if has_patches_commit:
             # Commit Patches ------------------
             try:
                 self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)
@@ -254,14 +265,14 @@ class VendorTaskRunner(BaseTaskRunner):
         try:
             # One commit for the vendoring, plus one for the patches (if any),
             # plus one more if the AI added a commit resolving patch conflicts.
-            num_commits = 1 + (1 if library.has_patches else 0) + (1 if ai_resolved_conflicts else 0)
+            num_commits = 1 + (1 if has_patches_commit else 0) + (1 if ai_resolved_conflicts else 0)
             phab_revisions = self.phabricatorProvider.submit_patches(created_job.bugzilla_id, num_commits)
             assert len(phab_revisions) == num_commits, "We don't have the correct number of phabricator patches; we have %s, expected %s" % (len(phab_revisions), num_commits)
             # Revisions come back bottom-up, matching the order the commits were made.
             purposes = ['vendoring commit']
             if ai_resolved_conflicts:
                 purposes.append('patch conflict resolution commit')
-            if library.has_patches:
+            if has_patches_commit:
                 purposes.append('patches commit')
             for revision, purpose in zip(phab_revisions, purposes):
                 self.dbProvider.add_phab_revision(created_job, revision, purpose)

@@ -18,6 +18,10 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def __init__(self, config):
         self.config = config
 
+    def library_has_patches(self, gecko_path, library):
+        # Tests set 'patches_after_ai' to simulate the AI removing every patch.
+        return self.config.get('patches_after_ai', library.has_patches)
+
     def get_libraries(self, gecko_path):
         return [
             Library({

@@ -25,6 +25,7 @@ TRY_REVISION = "this-is-my-try-link"
 
 class MockBugzillaServer(server.BaseHTTPRequestHandler):
     closed_bug_ids = []
+    filed_bugs = []
 
     def do_POST(self):
         expectedPath_file = "/bug?api_key=bob"
@@ -35,7 +36,17 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         self.send_header("Content-type", "application/json")
         self.end_headers()
 
-        if expectedPath_file == self.path:
+        MockBugzillaServer.filed_bugs.append(content)
+        if content['component'] == 'Missing Component':
+            self.wfile.write(json.dumps({'error': True, 'code': 51, 'message': "There is no component named 'Missing Component' in the 'Core' product."}).encode())
+        elif content['product'] == 'Core' and content['component'] == 'General':
+            self.wfile.write("{\"id\":457}".encode())
+        elif content['component'] == 'Mach Vendor & Updatebot':
+            if 'broken' in content['summary']:
+                self.wfile.write(json.dumps({'error': True, 'code': 100, 'message': "Something went wrong."}).encode())
+            else:
+                self.wfile.write("{\"id\":458}".encode())
+        elif expectedPath_file == self.path:
             expectedContent = {
                 'version': "unspecified",
                 'op_sys': "unspecified",
@@ -193,6 +204,38 @@ class TestBugzillaProvider(unittest.TestCase):
 
         self.bugzillaProvider.comment_on_bug(
             1237, "X" * 70000, assignee='Jon')
+
+    def testFileMissingComponent(self):
+        library = Struct(**{
+            'name': 'mylib',
+            'bugzilla_product': 'Core',
+            'bugzilla_component': 'Missing Component',
+            'yaml_path': 'third_party/mylib/moz.yaml',
+            'maintainer_bz': 'owner@example.com',
+        })
+        bug_id = self.bugzillaProvider.file_bug(library, "Update mylib to new version V1", "Details", [])
+        self.assertEqual(bug_id, 457, "The bug should have been filed in Core :: General")
+
+        filed = [b for b in MockBugzillaServer.filed_bugs if 'mylib' in b['summary']]
+        self.assertEqual([(b['product'], b['component']) for b in filed],
+                         [('Core', 'Missing Component'), ('Core', 'General'), ('Developer Infrastructure', 'Mach Vendor & Updatebot')])
+        library_bug, followup = filed[1], filed[2]
+        self.assertIn('cf_status_firefox88', library_bug)
+        self.assertEqual(followup['blocks'], 457)
+        self.assertEqual([f['requestee'] for f in followup['flags']], ['tom@mozilla.com', 'owner@example.com'])
+        self.assertNotIn('cf_status_firefox88', followup)
+        self.assertIn('third_party/mylib/moz.yaml', followup['description'])
+
+    def testFileMissingComponentFollowUpFails(self):
+        library = Struct(**{
+            'name': 'broken',
+            'bugzilla_product': 'Core',
+            'bugzilla_component': 'Missing Component',
+            'yaml_path': 'third_party/broken/moz.yaml',
+            'maintainer_bz': 'owner@example.com',
+        })
+        # Failing to file the follow-up must not lose the library's bug.
+        self.assertEqual(self.bugzillaProvider.file_bug(library, "Update broken to new version V1", "Details", []), 457)
 
     def testStatus(self):
         self.bugzillaProvider.mark_ff_version_affected(456, 76)

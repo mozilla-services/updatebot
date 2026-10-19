@@ -49,7 +49,7 @@ def _load_json_or_raise(r, where: str):
         ) from e
 
 
-def fileBug(url, apikey, ff_version, product, component, summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential):
+def fileBug(url, apikey, ff_version, product, component, summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential, mark_affected=True):
     assert isinstance(cc_list, list)
 
     data = {
@@ -65,7 +65,7 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, c
         'cc': ['tom@mozilla.com', 'jewilde@mozilla.com'] + cc_list
     }
 
-    if is_prod(url):
+    if is_prod(url) and mark_affected:
         data['cf_status_firefox' + str(ff_version)] = 'affected'
 
     if see_also:

@@ -25,6 +25,13 @@ def _patch_exception_message(e):
     return str(e)
 
 
+def _is_patch_conflict(e):
+    # `./mach vendor --patch-mode only` applies the patches and then runs the
+    # post-patch actions. Only a patch that didn't apply is something the AI can
+    # fix; mach logs this message for that case and not for a failed action.
+    return "Could not apply" in _patch_exception_message(e)
+
+
 class VendorTaskRunner(BaseTaskRunner):
     def __init__(self, provider_dictionary, config_dictionary):
         self.jobType = JOBTYPE.VENDORING
@@ -192,6 +199,13 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.vendorProvider.patch(library, new_version)
             except Exception as e:
                 msg = _patch_exception_message(e)
+
+                if not _is_patch_conflict(e):
+                    # Something other than a patch conflict failed (e.g. a
+                    # post-patch action), which the AI can't resolve.
+                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches (this wasn't a patch conflict, so Updatebot didn't ask its AI assistant to resolve it)", errormessage=msg), needinfo=library.maintainer_bz)
+                    return
 
                 # The mozilla patches didn't apply cleanly. Ask the AI to try to
                 # resolve the conflicts (updating the .patch files / moz.yaml).

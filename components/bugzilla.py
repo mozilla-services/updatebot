@@ -3,7 +3,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from apis.bugzilla_api import fileBug, commentOnBug, closeBug, openBugsMetadata, markFFVersionAffected, getBugComments
+from apis.bugzilla_api import fileBug, commentOnBug, closeBug, openBugsMetadata, markFFVersionAffected, getBugComments, CommentRejectedError, task_log_url
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel, logEntryExit
 
@@ -208,6 +208,16 @@ careful inspection - *not* a rubberstamp.
             library.yaml_path, filed_bug_id)
 
     @staticmethod
+    def COMMENT_REJECTED(log_url):
+        s = "Updatebot tried to post a comment here, but Bugzilla rejected it, probably because "
+        s += "it quoted command output that Bugzilla's web filter considered suspicious. "
+        if log_url:
+            s += "The full message is in the Updatebot log: " + log_url
+        else:
+            s += "The full message is in the log of the Updatebot run that tried to post it."
+        return s
+
+    @staticmethod
     def TRY_RUN_SUBMITTED(revision, another=False):
         return "I've submitted a" + ("nother" if another else "") + " try run for this commit: https://treeherder.mozilla.org/jobs?repo=try&revision=" + revision
 
@@ -305,7 +315,7 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
             self.logger.log("Could not file a bug about the missing component in %s: %s" % (library.yaml_path, e), level=LogLevel.Error)
 
     @logEntryExit
-    def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):
+    def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None, _is_fallback=False):
         if len(comment) > 65535:
             self.logger.log("Comment on Bug %s is too long: %s characters; truncating." % (bug_id, len(comment)), level=LogLevel.Warning)
             suffix = "\n\nOops - the above comment was too long. I was unable to shrink it nicely, so I had to truncate it to fit Bugzilla's limits."
@@ -314,10 +324,16 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
         try:
             commentOnBug(
                 self.config['url'], self.config['apikey'], bug_id, comment, needinfo=needinfo, assignee=assignee)
+        except CommentRejectedError:
+            if _is_fallback:
+                raise
+            self.logger.log("Bugzilla rejected the comment on Bug %s; posting a short replacement instead. The rejected comment was:\n%s" % (bug_id, comment), level=LogLevel.Warning)
+            self.comment_on_bug(bug_id, CommentTemplates.COMMENT_REJECTED(task_log_url()), needinfo, assignee, _is_fallback=True)
+            return
         except Exception as e:
             if is_needinfo_exception(e):
                 self.logger.log("Developer is not accepting needinfos, trying again without...", level=LogLevel.Info)
-                self.comment_on_bug(bug_id, comment, None, assignee)
+                self.comment_on_bug(bug_id, comment, None, assignee, _is_fallback=_is_fallback)
             else:
                 raise e
 

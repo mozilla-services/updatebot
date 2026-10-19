@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import re
 import sys
 import unittest
@@ -18,7 +19,7 @@ from components.utilities import Struct, string_date_to_uniform_string_date
 from components.bugzilla import BugzillaProvider, CommentTemplates
 from components.logging import SimpleLoggerConfig
 
-from apis.bugzilla_api import task_id_whiteboard
+from apis.bugzilla_api import task_id_whiteboard, CommentRejectedError
 
 TRY_REVISION = "this-is-my-try-link"
 
@@ -26,6 +27,7 @@ TRY_REVISION = "this-is-my-try-link"
 class MockBugzillaServer(server.BaseHTTPRequestHandler):
     closed_bug_ids = []
     filed_bugs = []
+    received_comments = {}
 
     def do_POST(self):
         expectedPath_file = "/bug?api_key=bob"
@@ -105,6 +107,14 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         size = int(self.headers.get('content-length'))
         content = json.loads(self.rfile.read(size).decode("utf-8"))
         bug_id = re.match(r"/bug/([0-9]+)\?api_key=bob", self.path).groups(0)[0]
+        MockBugzillaServer.received_comments.setdefault(bug_id, []).append(content)
+
+        # Like Bugzilla's web filter: an empty 406. Bug 1238 rejects everything
+        # but Updatebot's short replacement comment; bug 1239 rejects everything.
+        if bug_id == "1239" or (bug_id == "1238" and "Bugzilla rejected it" not in content['comment']['body']):
+            self.send_response(406)
+            self.end_headers()
+            return
 
         self.send_response(200)
         self.send_header("Content-type", "application/json")
@@ -236,6 +246,27 @@ class TestBugzillaProvider(unittest.TestCase):
         })
         # Failing to file the follow-up must not lose the library's bug.
         self.assertEqual(self.bugzillaProvider.file_bug(library, "Update broken to new version V1", "Details", []), 457)
+
+    def testCommentRejected(self):
+        os.environ['TASK_ID'] = 'abc123'
+        try:
+            self.bugzillaProvider.comment_on_bug(1238, "> ++ export VIRTUAL_ENV\n> ++ '[' -n /bin/bash ']'", needinfo='Jon')
+        finally:
+            del os.environ['TASK_ID']
+
+        sent = MockBugzillaServer.received_comments["1238"]
+        self.assertEqual(len(sent), 2, "Expected the rejected comment, then a replacement")
+        self.assertIn("Bugzilla rejected it", sent[1]['comment']['body'])
+        self.assertIn("https://firefox-ci-tc.services.mozilla.com/tasks/abc123", sent[1]['comment']['body'])
+        self.assertEqual(sent[1]['flags'][0]['requestee'], 'Jon', "The replacement should keep the needinfo")
+
+    def testCommentRejectedWithoutTaskId(self):
+        self.assertIn("log of the Updatebot run", CommentTemplates.COMMENT_REJECTED(None))
+
+    def testCommentAndReplacementRejected(self):
+        with self.assertRaises(CommentRejectedError):
+            self.bugzillaProvider.comment_on_bug(1239, "> ++ export VIRTUAL_ENV")
+        self.assertEqual(len(MockBugzillaServer.received_comments["1239"]), 2, "Should give up after the replacement is rejected too")
 
     def testStatus(self):
         self.bugzillaProvider.mark_ff_version_affected(456, 76)

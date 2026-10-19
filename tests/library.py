@@ -7,11 +7,13 @@
 import sys
 import unittest
 import os
+import tempfile
 
 sys.path.append(".")
 sys.path.append("..")
 
 from components.libraryprovider import LibraryProvider, Library
+from components.utilities import Struct
 from tests.mock_commandprovider import TestCommandProvider
 from components.logging import SimpleLoggerConfig
 
@@ -149,6 +151,22 @@ class TestLibraryProvider(unittest.TestCase):
             'CommandProvider': cls.commandProvider
         })
         cls.libraryprovider.update_config(additional_config)
+
+    def testLibraryHasPatches(self):
+        def has_patches(contents):
+            with tempfile.TemporaryDirectory() as gecko:
+                if contents is not None:
+                    with open(os.path.join(gecko, "moz.yaml"), "w") as f:
+                        f.write(contents)
+                return self.libraryprovider.library_has_patches(gecko, Struct(yaml_path='moz.yaml'))
+
+        self.assertTrue(has_patches("vendoring:\n  url: https://example.invalid\n  patches:\n    - mozilla.patch\n"))
+        self.assertFalse(has_patches("vendoring:\n  url: https://example.invalid\n  patches: []\n"))
+        self.assertFalse(has_patches("vendoring:\n  url: https://example.invalid\n"))
+        # A broken moz.yaml is an error, not a library without patches.
+        for broken in ["origin:\n  name: foo\n", "", "vendoring: [unclosed\n", None]:
+            with self.assertRaises(Exception, msg=repr(broken)):
+                has_patches(broken)
 
     def testLibraryFindAndImport(self):
         libs = self.libraryprovider.get_libraries(os.getcwd())

@@ -201,9 +201,13 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         # Re-read the moz.yaml rather than trusting library.has_patches, which
         # reflects the file as it was when the run started (the AI conflict
         # resolver may since have removed every patch).
-        with open(os.path.join(gecko_path, library.yaml_path), "r") as mozyaml:
+        yaml_path = os.path.join(gecko_path, library.yaml_path)
+        with open(yaml_path, "r") as mozyaml:
             contents = yaml.load(mozyaml.read(), Loader=yaml.BaseLoader)
-        return not not contents.get('vendoring', {}).get('patches')
+        # A moz.yaml without a vendoring section is broken, not patch-free.
+        if not isinstance(contents, dict) or not isinstance(contents.get('vendoring'), dict):
+            raise Exception("%s has no vendoring section" % yaml_path)
+        return not not contents['vendoring'].get('patches')
 
     @staticmethod
     def validate_library(yaml_contents, yaml_path):

@@ -516,6 +516,37 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
+    # patch fails -> AI claims success -> but leaves the moz.yaml unreadable -> COULD_NOT_PATCH
+    @logEntryExitHeaderLine
+    def testPatchConflictAILeftMozYamlBroken(self):
+        patch_calls = [0]
+
+        def patch_callback():
+            patch_calls[0] += 1
+            raise_(Exception("Could not apply mozilla.patch, possible reasons:"))
+
+        library_filter = 'png'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 57,  # get_filed_bug_id_func
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'patch': patch_callback},
+            ai_config={'ai_outcome': 'trivial success', 'ai_details': ['I edited the moz.yaml.']},
+        )
+        u.libraryProvider.config['patches_after_ai'] = 'broken'
+        try:
+            u.run(library_filter=library_filter)
+            self.assertEqual(u.aiProvider.resolve_call_count, 1)
+            self.assertEqual(patch_calls[0], 1, "The patches should not be re-applied when the moz.yaml can't be read")
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.DONE, j.status)
+            self.assertEqual(JOBOUTCOME.COULD_NOT_PATCH, j.outcome)
+        finally:
+            self._cleanup(u, expected_values)
+
     # patch fails -> AI claims success -> but the patches STILL fail to re-apply -> COULD_NOT_PATCH
     @logEntryExitHeaderLine
     def testPatchConflictAIResolvedButReapplyStillFails(self):

@@ -220,20 +220,22 @@ class VendorTaskRunner(BaseTaskRunner):
                     CommentTemplates.AI_RESOLVED_PATCH_CONFLICTS(outcome, ai_details),
                     needinfo=needinfo)
 
-                # If the AI removed every patch (e.g. because they were all
-                # upstreamed), there is nothing left to re-apply or commit.
-                has_patches_commit = self.libraryProvider.library_has_patches(
-                    self.config['General'].get('gecko-path'), library)
-                if has_patches_commit:
-                    # Re-apply the now-updated patches so the vendored tree is patched.
-                    try:
+                try:
+                    # If the AI removed every patch (e.g. because they were all
+                    # upstreamed), there is nothing left to re-apply or commit.
+                    # Re-reading the moz.yaml is inside this handler because the
+                    # AI may have left it broken.
+                    has_patches_commit = self.libraryProvider.library_has_patches(
+                        self.config['General'].get('gecko-path'), library)
+                    if has_patches_commit:
+                        # Re-apply the now-updated patches so the vendored tree is patched.
                         self.vendorProvider.patch(library, new_version)
-                    except Exception as e2:
-                        self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                        self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=_patch_exception_message(e2)), needinfo=library.maintainer_bz)
-                        return
-                else:
-                    self.logger.log("The AI removed every mozilla patch, so there are none to re-apply or commit.", level=LogLevel.Info)
+                    else:
+                        self.logger.log("The AI removed every mozilla patch, so there are none to re-apply or commit.", level=LogLevel.Info)
+                except Exception as e2:
+                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
+                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=_patch_exception_message(e2)), needinfo=library.maintainer_bz)
+                    return
 
                 # The AI added its own commit for the .patch/moz.yaml fixes, so
                 # there is now an extra commit to submit to Phabricator.

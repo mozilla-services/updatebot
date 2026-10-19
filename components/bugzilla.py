@@ -199,6 +199,15 @@ careful inspection - *not* a rubberstamp.
         return s
 
     @staticmethod
+    def MISSING_COMPONENT(library, filed_bug_id):
+        return ("%s specifies the Bugzilla component '%s :: %s', which doesn't exist, so Updatebot "
+                "filed bug %s in %s :: %s instead.\n\n"
+                "Please update the bugzilla product and component in %s, and move bug %s to the right component.") % (
+            library.yaml_path, library.bugzilla_product, library.bugzilla_component,
+            filed_bug_id, FALLBACK_PRODUCT_COMPONENT[0], FALLBACK_PRODUCT_COMPONENT[1],
+            library.yaml_path, filed_bug_id)
+
+    @staticmethod
     def TRY_RUN_SUBMITTED(revision, another=False):
         return "I've submitted a" + ("nother" if another else "") + " try run for this commit: https://treeherder.mozilla.org/jobs?repo=try&revision=" + revision
 
@@ -212,6 +221,21 @@ This bug will be marked as a duplicate of it (because although this bug is older
 
 def is_needinfo_exception(e):
     return 'is not currently accepting "needinfo" requests' in str(e)
+
+
+def is_missing_component_exception(e):
+    # fileBug raises Exception(<Bugzilla's JSON error>); code 51 is "object
+    # does not exist", which also covers e.g. unknown users.
+    j = e.args[0] if e.args else None
+    return isinstance(j, dict) and j.get('code') == 51 and \
+        'There is no component named' in j.get('message', '')
+
+
+# Where a bug goes when the component in its moz.yaml doesn't exist, and where
+# the follow-up bug asking for the moz.yaml to be fixed goes.
+FALLBACK_PRODUCT_COMPONENT = ("Core", "General")
+UPDATEBOT_PRODUCT_COMPONENT = ("Developer Infrastructure", "Mach Vendor & Updatebot")
+UPDATEBOT_OWNER_BZ = "tom@mozilla.com"
 
 
 class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
@@ -240,18 +264,45 @@ class BugzillaProvider(BaseProvider, INeedsLoggingProvider):
             description = description[0:65533 - len(suffix)] + suffix
 
         try:
-            bugID = fileBug(self.config['url'], self.config['apikey'], self.config['General']['ff-version'],
-                            library.bugzilla_product, library.bugzilla_component,
-                            summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential)
+            bugID = self._file_bug(library.bugzilla_product, library.bugzilla_component,
+                                   summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential)
         except Exception as e:
-            if is_needinfo_exception(e):
-                self.logger.log("Developer is not accepting needinfos, trying again without...", level=LogLevel.Info)
-                return self.file_bug(library, summary, description, cc_list, None, see_also, depends_on, blocks, moco_confidential)
-            else:
+            if not is_missing_component_exception(e):
                 raise e
+            self.logger.log("The component %s :: %s from %s doesn't exist; filing in %s :: %s instead." % (
+                library.bugzilla_product, library.bugzilla_component, library.yaml_path,
+                FALLBACK_PRODUCT_COMPONENT[0], FALLBACK_PRODUCT_COMPONENT[1]), level=LogLevel.Warning)
+            bugID = self._file_bug(FALLBACK_PRODUCT_COMPONENT[0], FALLBACK_PRODUCT_COMPONENT[1],
+                                   summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential)
+            self._file_missing_component_bug(library, bugID)
 
         self.logger.log("Filed Bug with ID", bugID, level=LogLevel.Info)
         return bugID
+
+    def _file_bug(self, product, component, summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential, mark_affected=True):
+        try:
+            return fileBug(self.config['url'], self.config['apikey'], self.config['General']['ff-version'],
+                           product, component, summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential,
+                           mark_affected=mark_affected)
+        except Exception as e:
+            if is_needinfo_exception(e):
+                self.logger.log("Developer is not accepting needinfos, trying again without...", level=LogLevel.Info)
+                return self._file_bug(product, component, summary, description, cc_list, None, see_also, depends_on, blocks, moco_confidential, mark_affected)
+            raise e
+
+    def _file_missing_component_bug(self, library, filed_bug_id):
+        needinfo = [UPDATEBOT_OWNER_BZ]
+        if library.maintainer_bz and library.maintainer_bz != UPDATEBOT_OWNER_BZ:
+            needinfo.append(library.maintainer_bz)
+        try:
+            bugID = self._file_bug(UPDATEBOT_PRODUCT_COMPONENT[0], UPDATEBOT_PRODUCT_COMPONENT[1],
+                                   "Update the Bugzilla component in %s" % library.yaml_path,
+                                   CommentTemplates.MISSING_COMPONENT(library, filed_bug_id),
+                                   [], needinfo, None, None, filed_bug_id, False, mark_affected=False)
+            self.logger.log("Filed Bug %s about the missing component, blocking bug %s" % (bugID, filed_bug_id), level=LogLevel.Info)
+        except Exception as e:
+            # The library's bug is already filed; don't lose track of it over this.
+            self.logger.log("Could not file a bug about the missing component in %s: %s" % (library.yaml_path, e), level=LogLevel.Error)
 
     @logEntryExit
     def comment_on_bug(self, bug_id, comment, needinfo=None, assignee=None):

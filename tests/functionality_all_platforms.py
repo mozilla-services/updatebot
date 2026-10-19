@@ -368,7 +368,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
-            command_callbacks={'patch': lambda: raise_(Exception("No patching!"))}
+            command_callbacks={'patch': lambda: raise_(Exception("Could not apply mozilla.patch, possible reasons:"))}
         )
         try:
             u.run(library_filter=library_filter)
@@ -380,7 +380,32 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
             self.assertEqual(JOBOUTCOME.COULD_NOT_PATCH, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_PATCH, got outcome %s" % (j.outcome.name))
             self.assertEqual(expected_values.get_filed_bug_id_func(), j.bugzilla_id)
+            self.assertEqual(u.aiProvider.resolve_call_count, 1, "A patch conflict should have been given to the AI")
 
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Create -> patching fails, but not because a patch didn't apply (e.g. a
+    # post-patch action failed) -> the AI isn't asked -> COULD_NOT_PATCH
+    @logEntryExitHeaderLine
+    def testPatchFailureNotAConflictSkipsAI(self):
+        library_filter = 'png'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 56,  # get_filed_bug_id_func
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'patch': lambda: raise_(Exception("Importing local patches...\nERROR: Could not find revision field in moz.yaml."))},
+            ai_config={'ai_outcome': 'trivial success', 'ai_details': ['Should not be asked.']},
+        )
+        try:
+            u.run(library_filter=library_filter)
+            self.assertEqual(u.aiProvider.resolve_call_count, 0, "The AI should not be asked about a failure that isn't a patch conflict")
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.DONE, j.status)
+            self.assertEqual(JOBOUTCOME.COULD_NOT_PATCH, j.outcome)
         finally:
             self._cleanup(u, expected_values)
 
@@ -392,7 +417,7 @@ class TestFunctionality(SimpleLoggingTest):
         def patch_callback():
             patch_calls[0] += 1
             if patch_calls[0] == 1:
-                raise_(Exception("patch does not apply cleanly"))
+                raise_(Exception("Could not apply mozilla.patch, possible reasons:"))
             return ""
 
         arc_calls = [0]
@@ -438,7 +463,7 @@ class TestFunctionality(SimpleLoggingTest):
         def patch_callback():
             patch_calls[0] += 1
             if patch_calls[0] == 1:
-                raise_(Exception("patch does not apply cleanly"))
+                raise_(Exception("Could not apply mozilla.patch, possible reasons:"))
             return ""
 
         arc_calls = [0]
@@ -480,7 +505,7 @@ class TestFunctionality(SimpleLoggingTest):
             lambda: 54,  # get_filed_bug_id_func
             lambda b: {},  # filed_bug_ids_func
             AssertFalse,  # treeherder_response
-            command_callbacks={'patch': lambda: raise_(Exception("patch still does not apply"))},
+            command_callbacks={'patch': lambda: raise_(Exception("Could not apply mozilla.patch, possible reasons:"))},
             ai_config={'ai_outcome': 'trivial success', 'ai_details': ['I think I fixed it.']},
         )
         try:

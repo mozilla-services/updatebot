@@ -23,6 +23,19 @@ def task_id_comment_tag():
     return os.environ.get('TASK_ID', 'missing')
 
 
+def task_log_url():
+    if "TASK_ID" not in os.environ:
+        return None
+    root = os.environ.get('TASKCLUSTER_ROOT_URL', 'https://firefox-ci-tc.services.mozilla.com')
+    return root.rstrip('/') + '/tasks/' + os.environ['TASK_ID']
+
+
+class CommentRejectedError(Exception):
+    """Bugzilla's web filter (not Bugzilla itself) refused the comment, with an
+    empty 406 response. It has done this for comments quoting shell trace output."""
+    pass
+
+
 def task_id_whiteboard():
     if "TASK_ID" in os.environ:
         return sq('task_id: ' + os.environ['TASK_ID'])
@@ -118,6 +131,9 @@ def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
         url + "bug/" + str(bugID) + "?api_key=" + apikey,
         json=data
     )
+
+    if r.status_code == 406:
+        raise CommentRejectedError("Bugzilla rejected the comment on Bug %s (status=406)" % bugID)
 
     j = _load_json_or_raise(r, "commentOnBug")
 

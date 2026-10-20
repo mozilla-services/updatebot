@@ -15,6 +15,19 @@ class CommentTemplates:
             library.name, new_release_version, release_timestamp)
 
     @staticmethod
+    def UPDATE_DETAILS_WITHOUT_COMMITS(library, commit_stats, error):
+        return """
+Updatebot couldn't get the list of upstream commits for this update from %s, so they aren't listed here. The error was:
+
+> %s
+
+Here are the overall diff statistics.
+
+----------------------------------------
+%s
+""" % (library.repo_url, error.strip().replace("\n", "\n> "), commit_stats)
+
+    @staticmethod
     def UPDATE_DETAILS(num_commits, num_new_commits, commit_stats, commit_details):
         new_commit_str = ""
         if num_new_commits != num_commits:

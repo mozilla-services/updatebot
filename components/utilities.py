@@ -147,6 +147,9 @@ def Memoize(func):
     def helper(*args, **kwargs):
         return memoized(*args, **kwargs)
 
+    # Like functools.lru_cache; the cache is shared by all instances, so tests
+    # that need a fresh call can clear it.
+    helper.cache_clear = memoized.memo.clear
     return helper
 
 

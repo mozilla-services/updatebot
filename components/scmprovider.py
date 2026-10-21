@@ -99,6 +99,16 @@ class Commit:
         return int(self.revision, 16)
 
 
+def _new_commits_first(list_of_commits, new_commits):
+    # Move new_commits to the front, otherwise keeping the order. git lists
+    # commits by date, so with merges a new commit can be older than (and
+    # listed below) commits that were already in a previous update.
+    if not new_commits:
+        return list_of_commits
+    new = set(c.revision for c in new_commits)
+    return [c for c in list_of_commits if c.revision in new] + [c for c in list_of_commits if c.revision not in new]
+
+
 def _contains_commit(list_of_commits, revision):
     for c in list_of_commits:
         if revision == c.revision:
@@ -170,6 +180,8 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
             # We do have new upstream commits.
             # Step 4: Check if the most recent job was performed on a revision _after_ the library's current revision or _before_.
+            # This is a question about ancestry, not about membership in all_new_upstream_commits: that list
+            # excludes merge commits, and for some libraries (e.g. PDF.js) every upstream revision is one.
             # 'After the library's current revision' means:
             #        in m-c we update the library to A
             #        then B was commited upstream
@@ -181,7 +193,10 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             #        Resulting in the most recent job (which was for B) occured _before_ the library's current revision
             # We can only do this if we have a most recent job, if we don't we're processing this library for the first time
             if most_recent_job_version:
-                most_recent_job_newer_than_library_rev = most_recent_job_version in [c.revision for c in all_new_upstream_commits]
+                most_recent_job_newer_than_library_rev = False
+                if self._commit_hash(most_recent_job_version) != self._commit_hash(common_ancestor):
+                    if self._is_ancestor(common_ancestor, most_recent_job_version):
+                        most_recent_job_newer_than_library_rev = self._is_ancestor(most_recent_job_version, new_version)
                 if most_recent_job_newer_than_library_rev:
                     self.logger.log("The most recent job we have run is for a revision still upstream and not in the mozilla repo.", level=LogLevel.Debug)
                 else:
@@ -209,7 +224,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 # of 3.  And then we have a commit added that, when sorted by date, goes 1 -> 2 -> 4 -> 3 -> 5
                 # where 5 is a merge commit.  This is perfectly legal and it screws up the assumption that
                 # we'll have an ordered subset.
-                assert len(all_new_upstream_commits) > len(unseen_new_upstream_commits), "Somehow the all-new list is not greater than the unseen list?"
+                # They can be the same length if the most recent job was for a merge commit that didn't bring in
+                # any (non-merge) commits of its own.
+                assert len(all_new_upstream_commits) >= len(unseen_new_upstream_commits), "Somehow the unseen list is longer than the all-new list?"
 
                 error_func = functools.partial(self._print_differing_commit_lists, all_new_upstream_commits, "all_new_upstream_commits", unseen_new_upstream_commits, "unseen_new_upstream_commits")
                 if not set(unseen_new_upstream_commits).issubset(set(all_new_upstream_commits)):
@@ -231,6 +248,22 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
         # Step 9: Return it
         return all_new_upstream_commits, unseen_new_upstream_commits
+
+    def _commit_hash(self, revision):
+        # The full hash of the commit a revision (tag, abbreviated or full hash)
+        # refers to, so revisions can be compared; or the revision itself if
+        # it doesn't exist.
+        ret = self.run(["git", "rev-parse", "--verify", "--quiet", revision + "^{commit}"], clean_return=False)
+        return ret.stdout.decode().strip() if ret.returncode == 0 else revision
+
+    def _is_ancestor(self, ancestor, descendant):
+        # True if ancestor is reachable from descendant (or they are the same commit).
+        ret = self.run(["git", "merge-base", "--is-ancestor", ancestor, descendant], clean_return=False)
+        if ret.returncode not in (0, 1):
+            # e.g. a revision that doesn't exist upstream (any more)
+            self.logger.log("Could not determine whether %s is an ancestor of %s: %s" % (
+                ancestor, descendant, ret.stderr.decode().strip()), level=LogLevel.Warning)
+        return ret.returncode == 0
 
     def _commits_between(self, revision1, revision2):
         """
@@ -304,12 +337,13 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
     # -----------------------------------------------------------------
 
-    def _build_single_comment_description(self, list_of_commits, max_length):
+    def _build_single_comment_description(self, list_of_commits, max_length, new_commits=None):
         # Render all the commits into a single comment.
         # Reducing the verbosity until the result fits within max_length.
 
         # The caller has already copied the list; reorder it newest-first for display.
         list_of_commits.reverse()
+        list_of_commits = _new_commits_first(list_of_commits, new_commits)
 
         def _get_details(verbosity):
             if verbosity == 0:
@@ -364,18 +398,23 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         comments.append(current)
         return comments
 
-    def _build_chained_comment_description(self, list_of_commits, max_length, repo_url):
+    def _build_chained_comment_description(self, list_of_commits, max_length, repo_url, new_commits=None, compare_range=None):
         # Always emit full commit details, split across as many comments as needed.
         if not list_of_commits:
             return [""]
 
-        # The compare URL must start at the parent of the oldest commit so that
-        # the oldest commit itself is included in the range (a `A...B` compare
-        # excludes A).
-        base_revision = list_of_commits[0].parent_revision
-        newest_revision = list_of_commits[-1].revision
+        # Prefer the caller's range (e.g. in-tree revision ... new version).
+        # Otherwise approximate it from the list: start at the parent of the
+        # oldest commit so that commit is included (a `A...B` compare excludes
+        # A). The list excludes merge commits, so with merges this can be off.
+        if compare_range:
+            base_revision, newest_revision = compare_range
+        else:
+            base_revision = list_of_commits[0].parent_revision
+            newest_revision = list_of_commits[-1].revision
         # The caller has already copied the list; reorder it newest-first.
         list_of_commits.reverse()
+        list_of_commits = _new_commits_first(list_of_commits, new_commits)
 
         # Format each commit at full detail, but drop to a lower verbosity for
         # any single commit whose block would not otherwise fit in a comment.
@@ -401,11 +440,13 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
     # -----------------------------------------------------------------
 
-    def build_bug_description(self, list_of_commits, max_length, repo_url=None, options=None):
+    def build_bug_description(self, list_of_commits, max_length, repo_url=None, options=None, new_commits=None, compare_range=None):
         # The commits are ordered oldest to newest. Copy once here since both
         # builders reorder the list in place, then dispatch on the task options.
+        # new_commits, if given, are listed first (the bug says they're the top N).
+        # compare_range, if given, is the (from, to) of the link to all commits.
         options = options or {}
         list_of_commits = copy.deepcopy(list_of_commits)
         if 'verbose-diff' in options:
-            return self._build_chained_comment_description(list_of_commits, max_length, repo_url)
-        return self._build_single_comment_description(list_of_commits, max_length)
+            return self._build_chained_comment_description(list_of_commits, max_length, repo_url, new_commits, compare_range)
+        return self._build_single_comment_description(list_of_commits, max_length, new_commits)

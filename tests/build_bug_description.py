@@ -128,6 +128,14 @@ class TestBuildBugDescription(unittest.TestCase):
         self.assertIn("All 3 commits: %s/compare/p0000000...ccccccc" % GITHUB_REPO, result[0])
         self.assertIn("continued in following comments", result[0])
 
+    def test_chained_compare_url_uses_given_range(self):
+        # With merges the list doesn't contain the real endpoints (e.g. a new
+        # version that is a merge commit), so callers can pass them.
+        commits = self._commits()
+        result = self.scm.build_bug_description(commits, 200, GITHUB_REPO, options={"verbose-diff": True},
+                                                compare_range=("intree0", "newver0"))
+        self.assertIn("All 3 commits: %s/compare/intree0...newver0" % GITHUB_REPO, result[0])
+
     def test_chained_no_compare_url_for_unsupported_host(self):
         commits = self._commits()
         result = self.scm.build_bug_description(commits, 200, "https://example.com/repo", options={"verbose-diff": True})

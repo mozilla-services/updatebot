@@ -155,7 +155,7 @@ class VendorTaskRunner(BaseTaskRunner):
         try:
             all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
             if library.should_show_commit_details:
-                commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220, library.repo_url, options=task.options)
+                commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220, library.repo_url, options=task.options, new_commits=unseen_upstream_commits, compare_range=(library.revision, new_version))
             else:
                 commit_chunks = [""]
             bug_description = CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_chunks[0])

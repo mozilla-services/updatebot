@@ -44,6 +44,20 @@ returncode os 0 is used.
 """
 
 
+def FAKE_HISTORY_IS_ANCESTOR(expected_values, cmd):
+    # The functionality tests fake a linear history: the in-tree revision
+    # ('_current', which is what 'git merge-base' returns) followed by the
+    # commits from git_pretty_output_func, which are newest-first.
+    newest_first = [line.split("|")[0] for line in expected_values.git_pretty_output_func(False)]
+    history = ["_current"] + list(reversed(newest_first))
+    ancestor, descendant = cmd.split()[-2:]
+    if ancestor == descendant:
+        return (0, "")
+    if ancestor in history and descendant in history and history.index(ancestor) < history.index(descendant):
+        return (0, "")
+    return (1, "")
+
+
 def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
     def echo_str(s):
         if platform.system() != "Windows":
@@ -85,7 +99,9 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         (echo_str("echo {\"transactions\": [{\"type\":\"parents.add\""), lambda: CONDUIT_EDIT_OUTPUT),
         ("git log -1 --oneline", lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output"),
         ("git clone https://example.invalid .", command_callbacks.get('upstream_clone', lambda: "")),
+        ("git merge-base --is-ancestor", lambda cmd: FAKE_HISTORY_IS_ANCESTOR(expected_values, cmd)),
         ("git merge-base", lambda: "_current"),
+        ("git rev-parse --verify --quiet", lambda cmd: cmd.split()[-1].replace("^{commit}", "")),
         ("git rev-parse", lambda: "abcdef1234567890abcdef1234567890abcdef12"),
         ("git log --pretty=%H|%ai|%ci", lambda cmd: "\n".join(expected_values.git_pretty_output_func("_current" not in cmd))),
         ("git diff --name-status", lambda: GIT_DIFF_FILES_CHANGES),

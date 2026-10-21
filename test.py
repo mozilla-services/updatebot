@@ -24,7 +24,8 @@ TESTS = [
     "lambda_capture",
     "class_passing",
     "frequency",
-    "mach_vendor"
+    "mach_vendor",
+    "scm"
 ]
 
 modules = []

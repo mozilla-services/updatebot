@@ -160,6 +160,8 @@ class TestMergeCommits(unittest.TestCase):
 
     Then P, on a branch that forked at R (before A), is merged after M2 (M3),
     followed by c5. A commit-alert job can be for a commit like P.
+
+    And X is a merge of M1 with s1b (already in M1), so it adds no commits.
     """
 
     @classmethod
@@ -207,6 +209,7 @@ class TestMergeCommits(unittest.TestCase):
         cls._git("merge", "-q", "--no-ff", "-m", "M3", "side3", date=3200)
         c['M3'] = cls._git("rev-parse", "HEAD")
         c['c5'] = cls._commit("c5", 3300)
+        c['X'] = cls._git("commit-tree", "-p", c['M1'], "-p", c['s1b'], "-m", "X", c['M1'] + "^{tree}", date=2300)
 
         loggingProvider = SimpleLogger(localconfig['Logging'])
         command_runner = CommandProvider({})
@@ -265,6 +268,15 @@ class TestMergeCommits(unittest.TestCase):
         all_commits, unseen = self._check('A', 'c5', self.commits['P'])
         self.assertEqual(self._names(all_commits), ['P', 'c3', 'c5', 's1a', 's1b', 's2'])
         self.assertEqual(self._names(unseen), ['c3', 'c5', 's1a', 's1b', 's2'])
+
+    def testNewVersionOnlyAddsMerges(self):
+        # No new commits, but the update still has commits to describe.
+        all_commits, unseen = self._check('A', 'X', self.commits['M1'], show_details=True)
+        self.assertEqual(self._names(all_commits), ['s1a', 's1b'])
+        self.assertEqual(unseen, [])
+        self.assertTrue(all(c.populated for c in all_commits))
+        description = self.scmProvider.build_bug_description(all_commits, 65534, new_commits=unseen)[0]
+        self.assertIn(self.commits['s1a'], description)
 
     def testNewCommitsListedFirst(self):
         all_commits, unseen = self._check('A', 'M2', self.commits['M1'], show_details=True)

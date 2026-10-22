@@ -217,8 +217,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 all_revisions = set(c.revision for c in all_new_upstream_commits)
                 unseen_new_upstream_commits = [c for c in self._commits_between(most_recent_job_version, new_version) if c.revision in all_revisions]
                 if len(unseen_new_upstream_commits) == 0:
-                    self.logger.log("Already processed revision %s" % (most_recent_job_version), level=LogLevel.Info)
-                    return all_new_upstream_commits, []
+                    # e.g. new_version only adds merge commits. Carry on, so the details of
+                    # all_new_upstream_commits are still populated (Step 7) for the bug description.
+                    self.logger.log("There are no new commits since revision %s" % (most_recent_job_version), level=LogLevel.Info)
 
                 # Step 6: Ensure that the unseen list of a subset of the 'all-new' list
                 # Techinically this is optional; we could have started at Step 3. But this approach is

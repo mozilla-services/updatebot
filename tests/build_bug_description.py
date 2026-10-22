@@ -136,6 +136,13 @@ class TestBuildBugDescription(unittest.TestCase):
                                                 compare_range=("intree0", "newver0"))
         self.assertIn("All 3 commits: %s/compare/intree0...newver0" % GITHUB_REPO, result[0])
 
+    def test_update_details_new_commit_counts(self):
+        from components.bugzilla import CommentTemplates
+        self.assertIn("covers 3 commits. Here", CommentTemplates.UPDATE_DETAILS(3, 3, "", ""))
+        self.assertIn("including 2 new upstream commits", CommentTemplates.UPDATE_DETAILS(3, 2, "", ""))
+        self.assertIn("covers 3 commits, all of which I've filed a bug on before.", CommentTemplates.UPDATE_DETAILS(3, 0, "", ""))
+        self.assertNotIn("top 0", CommentTemplates.UPDATE_DETAILS(3, 0, "", ""))
+
     def test_chained_no_compare_url_for_unsupported_host(self):
         commits = self._commits()
         result = self.scm.build_bug_description(commits, 200, "https://example.com/repo", options={"verbose-diff": True})

@@ -180,8 +180,9 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
             # We do have new upstream commits.
             # Step 4: Check if the most recent job was performed on a revision _after_ the library's current revision or _before_.
-            # This is a question about ancestry, not about membership in all_new_upstream_commits: that list
-            # excludes merge commits, and for some libraries (e.g. PDF.js) every upstream revision is one.
+            # That is, whether it is one of the commits in common_ancestor..new_version. This is a question about
+            # ancestry, not about membership in all_new_upstream_commits: that list excludes merge commits, and
+            # for some libraries (e.g. PDF.js) every upstream revision is one.
             # 'After the library's current revision' means:
             #        in m-c we update the library to A
             #        then B was commited upstream
@@ -193,10 +194,11 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             #        Resulting in the most recent job (which was for B) occured _before_ the library's current revision
             # We can only do this if we have a most recent job, if we don't we're processing this library for the first time
             if most_recent_job_version:
+                # Reachable from new_version but not from common_ancestor. (Not "common_ancestor is an ancestor
+                # of it": a commit-alert job can be a commit on a branch that forked before common_ancestor.)
                 most_recent_job_newer_than_library_rev = False
-                if self._commit_hash(most_recent_job_version) != self._commit_hash(common_ancestor):
-                    if self._is_ancestor(common_ancestor, most_recent_job_version):
-                        most_recent_job_newer_than_library_rev = self._is_ancestor(most_recent_job_version, new_version)
+                if self._is_ancestor(most_recent_job_version, new_version):
+                    most_recent_job_newer_than_library_rev = not self._is_ancestor(most_recent_job_version, common_ancestor)
                 if most_recent_job_newer_than_library_rev:
                     self.logger.log("The most recent job we have run is for a revision still upstream and not in the mozilla repo.", level=LogLevel.Debug)
                 else:
@@ -210,7 +212,10 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
                 # Step 5: Get the list of commits between the revision for the most recent job
                 # and new_version. (We previously confirmed that most_recent_job_version is in the sequence
                 # of commits from common_ancestor..new_version)
-                unseen_new_upstream_commits = self._commits_between(most_recent_job_version, new_version)
+                # Restrict to all_new_upstream_commits: if the job is on a branch that forked before
+                # common_ancestor, most_recent_job_version..new_version also includes commits already in-tree.
+                all_revisions = set(c.revision for c in all_new_upstream_commits)
+                unseen_new_upstream_commits = [c for c in self._commits_between(most_recent_job_version, new_version) if c.revision in all_revisions]
                 if len(unseen_new_upstream_commits) == 0:
                     self.logger.log("Already processed revision %s" % (most_recent_job_version), level=LogLevel.Info)
                     return all_new_upstream_commits, []
@@ -248,13 +253,6 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
         # Step 9: Return it
         return all_new_upstream_commits, unseen_new_upstream_commits
-
-    def _commit_hash(self, revision):
-        # The full hash of the commit a revision (tag, abbreviated or full hash)
-        # refers to, so revisions can be compared; or the revision itself if
-        # it doesn't exist.
-        ret = self.run(["git", "rev-parse", "--verify", "--quiet", revision + "^{commit}"], clean_return=False)
-        return ret.stdout.decode().strip() if ret.returncode == 0 else revision
 
     def _is_ancestor(self, ancestor, descendant):
         # True if ancestor is reachable from descendant (or they are the same commit).

@@ -101,7 +101,6 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         ("git clone https://example.invalid .", command_callbacks.get('upstream_clone', lambda: "")),
         ("git merge-base --is-ancestor", lambda cmd: FAKE_HISTORY_IS_ANCESTOR(expected_values, cmd)),
         ("git merge-base", lambda: "_current"),
-        ("git rev-parse --verify --quiet", lambda cmd: cmd.split()[-1].replace("^{commit}", "")),
         ("git rev-parse", lambda: "abcdef1234567890abcdef1234567890abcdef12"),
         ("git log --pretty=%H|%ai|%ci", lambda cmd: "\n".join(expected_values.git_pretty_output_func("_current" not in cmd))),
         ("git diff --name-status", lambda: GIT_DIFF_FILES_CHANGES),

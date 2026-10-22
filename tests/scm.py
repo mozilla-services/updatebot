@@ -157,6 +157,9 @@ class TestMergeCommits(unittest.TestCase):
 
     Separately, Z is a merge of A with its own parent R that adds no commits,
     followed by c4.
+
+    Then P, on a branch that forked at R (before A), is merged after M2 (M3),
+    followed by c5. A commit-alert job can be for a commit like P.
     """
 
     @classmethod
@@ -198,7 +201,12 @@ class TestMergeCommits(unittest.TestCase):
         cls._git("branch", "emptymerge", c['Z'])
         cls._git("checkout", "-q", "emptymerge")
         c['c4'] = cls._commit("c4", 1200)
+        cls._git("checkout", "-q", "-b", "side3", c['R'])
+        c['P'] = cls._commit("P", 1050)
         cls._git("checkout", "-q", "main")
+        cls._git("merge", "-q", "--no-ff", "-m", "M3", "side3", date=3200)
+        c['M3'] = cls._git("rev-parse", "HEAD")
+        c['c5'] = cls._commit("c5", 3300)
 
         loggingProvider = SimpleLogger(localconfig['Logging'])
         command_runner = CommandProvider({})
@@ -250,6 +258,13 @@ class TestMergeCommits(unittest.TestCase):
         all_commits, unseen = self._check('A', 'c4', self.commits['Z'])
         self.assertEqual(self._names(all_commits), ['c4'])
         self.assertEqual(self._names(unseen), ['c4'])
+
+    def testPreviousJobOnBranchForkedBeforeInTree(self):
+        # P isn't a descendant of A, but it is one of the new commits and has
+        # already been seen, so it mustn't be reported again.
+        all_commits, unseen = self._check('A', 'c5', self.commits['P'])
+        self.assertEqual(self._names(all_commits), ['P', 'c3', 'c5', 's1a', 's1b', 's2'])
+        self.assertEqual(self._names(unseen), ['c3', 'c5', 's1a', 's1b', 's2'])
 
     def testNewCommitsListedFirst(self):
         all_commits, unseen = self._check('A', 'M2', self.commits['M1'], show_details=True)

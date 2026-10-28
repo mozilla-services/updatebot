@@ -347,7 +347,8 @@ class VendorTaskRunner(BaseTaskRunner):
 
             # We also need to address the job _prior_ to this one and relinquish it as well to ensure that there is
             # at most one non-relinquished job and if present, it is the most recent
-            self._process_prior_job(existing_job.prior_job, existing_job.bugzilla_id)
+            if existing_job.prior_job and not existing_job.prior_job.relinquished:
+                self._process_prior_job(existing_job.prior_job, existing_job.bugzilla_id)
 
             raise Exception("Handled a Job with unexpected CREATED status in _process_existing_job")
 

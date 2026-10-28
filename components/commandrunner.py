@@ -52,13 +52,16 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
     infolog("Running", args)
     # Optionally feed a file to the process's stdin (used to pass large input,
     # e.g. a Claude prompt, without hitting command-line length limits).
+    # Otherwise give it no stdin: on Taskcluster stdin is a TTY nobody types into,
+    # so an interactive prompt (e.g. arc diff's for a huge file) would hang until
+    # the timeout instead of failing.
     stdin_handle = open(stdin_path, "rb") if stdin_path else None
     # Merge any extra env (e.g. secrets) over the inherited environment.
     run_env = {**os.environ, **env} if env else None
     try:
         ret = subprocess.run(
             args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=timeout,
-            cwd=cwd, stdin=stdin_handle, env=run_env)
+            cwd=cwd, stdin=stdin_handle or subprocess.DEVNULL, env=run_env)
     except subprocess.TimeoutExpired as e:
         ran_to_completion = False
         stdout = e.stdout

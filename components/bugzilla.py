@@ -158,6 +158,17 @@ careful inspection - *not* a rubberstamp.
         return s
 
     @staticmethod
+    def COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, errormessage):
+        return """
+I couldn't submit this update to Phabricator: %s
+
+You'll need to submit it yourself. You can recreate my patch locally with
+`./mach vendor %s` and submit it with `moz-phab`.
+
+Updatebot will be unable to do anything more for this library version.
+""" % (errormessage, library.yaml_path)
+
+    @staticmethod
     def COULD_NOT_GENERAL_ERROR(action, errormessage=None):
         s = "Updatebot encountered an error while trying to %s" % action
         if errormessage:

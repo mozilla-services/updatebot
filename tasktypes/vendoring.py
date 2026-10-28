@@ -9,6 +9,7 @@ import functools
 import subprocess
 
 from tasktypes.base import BaseTaskRunner
+from apis.phabricator import DiffTooLargeError
 from apis.taskcluster import Classification
 from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
@@ -301,6 +302,10 @@ class VendorTaskRunner(BaseTaskRunner):
                 purposes.append('patches commit')
             for revision, purpose in zip(phab_revisions, purposes):
                 self.dbProvider.add_phab_revision(created_job, revision, purpose)
+        except DiffTooLargeError as e:
+            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, str(e)), needinfo=library.maintainer_bz)
+            self.logger.log(str(e), level=LogLevel.Warning)
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to phabricator."), needinfo=library.maintainer_bz)

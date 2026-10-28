@@ -529,6 +529,42 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
+    # Create -> ./mach vendor -> commit -> try run -> arc diff refuses a file over 4 MiB
+    @logEntryExitHeaderLine
+    def testPhabSubmitDiffTooLarge(self):
+        call_counter = 0
+        library_filter = 'dav1d'
+        phab_calls = [0]
+
+        def phab_submit():
+            phab_calls[0] += 1
+            # What arc diff prints before aborting when stdin isn't a TTY
+            return (1, "Linting...\nNo lint engine configured for this project.\n\n\n"
+                       "    Diff for 'third_party/perfetto/sdk/perfetto.h' with context is 7,509,036\n"
+                       "    bytes in length. Generally, source changes should not be this large. If\n"
+                       "    the file is not a text file, you can mark it 'binary'. Mark this file as\n"
+                       "    'binary' and continue? [y/N] ")
+
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: ["try_rev"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: {} if call_counter == 0 else OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}}),  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'phab_submit': phab_submit}
+        )
+        try:
+            u.run(library_filter=library_filter)
+
+            self.assertEqual(phab_calls[0], 1, "Retried arc diff for a diff that can never be submitted")
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, got outcome %s" % (j.outcome.name))
+        finally:
+            self._cleanup(u, expected_values)
+
     @logEntryExitHeaderLine
     def testAllNewPresetJobs(self):
         @treeherder_response

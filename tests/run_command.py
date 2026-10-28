@@ -50,6 +50,11 @@ class TestCommandRunner(unittest.TestCase):
         finally:
             os.remove(stdin_path)
 
+    def testNoStdinByDefault(self):
+        # Without stdin_path the process gets an empty, non-interactive stdin, so it can't wait on a prompt.
+        ret = self._runner().run(["python3", "-c", "import os, sys; print(os.isatty(0), repr(sys.stdin.read()))"], timeout=30)
+        self.assertEqual(ret.stdout.decode().strip(), "False ''")
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

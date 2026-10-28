@@ -24,6 +24,15 @@ def quote_echo_string(s):
     return s
 
 
+# arc diff asks before submitting a file whose diff (with full-file context) is
+# over 4 MiB, and aborts without a TTY. The message is wrapped across lines.
+ARC_DIFF_TOO_LARGE = re.compile(r"Diff\s+for\s+'([^']+)'\s+with\s+context\s+is\s+([\d,]+)\s+bytes\s+in\s+length")
+
+
+class DiffTooLargeError(Exception):
+    pass
+
+
 class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         if 'url' not in config:
@@ -40,7 +49,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def submit_patches(self, bug_id, num_commits):
         phab_revisions = []
 
-        @retry
+        @retry(giveup=(DiffTooLargeError,))
         def submit_to_phabricator(rev_id, retry_attempt=None):
             cmd = [_arc(), "diff", "--verbatim", "--conduit-uri", self.url]
             if retry_attempt > 1:
@@ -50,6 +59,11 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             cmd.append("--")
 
             ret = self.run(cmd, clean_return=False)
+            too_large = ARC_DIFF_TOO_LARGE.search(ret.stdout.decode())
+            if too_large:
+                raise DiffTooLargeError(
+                    "arc diff will not submit %s because its diff is %s bytes, over arc's limit of 4 MiB for a single file."
+                    % too_large.groups())
             if ret.returncode == 255 and retry_attempt > 1:
                 pass  # --trace results in this return code
             else:

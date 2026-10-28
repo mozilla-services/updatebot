@@ -172,7 +172,8 @@ def static_vars(**kwargs):
 # Retry calling a function `times` times, sleeping between each tries, with an exponential backoff
 # This is to be used on API calls, that are likely to fail
 
-def retry(_func=None, *, times=10, sleep_s=1, exp=2, exceptions=(Exception,), attempt_kw="retry_attempt"):
+def retry(_func=None, *, times=10, sleep_s=1, exp=2, exceptions=(Exception,), giveup=(), attempt_kw="retry_attempt"):
+    """giveup lists exceptions that will fail the same way every time, so are raised without retrying."""
     def decorator(func):
         sig = inspect.signature(func)
         accepts_attempt = attempt_kw in sig.parameters
@@ -187,6 +188,8 @@ def retry(_func=None, *, times=10, sleep_s=1, exp=2, exceptions=(Exception,), at
                     if accepts_attempt:
                         call_kwargs[attempt_kw] = attempt
                     return func(*args, **call_kwargs)
+                except giveup:
+                    raise
                 except exceptions:
                     if attempt == effective_times:
                         raise  # preserves the original traceback

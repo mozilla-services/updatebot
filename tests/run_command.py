@@ -79,6 +79,22 @@ class TestCommandRunner(unittest.TestCase):
         self.assertEqual(ret.returncode, 1)
         self.assertEqual(runner.reported, [])
 
+    def testNoStdinByDefault(self):
+        # Without stdin_path the process gets an empty, non-interactive stdin, so it can't wait on a prompt.
+        # Give this process a stdin with data in it, so a child that inherited it would see the data.
+        r, w = os.pipe()
+        os.write(w, b"inherited")
+        os.close(w)
+        saved_stdin = os.dup(0)
+        os.dup2(r, 0)
+        try:
+            ret = self._runner().run(["python3", "-c", "import os, sys; print(os.isatty(0), repr(sys.stdin.read()))"], timeout=30)
+        finally:
+            os.dup2(saved_stdin, 0)
+            os.close(saved_stdin)
+            os.close(r)
+        self.assertEqual(ret.stdout.decode().strip(), "False ''")
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)

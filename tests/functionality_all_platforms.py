@@ -2410,7 +2410,15 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(JOBSTATUS.CREATED, j.status, "Expected status JOBSTATUS.CREATED, got status %s" % (j.status.name))
             self.assertEqual(JOBOUTCOME.PENDING, j.outcome, "Expected outcome JOBOUTCOME.PENDING, got outcome %s" % (j.outcome.name))
 
-            u.run(library_filter=library_filter)
+            # The job has no prior job, which used to raise an AttributeError instead of the intended exception.
+            logged_exceptions = []
+            original_log_exception = u.logger.log_exception
+            u.logger.log_exception = lambda e: (logged_exceptions.append(e), original_log_exception(e))
+            try:
+                u.run(library_filter=library_filter)
+            finally:
+                u.logger.log_exception = original_log_exception
+            self.assertEqual([str(e) for e in logged_exceptions], ["Handled a Job with unexpected CREATED status in _process_existing_job"])
 
             all_jobs = u.dbProvider.get_all_jobs()
             self.assertTrue(all_jobs[0].relinquished, "The first job should be relinquished.")

@@ -111,6 +111,8 @@ def transform_job_and_try_results_into_objects(rows):
 
 class Job:
     def __init__(self, row=None):
+        # The next-older job for the same library, if there is one; set by transform_job_and_try_results
+        self.prior_job = None
         if row:
             self.id = row['id']
             self.type = JOBTYPE(row['job_type'])

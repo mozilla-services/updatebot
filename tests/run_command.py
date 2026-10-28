@@ -11,7 +11,7 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from components.commandprovider import CommandProvider
+from components.commandprovider import CommandProvider, TracebackInCommandStderr
 from components.logging import SimpleLoggerConfig
 
 
@@ -49,6 +49,35 @@ class TestCommandRunner(unittest.TestCase):
             self.assertEqual(ret.stdout.decode(), "piped-in-content")
         finally:
             os.remove(stdin_path)
+
+    def _runner_capturing_exceptions(self):
+        runner = self._runner()
+        runner.reported = []
+        runner.logger = type("CapturingLogger", (), {
+            "log": lambda _self, *args, **kwargs: None,
+            "log_exception": lambda _self, e: runner.reported.append(e),
+        })()
+        return runner
+
+    def testTracebackInStderrIsReported(self):
+        runner = self._runner_capturing_exceptions()
+        ret = runner.run(["python3", "-c", "import traceback\ntry:\n    raise AttributeError('no filteredhash')\nexcept AttributeError:\n    traceback.print_exc()"])
+        self.assertEqual(ret.returncode, 0)
+        self.assertEqual(len(runner.reported), 1)
+        self.assertIsInstance(runner.reported[0], TracebackInCommandStderr)
+        self.assertIn("AttributeError: no filteredhash", str(runner.reported[0]))
+
+    def testNoTracebackIsNotReported(self):
+        runner = self._runner_capturing_exceptions()
+        runner.run(["bash", "-c", "echo just a warning >&2"])
+        self.assertEqual(runner.reported, [])
+
+    def testFailedCommandIsNotReported(self):
+        # A failing command is handled by its caller, so its traceback isn't reported again.
+        runner = self._runner_capturing_exceptions()
+        ret = runner.run(["python3", "-c", "raise Exception('boom')"], clean_return=False)
+        self.assertEqual(ret.returncode, 1)
+        self.assertEqual(runner.reported, [])
 
 
 if __name__ == '__main__':

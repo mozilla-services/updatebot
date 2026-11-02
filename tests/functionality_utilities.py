@@ -24,7 +24,6 @@ vendor          ./mach vendor
 commit          hg commit
 phab_submit     arc diff --verbatim
 try_submit      ./mach try
-    NOTE: try_submit is used differently for all_platforms.py and two_platforms.py
 
 Required Callbacks
     If these commands are run, callbacks must be supplied or it will cause errors.

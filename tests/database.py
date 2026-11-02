@@ -66,14 +66,14 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(None, self.db.get_job(library, version))
 
             self.db.create_job(JOBTYPE.VENDORING, library, version,
-                               JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBOUTCOME.PENDING, bugid)
+                               JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING, bugid)
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
             self.assertEqual(newJob.type, JOBTYPE.VENDORING)
             self.assertEqual(newJob.library_shortname, library.name)
             self.assertEqual(newJob.version, version)
-            self.assertEqual(newJob.status, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS)
+            self.assertEqual(newJob.status, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
             self.assertEqual(newJob.outcome, JOBOUTCOME.PENDING)
             self.assertEqual(newJob.bugzilla_id, bugid)
         finally:

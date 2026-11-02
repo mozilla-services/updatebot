@@ -218,9 +218,6 @@ class Updatebot:
             else:
                 self.logger.log("Staying in current directory '%s'" % (os.getcwd()), level=LogLevel.Info)
 
-            if 'separate-platforms' not in self.config_dictionary['General']:
-                self.config_dictionary['General']['separate-platforms'] = False
-
             libraries = self.libraryProvider.get_libraries(self.config_dictionary['General']['gecko-path'])
             for lib in libraries:
                 if library_filter and library_filter not in lib.name:

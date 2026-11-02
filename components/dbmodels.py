@@ -7,26 +7,23 @@
 from enum import unique, IntEnum
 
 
-# If not separate-platforms,
-#     goes straight to
-#     SECOND_PLATFORMS
 #      ┌──────────────── CREATED ────────────────────┐ Skips to DONE on error
-#      │                    │                        │
-#      │                    ▼                        │
-#      │   AWAITING_INITIAL_PLATFORM_TRY_RESULTS ────|
-#      │                    │                        │
-#      │                    ▼                        │
-#      └─► AWAITING_SECOND_PLATFORMS_TRY_RESULTS ────|
-#                           │                        │
-#                           │                        │
-#                           ▼                        │
-#               AWAITING_RETRIGGER_RESULTS           |
-#                           │                        │
-#                           ▼                        │
-#                          DONE ◄────────────────────┘
+#      │                                             │
+#      ▼                                             │
+#   AWAITING_SECOND_PLATFORMS_TRY_RESULTS ───────────|
+#      │                                             │
+#      ▼                                             │
+#   AWAITING_RETRIGGER_RESULTS ──────────────────────|
+#      │                                             │
+#      ▼                                             │
+#     DONE ◄─────────────────────────────────────────┘
+#
+# AWAITING_SECOND_PLATFORMS_TRY_RESULTS is named for when try runs were split
+# into an initial platform and then the rest; it now means the (only) try run.
+# The enum names are also stored in the status_types table, so they're kept.
 @unique
 class JOBSTATUS(IntEnum):
-    AWAITING_INITIAL_PLATFORM_TRY_RESULTS = 1
+    AWAITING_INITIAL_PLATFORM_TRY_RESULTS = 1  # No longer used, but may still be in the database
     AWAITING_SECOND_PLATFORMS_TRY_RESULTS = 2
     AWAITING_RETRIGGER_RESULTS = 3
     DONE = 4
@@ -49,7 +46,7 @@ class JOBOUTCOME(IntEnum):
     COULD_NOT_COMMIT_PATCHES = 11
     COULD_NOT_SUBMIT_TO_TRY = 12
     COULD_NOT_SUBMIT_TO_PHAB = 13
-    COULD_NOT_REVENDOR = 14
+    COULD_NOT_REVENDOR = 14  # No longer used, but may still be in the database
     COULD_NOT_SET_PHAB_REVIEWER = 15
     COULD_NOT_ABANDON = 16
     SPURIOUS_UPDATE = 17

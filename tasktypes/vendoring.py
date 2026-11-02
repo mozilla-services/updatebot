@@ -275,12 +275,9 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Submit to Try -----------------------
         try:
-            platform_restriction = "linux64" if self.config['General']['separate-platforms'] else ""
-            next_status = JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS if self.config['General']['separate-platforms'] else JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS
-            try_run_type = 'initial platform' if self.config['General']['separate-platforms'] else 'all platforms'
-            try_revision = self.taskclusterProvider.submit_to_try(library, platform_restriction)
-            self.dbProvider.add_try_run(created_job, try_revision, try_run_type)
-            self.dbProvider.update_job_status(created_job, newstatus=next_status)
+            try_revision = self.taskclusterProvider.submit_to_try(library)
+            self.dbProvider.add_try_run(created_job, try_revision, 'all platforms')
+            self.dbProvider.update_job_status(created_job, newstatus=JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
@@ -317,12 +314,7 @@ class VendorTaskRunner(BaseTaskRunner):
     @logEntryExit
     def _process_existing_job(self, library, task, existing_job):
         """
-        AWAITING_INITIAL_PLATFORM_TRY_RESULTS
-          If we see still-running jobs, keep state as-is, and finish.
-          If we see a build failure, comment, set assignee, needinfo, and state to JOB_PROCESSING_DONE. Finish.
-          Otherwise, trigger the rest of the platforms, set state to AWAITING_SECOND_PLATFORMS_TRY_RESULTS
-
-        AWAITING_SECOND_PLATFORMS_TRY_RESULTS
+        AWAITING_SECOND_PLATFORMS_TRY_RESULTS (the try run, despite the name)
           If we see still-running jobs, keep state as-is, and finish.
           If we see a build failure, comment, set assignee, needinfo, and state to JOB_PROCESSING_DONE. Finish.
           If we see test failures, accumulate them all, then retrigger each TRIGGER_TOTAL-1 times, set state to AWAITING_RETRIGGER_RESULTS. Finish
@@ -383,16 +375,10 @@ class VendorTaskRunner(BaseTaskRunner):
             existing_job.ff_versions.add(my_ff_version)
             return
 
-        elif existing_job.status == JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS:
-            assert len(existing_job.try_runs) == 1, "State is AWAITING_INITIAL_PLATFORM_TRY_RESULTS, but we have %s try runs, not 1 (%s)." % (len(existing_job.try_runs), existing_job.get_try_run_ids())
-            self._process_job_details_for_awaiting_initial_platform_results(library, task, existing_job)
-        elif existing_job.status == JOBSTATUS.RELINQUISHED:
-            self.logger.log("Job ID %s has the (obsolete) status RELINQUISHED so I am not going to try to process it." % existing_job.id, level=LogLevel.Info)
+        elif existing_job.status in (JOBSTATUS.RELINQUISHED, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS):
+            self.logger.log("Job ID %s has the (obsolete) status %s so I am not going to try to process it." % (existing_job.id, existing_job.status.name), level=LogLevel.Info)
         else:
-            if not self.config['General']['separate-platforms']:
-                assert len(existing_job.try_runs) == 1, "Status is %s, but we have %s try runs, not 1 (%s)." % (existing_job.status, len(existing_job.try_runs), existing_job.get_try_run_ids())
-            else:
-                assert len(existing_job.try_runs) == 2, "Status is %s, but we have %s try runs, not 2 (%s)." % (existing_job.status, len(existing_job.try_runs), existing_job.get_try_run_ids())
+            assert len(existing_job.try_runs) == 1, "Status is %s, but we have %s try runs, not 1 (%s)." % (existing_job.status, len(existing_job.try_runs), existing_job.get_try_run_ids())
 
             if existing_job.status == JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS:
                 self._process_job_details_for_awaiting_second_platform_results(library, task, existing_job)
@@ -407,16 +393,11 @@ class VendorTaskRunner(BaseTaskRunner):
     @logEntryExit
     def _get_comments_on_push(self, library, existing_job):
         # Fetch the job list (and double check its status), and the push health
-        job_list = []
-        push_health = {}
-        for t in existing_job.try_runs:
-            this_job_list = self.taskclusterProvider.get_job_details(t.revision)
-            job_list = self.taskclusterProvider.combine_job_lists(job_list, this_job_list)
+        try_revision = existing_job.try_runs[0].revision
+        job_list = self.taskclusterProvider.get_job_details(try_revision)
+        push_health = self.taskclusterProvider.get_push_health(try_revision)
 
-            this_push_health = self.taskclusterProvider.get_push_health(t.revision)
-            push_health = self.taskclusterProvider.combine_push_healths(push_health, this_push_health)
-
-        if not self._job_is_completed_without_build_failures(library, existing_job, this_job_list):
+        if not self._job_is_completed_without_build_failures(library, existing_job, job_list):
             return (False, None, None)
 
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
@@ -574,76 +555,9 @@ class VendorTaskRunner(BaseTaskRunner):
     # ==================================
 
     @logEntryExitNoArgs
-    def _process_job_details_for_awaiting_initial_platform_results(self, library, task, existing_job):
-        try_revision_1 = existing_job.try_runs[0].revision
-        self.logger.log("Handling try revision %s in Awaiting Initial Platform Results" % try_revision_1)
-
-        job_list = self.taskclusterProvider.get_job_details(try_revision_1)
-        if not self._job_is_completed_without_build_failures(library, existing_job, job_list):
-            return
-
-        if not existing_job.bugzilla_is_open:
-            self.logger.log("The bugzilla bug has been closed, so we will only summarize results.", level=LogLevel.Info)
-            self._process_job_details_for_awaiting_retrigger_results(library, task, existing_job)
-            return
-
-        self.logger.log("All jobs completed, we're going to go to the next set of platforms.", level=LogLevel.Info)
-
-        # Re-Vendor -------------------
-        try:
-            self.vendorProvider.vendor(library, existing_job.version)
-        except Exception as e:
-            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_REVENDOR)
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("re-vendor the library."), needinfo=library.maintainer_bz)
-            raise e
-
-        # Re-Commit -------------------
-        try:
-            self.mercurialProvider.commit(library, existing_job.bugzilla_id, existing_job.version)
-        except Exception as e:
-            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT)
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."), needinfo=library.maintainer_bz)
-            raise e
-
-        if library.has_patches:
-            # Apply Patches -------------------
-            try:
-                self.vendorProvider.patch(library, existing_job.version)
-            except Exception as e:
-                if isinstance(e, subprocess.CalledProcessError):
-                    msg = ("stderr:\n" + e.stderr.decode().rstrip() + "\n\n") if e.stderr else ""
-                    msg += ("stdout:\n" + e.stdout.decode().rstrip()) if e.stdout else ""
-                else:
-                    msg = str(e)
-                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches.", errormessage=msg), needinfo=library.maintainer_bz)
-                return
-            # Commit Patches ------------------
-            try:
-                self.mercurialProvider.commit_patches(library, existing_job.bugzilla_id, existing_job.version)
-            except Exception as e:
-                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES)
-                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit after applying mozilla patches."), needinfo=library.maintainer_bz)
-                raise e
-
-        # Submit to Try -------------------
-        try:
-            try_revision_2 = self.taskclusterProvider.submit_to_try(library, "!linux64")
-            self.dbProvider.add_try_run(existing_job, try_revision_2, 'more platforms')
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision_2, another=True))
-            self.dbProvider.update_job_status(existing_job, newstatus=JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
-        except Exception as e:
-            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
-            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to try."), needinfo=library.maintainer_bz)
-            raise e
-
-    # ==================================
-
-    @logEntryExitNoArgs
     def _process_job_details_for_awaiting_second_platform_results(self, library, task, existing_job):
-        try_run_index = 1 if self.config['General']['separate-platforms'] else 0
-        try_revision = existing_job.try_runs[try_run_index].revision
-        self.logger.log("Handling try revision number %i (%s) in Awaiting Second Platform Results" % (try_run_index + 1, try_revision), level=LogLevel.Info)
+        try_revision = existing_job.try_runs[0].revision
+        self.logger.log("Handling try revision %s in Awaiting Try Results" % try_revision, level=LogLevel.Info)
 
         # Get the push health and a comment string we may use in the bug.
         # Along the way, confirm that all the jobs have succeeded and there are no build failures

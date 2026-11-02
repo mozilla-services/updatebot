@@ -11,7 +11,7 @@ import requests
 from collections import defaultdict
 from urllib.parse import quote_plus
 
-from components.utilities import retry, Struct, merge_dictionaries, PUSH_HEALTH_IGNORED_DICTS, PUSH_HEALTH_IGNORED_KEYS
+from components.utilities import retry, Struct
 from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -149,27 +149,21 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
     @logEntryExit
     @retry
-    def submit_to_try(self, library, platform_filter, recursed=0):
+    def submit_to_try(self, library, recursed=0):
         self._vcs_setup()
-        if not platform_filter:
-            platform_filter_args = []
-        elif platform_filter[0] == "!":
-            platform_filter_args = ["--tasks-regex-exclude", platform_filter[1:]]
-        else:
-            platform_filter_args = ["--tasks-regex", platform_filter]
 
         if library.try_preset:
             try_arguments = ["./mach", "try", "--update", "--push-to-vcs", "--preset", library.try_preset]
         elif library.fuzzy_query or library.fuzzy_paths:
             try_arguments = ["./mach", "try", "fuzzy", "--push-to-vcs", "--update"]
             if library.fuzzy_query:
-                try_arguments += ["--query", library.fuzzy_query + " " + (platform_filter or "")]
+                try_arguments += ["--query", library.fuzzy_query + " "]
             else:  # If you don't give a --query it goes into interactive mode
-                try_arguments += ["--query", " " + (platform_filter or "")]
+                try_arguments += ["--query", " "]
             if library.fuzzy_paths:
                 try_arguments += library.fuzzy_paths
         else:
-            try_arguments = ["./mach", "try", "auto", "--push-to-vcs"] + platform_filter_args
+            try_arguments = ["./mach", "try", "auto", "--push-to-vcs"]
 
         ret = self.run(try_arguments, clean_return=True)
         output = ret.stdout.decode()
@@ -368,10 +362,6 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         return new_job_list
 
-    @logEntryExitNoArgs
-    def combine_job_lists(self, job_list_1, job_list_2):
-        return job_list_1 + job_list_2
-
     # =================================================================
     # =================================================================
 
@@ -391,13 +381,6 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             raise Exception("Could not parse the result of the push health as json. Url: %s Response:\n%s" % (push_health_url, r.text))
 
         return push_health
-
-    @logEntryExitNoArgs
-    def combine_push_healths(self, push_health_1, push_health_2):
-        combined = merge_dictionaries(push_health_1, push_health_2,
-                                      ignored_dicts=PUSH_HEALTH_IGNORED_DICTS,
-                                      ignored_keys=PUSH_HEALTH_IGNORED_KEYS)
-        return combined
 
     # =================================================================
     # =================================================================

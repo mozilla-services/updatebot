@@ -244,8 +244,8 @@ Updatebot will be unable to do anything more for this library version.
         return s
 
     @staticmethod
-    def TRY_RUN_SUBMITTED(revision, another=False):
-        return "I've submitted a" + ("nother" if another else "") + " try run for this commit: https://treeherder.mozilla.org/jobs?repo=try&revision=" + revision
+    def TRY_RUN_SUBMITTED(revision):
+        return "I've submitted a try run for this commit: https://treeherder.mozilla.org/jobs?repo=try&revision=" + revision
 
     @staticmethod
     def BUG_SUPERSEDED():

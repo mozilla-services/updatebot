@@ -242,9 +242,8 @@ class TestFullVendorRunNesteggLive(unittest.TestCase):
         self.assertEqual(
             job.outcome, JOBOUTCOME.PENDING,
             "nestegg job finished with a failure outcome (%s); see the job details above." % job.outcome)
-        self.assertIn(
-            job.status,
-            (JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS),
+        self.assertEqual(
+            job.status, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS,
             "nestegg job did not reach the awaiting-try-results state; see the job details above.")
 
         print("PASS: updatebot filed a bug, resolved the patch conflict, pushed Try, and "

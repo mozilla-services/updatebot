@@ -158,6 +158,18 @@ careful inspection - *not* a rubberstamp.
         return s
 
     @staticmethod
+    def TRY_CLOSED(reason, try_command):
+        return """
+I couldn't push a try run for this update because try is closed (%s).
+
+I'm still submitting it to Phabricator, but I won't push a try run for it
+myself. Once try reopens, you can apply the patch from Phabricator and push
+the try run I would have, with:
+
+    %s
+""" % (reason, try_command)
+
+    @staticmethod
     def COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, errormessage):
         return """
 I couldn't submit this update to Phabricator: %s

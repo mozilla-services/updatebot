@@ -10,7 +10,7 @@ import subprocess
 
 from tasktypes.base import BaseTaskRunner
 from apis.phabricator import DiffTooLargeError
-from apis.taskcluster import Classification
+from apis.taskcluster import Classification, TryTreeClosedError
 from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
@@ -279,6 +279,11 @@ class VendorTaskRunner(BaseTaskRunner):
             self.dbProvider.add_try_run(created_job, try_revision, 'all platforms')
             self.dbProvider.update_job_status(created_job, newstatus=JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.TRY_RUN_SUBMITTED(try_revision))
+        except TryTreeClosedError as e:
+            # Not an Updatebot failure: explain on the bug and carry on to Phabricator without a try run.
+            self.logger.log(str(e), level=LogLevel.Warning)
+            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.TRY_CLOSED(e.reason, e.try_command), needinfo=library.maintainer_bz)
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to try."), needinfo=library.maintainer_bz)

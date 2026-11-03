@@ -4,6 +4,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import re
+import shlex
 from enum import unique, IntEnum
 import jsone
 import platform
@@ -14,6 +16,22 @@ from urllib.parse import quote_plus
 from components.utilities import retry, Struct
 from components.logging import logEntryExit, logEntryExitNoArgs, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
+
+# hg.mozilla.org's push hook refuses pushes to a closed tree, and also when it
+# can't reach treestatus to find out (see version-control-tools'
+# hghooks/mozhghooks/treeclosure.py).
+TREE_CLOSED = re.compile(r"\S+ is CLOSED! Reason: (.*)")
+TREE_STATUS_UNAVAILABLE = "Unable to check if the tree is open - treating as if CLOSED."
+
+
+class TryTreeClosedError(Exception):
+    """Try refused the push because it's closed (or treestatus couldn't be reached).
+    Retrying won't help until the tree reopens."""
+    def __init__(self, reason, try_command):
+        super().__init__("Try is closed: " + reason)
+        self.reason = reason
+        self.try_command = try_command
+
 
 # We want to run tests a total of four times
 TRIGGER_TOTAL = 4
@@ -148,7 +166,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self._vcs_setup_initialized = True
 
     @logEntryExit
-    @retry
+    @retry(giveup=(TryTreeClosedError,))
     def submit_to_try(self, library, recursed=0):
         self._vcs_setup()
 
@@ -165,8 +183,16 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         else:
             try_arguments = ["./mach", "try", "auto", "--push-to-vcs"]
 
-        ret = self.run(try_arguments, clean_return=True)
+        ret = self.run(try_arguments, clean_return=False)
         output = ret.stdout.decode()
+        if ret.returncode:
+            stderr = ret.stderr.decode() if getattr(ret, "stderr", None) else ""
+            closed = TREE_CLOSED.search(output + stderr)
+            if closed:
+                raise TryTreeClosedError(closed.group(1).strip(), shlex.join(try_arguments))
+            if TREE_STATUS_UNAVAILABLE in output + stderr:
+                raise TryTreeClosedError("its tree status couldn't be checked, so the push was refused as if it were closed", shlex.join(try_arguments))
+            ret.check_returncode()
 
         isNext = False
         try_link = None

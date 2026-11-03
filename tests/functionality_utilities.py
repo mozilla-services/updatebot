@@ -138,6 +138,42 @@ temporary commit removed, repository restored
     return s
 
 
+# What hg.mozilla.org's push hook prints when try is closed, and when it can't reach treestatus
+TRY_CLOSED_OUTPUT = """
+Creating temporary commit for remote...
+pushing to ssh://hg.mozilla.org/try
+remote: adding changesets
+remote: adding manifests
+remote: adding file changes
+remote:
+remote:
+remote: ************************** ERROR ****************************
+remote: try is CLOSED! Reason: infra: worker pools are down
+remote: To push despite the closed tree, include "CLOSED TREE" in your push comment
+remote: *************************************************************
+remote:
+remote:
+remote: transaction abort!
+remote: rollback completed
+temporary commit removed, repository restored
+Error running mach:
+"""
+
+TRY_TREESTATUS_UNAVAILABLE_OUTPUT = """
+Creating temporary commit for remote...
+pushing to ssh://hg.mozilla.org/try
+remote: ************************** ERROR ****************************
+remote: Error accessing https://treestatus.prod.lando.prod.cloudops.mozgcp.net/trees/try :
+remote: HTTP Error 502: Bad Gateway
+remote: Unable to check if the tree is open - treating as if CLOSED.
+remote: To push regardless, include "CLOSED TREE" in your push comment.
+remote: *************************************************************
+remote: transaction abort!
+remote: rollback completed
+temporary commit removed, repository restored
+Error running mach:
+"""
+
 TRY_LOCKED_OUTPUT = """
 Creating temporary commit for remote...
 A try_task_config.json

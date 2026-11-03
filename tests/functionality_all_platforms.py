@@ -32,7 +32,7 @@ from components.scmprovider import SCMProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
-from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, ARC_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
+from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, TRY_CLOSED_OUTPUT, TRY_TREESTATUS_UNAVAILABLE_OUTPUT, ARC_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_aiprovider import MockAIProvider
 from tests.mock_libraryprovider import MockLibraryProvider
@@ -735,6 +735,58 @@ class TestFunctionality(SimpleLoggingTest):
 
         finally:
             self._cleanup(u, expected_values)
+
+    def _run_with_try_closed(self, try_output):
+        library_filter = 'dav1d'
+        try_calls = [0]
+
+        def try_submit():
+            try_calls[0] += 1
+            return (1, try_output)
+
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'try_submit': try_submit}
+        )
+        comments = []
+        original_comment_on_bug = u.bugzillaProvider.comment_on_bug
+        u.bugzillaProvider.comment_on_bug = lambda bug_id, comment, *args, **kwargs: (comments.append(comment), original_comment_on_bug(bug_id, comment, *args, **kwargs))
+        exceptions = []
+        original_log_exception = u.logger.log_exception
+        u.logger.log_exception = lambda e: (exceptions.append(e), original_log_exception(e))
+        try:
+            u.run(library_filter=library_filter)
+
+            self.assertEqual(try_calls[0], 1, "Retried pushing to a closed try")
+            self.assertEqual(exceptions, [], "A closed try shouldn't be reported as an Updatebot error")
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, got outcome %s" % (j.outcome.name))
+            self.assertEqual(len(j.phab_revisions), 1, "Should still have submitted to Phabricator")
+            closed_comments = [c for c in comments if "because try is closed" in c]
+            self.assertEqual(len(closed_comments), 1)
+            self.assertIn("./mach try", closed_comments[0])
+            return closed_comments[0]
+        finally:
+            u.logger.log_exception = original_log_exception
+            self._cleanup(u, expected_values)
+
+    # Create -> ./mach vendor -> commit -> try is closed -> comment, and still submit to Phabricator
+    @logEntryExitHeaderLine
+    def testTryClosed(self):
+        comment = self._run_with_try_closed(TRY_CLOSED_OUTPUT)
+        self.assertIn("(infra: worker pools are down)", comment)
+
+    # Create -> ./mach vendor -> commit -> treestatus is down, so the push hook treats try as closed
+    @logEntryExitHeaderLine
+    def testTryTreestatusUnavailable(self):
+        comment = self._run_with_try_closed(TRY_TREESTATUS_UNAVAILABLE_OUTPUT)
+        self.assertIn("tree status couldn't be checked", comment)
 
     # Create -> ./mach vendor -> commit -> Fails during try submit
     @logEntryExitHeaderLine

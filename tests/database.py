@@ -9,6 +9,9 @@ import time
 import copy
 import random
 import unittest
+from unittest import mock
+
+import pymysql
 
 sys.path.append(".")
 sys.path.append("..")
@@ -78,6 +81,28 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(newJob.bugzilla_id, bugid)
         finally:
             self.db.delete_job(job_id=newJob.id)
+
+
+class TestDatabaseConnection(unittest.TestCase):
+    def testRetriesWhileTheServerIsNotUpYet(self):
+        # Like cloud_sql_proxy not listening yet: the first attempts are refused.
+        real_connect = pymysql.connect
+        calls = []
+
+        def connect(*args, **kwargs):
+            calls.append(1)
+            if len(calls) < 3:
+                raise pymysql.err.OperationalError(2003, "Can't connect to MySQL server on '127.0.0.1' ([Errno 111] Connection refused)")
+            return real_connect(*args, **kwargs)
+
+        db_config = transform_db_config_to_tmp_db(localconfig['Database'])
+        with mock.patch("components.db.pymysql.connect", side_effect=connect), mock.patch("components.utilities.time.sleep"):
+            db = DatabaseProvider(db_config)
+        db.update_config(SimpleLoggerConfig)
+        self.assertEqual(len(calls), 3)
+        db.check_database()
+        self.assertTrue(db.updatebot_is_enabled())
+        del db
 
 
 if __name__ == '__main__':

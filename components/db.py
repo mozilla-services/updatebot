@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from components.utilities import Struct
+from components.utilities import Struct, retry
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
@@ -138,6 +138,19 @@ for p in JOBTYPE:
 # ==================================================================================
 
 
+# On Taskcluster, run.py starts cloud_sql_proxy just before Updatebot, and it
+# isn't always accepting connections yet, so retry for about half a minute.
+@retry(times=6, sleep_s=1, exp=2, exceptions=(pymysql.err.OperationalError,))
+def _connect(database_config):
+    return pymysql.connect(
+        host=database_config['host'],
+        user=database_config['user'],
+        password=database_config['password'],
+        charset='utf8',
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=True)
+
+
 class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     def __init__(self, database_config):
         pymysql.converters.encoders[JOBSTATUS] = lambda x, y=None: pymysql.converters.escape_int(x.value)
@@ -148,13 +161,7 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
         self._successfully_created_tmp_db = False
         self.database_config = database_config
-        self.connection = pymysql.connect(
-            host=database_config['host'],
-            user=database_config['user'],
-            password=database_config['password'],
-            charset='utf8',
-            cursorclass=pymysql.cursors.DictCursor,
-            autocommit=True)
+        self.connection = _connect(database_config)
 
         if database_config.get('use_tmp_db', False):
             with self.connection.cursor() as cursor:

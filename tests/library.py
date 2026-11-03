@@ -97,7 +97,8 @@ LIBRARIES = [
                         'enabled': True,
                     }, "n/a")
         ],
-        "yaml_path": ".github/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep)
+        "yaml_path": ".github/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep),
+        "vendor_directory": "third_party/dav1d"
     }),
     Library({
         'name': 'libpng',
@@ -172,6 +173,51 @@ class TestLibraryProvider(unittest.TestCase):
         libs = self.libraryprovider.get_libraries(os.getcwd())
         self.maxDiff = 999999
         self.assertEqual(libs, LIBRARIES)
+
+    def testVendorDirectoryAndGeneratedPaths(self):
+        # These checkout-relative paths decide which changes the spurious-update check
+        # ignores, so test them from real moz.yaml contents.
+        def manifest(vendoring_extra):
+            return """
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libfoo
+  description: a library
+  url: https://example.com/foo
+  revision: 0243c3ffb644e61848b82f24f5e4a7324669d76e
+vendoring:
+  url: https://example.com/foo.git
+%s
+updatebot:
+  maintainer-bz: foo
+  maintainer-phab: bar
+  tasks:
+    - type: vendoring
+""" % vendoring_extra
+
+        yaml_path = os.path.join("media", "libfoo", "moz.yaml")
+
+        # An explicit vendor-directory, different from the moz.yaml's directory
+        lib = LibraryProvider.validate_library(manifest("""  vendor-directory: third_party/foo
+  generated:
+    - config.h
+    - include/version.h"""), yaml_path)
+        self.assertEqual(lib.vendor_directory, "third_party/foo")
+        self.assertEqual(lib.generated, [os.path.join("third_party/foo", "config.h"), os.path.join("third_party/foo", "include/version.h")])
+
+        # No vendor-directory: it's the moz.yaml's directory
+        lib = LibraryProvider.validate_library(manifest("""  generated:
+    - config.h"""), yaml_path)
+        self.assertEqual(lib.vendor_directory, os.path.join("media", "libfoo"))
+        self.assertEqual(lib.generated, [os.path.join("media", "libfoo", "config.h")])
+
+        # No generated files
+        lib = LibraryProvider.validate_library(manifest("""  vendor-directory: third_party/foo"""), yaml_path)
+        self.assertEqual(lib.vendor_directory, "third_party/foo")
+        self.assertEqual(lib.generated, [])
 
     def testLibraryExceptions(self):
         test_vectors = [

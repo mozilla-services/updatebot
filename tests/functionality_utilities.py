@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import platform
+import inspect
 from functools import wraps
 from collections import OrderedDict
 
@@ -78,8 +79,40 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
 
         return ARC_OUTPUT % (value, value)
 
+    # For libraries with patches, Updatebot runs `./mach vendor --patch-mode only`
+    # twice: first while checking for a spurious update (between shelving and
+    # unshelving the working directory), then again in the normal flow. Tests'
+    # 'patch' callbacks are written for the normal flow only, so the check's call
+    # goes to 'spurious_check_patch' instead; with the default 'changed_files'
+    # it finds a real change and the normal flow carries on.
+    #
+    # True while Updatebot is inside that check: set by the `hg shelve --keep`
+    # that starts it, cleared by the `hg unshelve` or `hg shelve --delete` that
+    # ends it. (A one-element list so the callbacks below can change it.)
+    in_spurious_check = [False]
+
+    def set_in_spurious_check(value):
+        def callback():
+            in_spurious_check[0] = value
+            return ""
+        return callback
+
+    def call(callback, cmd):
+        return callback(cmd) if len(inspect.signature(callback).parameters) > 0 else callback()
+
+    def patch(cmd):
+        if in_spurious_check[0]:
+            return call(command_callbacks.get('spurious_check_patch', lambda: ""), cmd)
+        return call(command_callbacks.get('patch', AssertFalse), cmd)
+
     return OrderedDict([
-        ("./mach vendor --patch-mode only", command_callbacks.get('patch', AssertFalse)),
+        ("hg --config extensions.shelve= shelve --keep", set_in_spurious_check(True)),
+        ("hg --config extensions.shelve= unshelve", set_in_spurious_check(False)),
+        ("hg --config extensions.shelve= shelve --delete", set_in_spurious_check(False)),
+        ("hg revert --all --no-backup", lambda: ""),
+        ("hg addremove", lambda: ""),
+        ("hg --config ui.relative-paths=no status", command_callbacks.get('changed_files', lambda: "media/libdav1d/src/changed.c")),
+        ("./mach vendor --patch-mode only", patch),
         ("./mach vendor --check-for-update", command_callbacks.get('check_for_update', lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00")),
         ("./mach vendor ", command_callbacks.get('vendor', lambda: "")),
         ("hg commit", command_callbacks.get('commit', lambda: "")),

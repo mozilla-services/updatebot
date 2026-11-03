@@ -81,6 +81,9 @@ jobs:
       - name: Start MySQL service (Linux)
         if: runner.os == 'Linux'
         run: sudo systemctl start mysql.service
+      - name: Install Mercurial (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y mercurial
       - name: Start MySQL service (Windows)
         if: runner.os == 'Windows'
         run: |

@@ -15,6 +15,7 @@ TESTS = [
     "run_command",
     "functionality_commitalert",
     "functionality_all_platforms",
+    "functionality_vendoring_hg",
     "python_language",
     "treeherder_api",
     "library",

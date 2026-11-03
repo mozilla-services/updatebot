@@ -52,6 +52,9 @@ class Library:
         self.fuzzy_query = dict.get('fuzzy_query', None)
         self.fuzzy_paths = dict.get('fuzzy_paths', None)
         self.yaml_path = dict['yaml_path']
+        # Paths are relative to the root of the gecko checkout, like yaml_path
+        self.vendor_directory = dict.get('vendor_directory') or os.path.dirname(self.yaml_path)
+        self.generated = [os.path.join(self.vendor_directory, g) for g in dict.get('generated', [])]
         self.tasks = []
         self.should_show_commit_details = self.name != 'irregexp' and self.flavor != 'individual-files'
 
@@ -227,7 +230,9 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'fuzzy_query': '',
             'fuzzy_paths': [],
             'tasks': [],
-            'yaml_path': ''
+            'yaml_path': '',
+            'vendor_directory': '',
+            'generated': []
         }
 
         get_or_none = functools.partial(get_sub_key_or_none, dict=library, yaml_path=yaml_path)
@@ -256,6 +261,10 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             validated_library['has_patches'] = not not library['vendoring']['patches']
         else:
             validated_library['has_patches'] = False
+
+        if 'vendoring' in library:
+            validated_library['vendor_directory'] = library['vendoring'].get('vendor-directory', '')
+            validated_library['generated'] = library['vendoring'].get('generated', [])
 
         if 'vendoring' in library and 'flavor' in library['vendoring']:
             validated_library['flavor'] = library['vendoring']['flavor']

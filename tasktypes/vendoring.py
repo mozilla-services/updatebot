@@ -15,7 +15,7 @@ from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
-from components.hg import reset_repository
+from components.hg import reset_repository, SPURIOUS_CHECK_SHELF
 
 
 def _patch_exception_message(e):
@@ -97,6 +97,31 @@ class VendorTaskRunner(BaseTaskRunner):
 
     # ====================================================================
     @logEntryExit
+    def _only_patches_changed(self, library):
+        # We vendor with --patch-mode none, so mach's spurious-update check sees our
+        # patches being removed as a change. Reapply them and see whether anything
+        # still differs from the tree, then put the working directory back as it was.
+        self.mercurialProvider.save_working_directory(SPURIOUS_CHECK_SHELF)
+        spurious = False
+        try:
+            try:
+                # The vendored changes are uncommitted here, so mach has to be told that's expected
+                self.vendorProvider.patch(library, None, ignore_modified=True)
+            except Exception as e:
+                # The normal flow will report the failure; we just can't tell if it's spurious.
+                self.logger.log("Couldn't apply the patches to check for a spurious update: %s" % e, level=LogLevel.Info)
+                return False
+            changed = self.mercurialProvider.changed_files(exclude=[library.yaml_path] + library.generated)
+            spurious = not changed
+            return spurious
+        finally:
+            if spurious:
+                self.mercurialProvider.forget_saved_working_directory(SPURIOUS_CHECK_SHELF)
+            else:
+                self.mercurialProvider.restore_working_directory(SPURIOUS_CHECK_SHELF)
+
+    # ====================================================================
+    @logEntryExit
     def _reset_for_new_job(self):
         # remove commits generated from processing this library, will return success
         # regardless of if outgoing commits exist or not.
@@ -145,6 +170,10 @@ class VendorTaskRunner(BaseTaskRunner):
         # Check for spurious update -----------
         if result == VendorResult.SPURIOUS_UPDATE:
             self.logger.log("Version %s was a spruious update." % new_version)
+            return
+        if result == VendorResult.SUCCESS and library.has_patches and self._only_patches_changed(library):
+            self.logger.log("Version %s only removes and reapplies our patches, so it was a spurious update." % new_version, level=LogLevel.Info)
+            reset_repository(self.cmdProvider)
             return
 
         # Create the job ----------------------

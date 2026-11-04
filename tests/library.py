@@ -50,6 +50,7 @@ LIBRARIES = [
         "maintainer_bz": "nobody@mozilla.com",
         "maintainer_phab": "nobody",
         "try_preset": "sm-shell",
+        "artifact_build": True,
         "tasks": [
                     LibraryProvider.validate_task({
                         'type': "vendoring",
@@ -218,6 +219,26 @@ updatebot:
         lib = LibraryProvider.validate_library(manifest("""  vendor-directory: third_party/foo"""), yaml_path)
         self.assertEqual(lib.vendor_directory, "third_party/foo")
         self.assertEqual(lib.generated, [])
+
+    def testArtifactBuild(self):
+        def artifact_build(updatebot_extra):
+            return LibraryProvider.validate_library("""
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libfoo
+updatebot:
+  maintainer-bz: foo
+  maintainer-phab: bar
+  try-preset: sm-shell
+%s""" % updatebot_extra, "fake/path").artifact_build
+
+        self.assertIs(artifact_build("  artifact-build: true"), True)
+        self.assertIs(artifact_build("  artifact-build: True"), True)
+        self.assertIs(artifact_build("  artifact-build: false"), False)
+        self.assertIs(artifact_build(""), False)
 
     def testLibraryExceptions(self):
         test_vectors = [

@@ -3,13 +3,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import gzip
+import json
 from enum import unique, IntEnum
 import unittest
 import traceback
 from functools import partial, wraps
 
 import sentry_sdk
-from sentry_sdk import init as sentry_init, add_breadcrumb, capture_exception, configure_scope
+from sentry_sdk import init as sentry_init, add_breadcrumb, capture_exception
+from sentry_sdk.transport import HttpTransport
 
 from components.providerbase import BaseProvider
 from components.commandrunner import _run
@@ -124,10 +127,95 @@ class LocalLogger(LoggerInstance):
         print(bt, flush=True)
 
 
+# Sentry rejects events over 1 MB uncompressed or 200 KB compressed
+# (https://docs.sentry.io/concepts/data-management/size-limits/). It measures events after
+# processing them, which makes ours about 1.5x larger than what we send, so aim well below.
+SENTRY_MAX_EVENT_BYTES = 500_000
+SENTRY_MAX_COMPRESSED_EVENT_BYTES = 150_000
+# Longer breadcrumbs (usually command output) keep only their beginning and end.
+SENTRY_MAX_BREADCRUMB_LENGTH = 8192
+# A backstop for any other string in an event, such as an exception message.
+SENTRY_MAX_VALUE_LENGTH = 65536
+
+
+def _print_sentry_problem(level, message):
+    print(("[" + level.name + "]").ljust(9) + "(SentryLogger)", message, flush=True)
+
+
+def _shorten_breadcrumb(message):
+    if len(message) <= SENTRY_MAX_BREADCRUMB_LENGTH:
+        return message
+    half = SENTRY_MAX_BREADCRUMB_LENGTH // 2
+    return "%s\n[... %d characters omitted ...]\n%s" % (message[:half], len(message) - 2 * half, message[-half:])
+
+
+def _sentry_event_sizes(event):
+    data = json.dumps(event, default=str, separators=(",", ":")).encode()
+    return len(data), len(gzip.compress(data))
+
+
+def _event_fits(event):
+    size, compressed_size = _sentry_event_sizes(event)
+    return size <= SENTRY_MAX_EVENT_BYTES and compressed_size <= SENTRY_MAX_COMPRESSED_EVENT_BYTES
+
+
+def trim_sentry_event(event, hint):
+    """
+    A before_send hook that drops the oldest breadcrumbs until the event is small enough
+    for Sentry to accept, keeping as many of the most recent ones as fit.
+    """
+    # The SDK discards the event if this hook raises, so never let it raise
+    try:
+        _trim_sentry_event(event)
+    except Exception as e:
+        _print_sentry_problem(LogLevel.Error, "Could not check the size of Sentry event %s: %r" % (event.get("event_id"), e))
+    return event
+
+
+def _trim_sentry_event(event):
+    if _event_fits(event):
+        return
+    breadcrumbs = event.get("breadcrumbs", {}).get("values", [])
+
+    if breadcrumbs:
+        # Reserve room for this before measuring
+        event.setdefault("extra", {})["breadcrumbs_dropped_to_fit_size_limit"] = len(breadcrumbs)
+
+        # Binary search for the largest number of most-recent breadcrumbs that fits
+        lo, hi = 0, len(breadcrumbs)
+        while lo < hi:
+            keep = (lo + hi + 1) // 2
+            event["breadcrumbs"]["values"] = breadcrumbs[-keep:]
+            if _event_fits(event):
+                lo = keep
+            else:
+                hi = keep - 1
+        event["breadcrumbs"]["values"] = breadcrumbs[-lo:] if lo else []
+
+        dropped = len(breadcrumbs) - lo
+        event["extra"]["breadcrumbs_dropped_to_fit_size_limit"] = dropped
+        size, compressed_size = _sentry_event_sizes(event)
+        _print_sentry_problem(LogLevel.Warning, "Dropped the oldest %d of %d breadcrumbs from Sentry event %s so it fits Sentry's size limit; it is now %d bytes (%d compressed)." % (
+            dropped, len(breadcrumbs), event.get("event_id"), size, compressed_size))
+
+    if not _event_fits(event):
+        _print_sentry_problem(LogLevel.Error, "Sentry event %s is too large even without breadcrumbs; Sentry will probably reject it." % event.get("event_id"))
+
+
+class LoggingSentryTransport(HttpTransport):
+    """
+    The SDK only logs events that Sentry didn't accept when debug is on, so report them
+    in our own log.
+    """
+    def on_dropped_event(self, reason):
+        if reason == "status_413":
+            _print_sentry_problem(LogLevel.Error, "Sentry rejected an event because it was too large (HTTP 413).")
+        else:
+            _print_sentry_problem(LogLevel.Error, "An event was not sent to Sentry, or Sentry did not accept it: %s" % reason)
+
+
 class SentryLogger(LoggerInstance):
     def __init__(self, config):
-        # See https://stackoverflow.com/q/53699110
-        sentry_sdk.utils.MAX_STRING_LENGTH = 8192
         assert 'sentry' in config and config['sentry']
         assert 'sentry_config' in config, "Sentry logger requires a sentry_config key"
         assert 'url' in config['sentry_config'], "Sentry logger requires a url key in sentry_config"
@@ -148,14 +236,16 @@ class SentryLogger(LoggerInstance):
             debug=self.config['sentry_config']['debug'] if 'debug' in self.config['sentry_config'] else False,
             release=version,
             max_breadcrumbs=5000,
+            max_value_length=SENTRY_MAX_VALUE_LENGTH,
+            before_send=trim_sentry_event,
+            transport=LoggingSentryTransport,
             environment=environment)
 
-        with configure_scope() as scope:
-            if "TASK_ID" in os.environ:
-                scope.set_extra("TASK_ID", os.environ['TASK_ID'])
+        if "TASK_ID" in os.environ:
+            sentry_sdk.set_extra("TASK_ID", os.environ['TASK_ID'])
 
     def log(self, *args, level, category):
-        add_breadcrumb(category=category, level=level, message=" ".join([str(i) for i in args]))
+        add_breadcrumb(category=category, level=level, message=_shorten_breadcrumb(" ".join([str(i) for i in args])))
 
     def log_exception(self, e):
         capture_exception(e)

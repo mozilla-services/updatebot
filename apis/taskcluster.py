@@ -183,6 +183,9 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         else:
             try_arguments = ["./mach", "try", "auto", "--push-to-vcs"]
 
+        if library.artifact_build:
+            try_arguments.append("--artifact")
+
         ret = self.run(try_arguments, clean_return=False)
         output = ret.stdout.decode()
         if ret.returncode:

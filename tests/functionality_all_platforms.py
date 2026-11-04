@@ -946,13 +946,18 @@ class TestFunctionality(SimpleLoggingTest):
                     return "jobs_still_running.txt"
                 return "jobs_classified_failures.txt"
 
+        def try_submit(cmd):
+            self.assertTrue(cmd.endswith(" --preset sm-shell --artifact"), cmd)
+            return TRY_OUTPUT(expected_values.try_revision_id(), False)
+
         library_filter = 'cubeb-preset'
         (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["e152bb86666565ee6619c15f60156cd6c79580a9|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
             lambda b: {},  # filed_bug_ids_func
-            treeherder
+            treeherder,
+            command_callbacks={'try_submit': try_submit}
         )
         try:
             # Run it

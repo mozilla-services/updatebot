@@ -51,6 +51,7 @@ class Library:
         self.try_preset = dict.get('try_preset', None)
         self.fuzzy_query = dict.get('fuzzy_query', None)
         self.fuzzy_paths = dict.get('fuzzy_paths', None)
+        self.artifact_build = dict.get('artifact_build', False)
         self.yaml_path = dict['yaml_path']
         # Paths are relative to the root of the gecko checkout, like yaml_path
         self.vendor_directory = dict.get('vendor_directory') or os.path.dirname(self.yaml_path)
@@ -91,6 +92,7 @@ class Library:
                       self.try_preset,
                       self.fuzzy_query,
                       self.fuzzy_paths,
+                      self.artifact_build,
                       self.yaml_path)
         return "{{" + (" %s " * len(components) % components) + "}}"
 
@@ -229,6 +231,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'try_preset': '',
             'fuzzy_query': '',
             'fuzzy_paths': [],
+            'artifact_build': False,
             'tasks': [],
             'yaml_path': '',
             'vendor_directory': '',
@@ -279,6 +282,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             validated_library['try_preset'] = get_or_none('updatebot', 'try-preset')
             validated_library['fuzzy_query'] = get_or_none('updatebot', 'fuzzy-query')
             validated_library['fuzzy_paths'] = get_or_none('updatebot', 'fuzzy-paths')
+            validated_library['artifact_build'] = str(get_or_none('updatebot', 'artifact-build')).lower() == 'true'
 
             if 'tasks' in library['updatebot']:
                 for t in library['updatebot']['tasks']:

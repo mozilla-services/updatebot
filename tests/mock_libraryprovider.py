@@ -71,6 +71,7 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 "maintainer_phab": "nobody",
                 "maintainer_bz": "nobody@mozilla.com",
                 "try_preset": "sm-shell",
+                "artifact_build": True,
                 "revision": self.config.get('vendoring_revision_override', None),
                 "repo_url": "https://example.invalid",
                 "has_patches": False,

@@ -199,6 +199,25 @@ class Updatebot:
 
         return config_dictionary
 
+    def _holly_sentry_size_test(self):
+        # TEMPORARY, for testing #378 on holly only; do not merge
+        import random
+        import string
+        import sentry_sdk
+        self.logger.log("HOLLY-SENTRY-TEST: starting", level=LogLevel.Info)
+        for i in range(3000):
+            self.logger.log("HOLLY-SENTRY-TEST filler %d %s" % (i, "".join(random.choices(string.ascii_letters, k=300))), level=LogLevel.Debug2)
+        self.logger.log("HOLLY-SENTRY-TEST-LONG-BEGIN" + "".join(random.choices(string.ascii_letters, k=100000)) + "HOLLY-SENTRY-TEST-LONG-END", level=LogLevel.Debug2)
+        self.logger.log_exception(Exception("HOLLY-SENTRY-TEST: trimmable event"))
+        self.logger.log("HOLLY-SENTRY-TEST: sent the trimmable event", level=LogLevel.Info)
+
+        with sentry_sdk.new_scope() as scope:
+            for i in range(20):
+                scope.set_extra("holly_sentry_test_%d" % i, "".join(random.choices(string.ascii_letters + string.digits, k=65536)))
+            self.logger.log_exception(Exception("HOLLY-SENTRY-TEST: untrimmable event"))
+        sentry_sdk.flush(timeout=30)
+        self.logger.log("HOLLY-SENTRY-TEST: sent the untrimmable event and flushed", level=LogLevel.Info)
+
     def run(self, library_filter=""):
         try:
             start_time = time.time()
@@ -246,6 +265,8 @@ class Updatebot:
                             return
 
                     self.logger.clear_context()
+
+            self._holly_sentry_size_test()
         except Exception as e:
             self.logger.log_exception(e)
             raise(e)

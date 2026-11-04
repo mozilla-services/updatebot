@@ -199,6 +199,49 @@ class Updatebot:
 
         return config_dictionary
 
+    def _holly_sentry_ladder_test(self):
+        # TEMPORARY, for testing #378 on holly only; do not merge.
+        # Sends events trimmed to known sizes to find the size Sentry drops events at
+        # after processing them, then one event too large for Sentry to accept at all.
+        import random
+        import string
+        import sentry_sdk
+        import components.logging as ublogging
+
+        # Real logs compress about 8-10x, so draw from a small vocabulary like they do
+        words = ["".join(random.choices(string.ascii_lowercase, k=random.randint(3, 10))) for _ in range(200)]
+        revisions = ["".join(random.choices("0123456789abcdef", k=40)) for _ in range(20)]
+
+        def word():
+            return random.choice(words)
+
+        def log_line(i, length):
+            line = "Running ['hg', 'status', '--rev', '%s'] in /builds/worker/checkouts/gecko/third_party/%s/%s.c line %d:" % (
+                random.choice(revisions), word(), word(), i)
+            while len(line) < length:
+                line += " " + word()
+            return line
+
+        def send(title, budget, line_length):
+            ublogging.SENTRY_MAX_EVENT_BYTES = budget
+            ublogging.SENTRY_MAX_COMPRESSED_EVENT_BYTES = 10**8
+            with sentry_sdk.isolation_scope() as scope:
+                scope.clear_breadcrumbs()
+                for i in range(5000):
+                    self.logger.log(log_line(i, line_length), level=LogLevel.Debug2, category="VendorTaskRunner holly-test job_id=1")
+                self.logger.log_exception(Exception(title))
+            sentry_sdk.flush(timeout=60)
+            self.logger.log("HOLLY-SENTRY-LADDER: sent and flushed '%s'" % title, level=LogLevel.Info)
+
+        self.logger.log("HOLLY-SENTRY-LADDER: starting", level=LogLevel.Info)
+        for kb in (500, 550, 600, 650, 700, 800, 900, 1000):
+            send("HOLLY-SENTRY-LADDER %d KB" % kb, kb * 1000, 260)
+        # Over 1 MiB on the wire; Sentry should reject this with a 413
+        send("HOLLY-SENTRY-LADDER raw 2 MB", 10**8, 400)
+        ublogging.SENTRY_MAX_EVENT_BYTES = 500_000
+        ublogging.SENTRY_MAX_COMPRESSED_EVENT_BYTES = 150_000
+        self.logger.log("HOLLY-SENTRY-LADDER: done", level=LogLevel.Info)
+
     def run(self, library_filter=""):
         try:
             start_time = time.time()
@@ -207,6 +250,9 @@ class Updatebot:
             self.logger.log("Running Updatebot version: {0} on Python {1}".format(updatebot_version, python_version), level=LogLevel.Info)
             self.logger.log("Python prefix: {0}".format(sys.prefix), level=LogLevel.Debug)
             self.logger.log("Python modules loaded from {0}".format(", ".join(sys.path)), level=LogLevel.Debug)
+
+            self._holly_sentry_ladder_test()
+            return
 
             if not self.dbProvider.updatebot_is_enabled():
                 self.logger.log_exception(Exception("Updatebot is disabled per the config database, not doing anything and ending execution."))

@@ -25,7 +25,8 @@ TESTS = [
     "class_passing",
     "frequency",
     "mach_vendor",
-    "scm"
+    "scm",
+    "sentry_logging"
 ]
 
 modules = []

@@ -60,7 +60,7 @@ class VendorTaskRunner(BaseTaskRunner):
         # Then process all of them
         for j in all_jobs_not_done:
             self.logger.set_context(library.name, j.id)
-            self.logger.log("Processing job id %s for %s which is currently %s and has a %s bug" % (j.id, library.name, j.status, "open" if j.bugzilla_is_open else "closed"))
+            self.logger.log("Processing job id %s for %s which is currently %s and has a %s bug" % (j.id, library.name, j.status.name, "open" if j.bugzilla_is_open else "closed"))
             self._process_existing_job(library, task, j)
             self._reset_for_new_job()
         self.logger.set_context(library.name)
@@ -394,7 +394,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
             if existing_job.outcome in [JOBOUTCOME.SPURIOUS_UPDATE]:
                 self.logger.log("We found a job with id %s for revision %s but its outcome (%s) is not relevant for firefox tracking." % (
-                    existing_job.id, existing_job.version, existing_job.outcome), level=LogLevel.Info)
+                    existing_job.id, existing_job.version, existing_job.outcome.name), level=LogLevel.Info)
                 return
 
             if not existing_job.bugzilla_id:
@@ -412,14 +412,14 @@ class VendorTaskRunner(BaseTaskRunner):
         elif existing_job.status in (JOBSTATUS.RELINQUISHED, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS):
             self.logger.log("Job ID %s has the (obsolete) status %s so I am not going to try to process it." % (existing_job.id, existing_job.status.name), level=LogLevel.Info)
         else:
-            assert len(existing_job.try_runs) == 1, "Status is %s, but we have %s try runs, not 1 (%s)." % (existing_job.status, len(existing_job.try_runs), existing_job.get_try_run_ids())
+            assert len(existing_job.try_runs) == 1, "Status is %s, but we have %s try runs, not 1 (%s)." % (existing_job.status.name, len(existing_job.try_runs), existing_job.get_try_run_ids())
 
             if existing_job.status == JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS:
                 self._process_job_details_for_awaiting_second_platform_results(library, task, existing_job)
             elif existing_job.status == JOBSTATUS.AWAITING_RETRIGGER_RESULTS:
                 self._process_job_details_for_awaiting_retrigger_results(library, task, existing_job)
             else:
-                raise Exception("In _process_job_details for job with try revisions %s got a status %s I don't know how to handle." % (existing_job.get_try_run_ids(), existing_job.status))
+                raise Exception("In _process_job_details for job with try revisions %s got a status %s I don't know how to handle." % (existing_job.get_try_run_ids(), existing_job.status.name))
 
     # ==================================
 

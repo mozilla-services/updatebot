@@ -10,6 +10,11 @@ from components.logging import LogLevel, logEntryExit
 
 class CommentTemplates:
     @staticmethod
+    def VENDOR_COMMAND(library, revision):
+        # The revision we vendored, so the command reproduces our patch even after upstream moves on
+        return "./mach vendor %s --revision %s" % (library.yaml_path, revision)
+
+    @staticmethod
     def UPDATE_SUMMARY(library, new_release_version, release_timestamp):
         return "Update %s to new version %s from %s UTC" % (
             library.name, new_release_version, release_timestamp)
@@ -94,11 +99,11 @@ this update.
 """
 
     @staticmethod
-    def DONE_BUILD_FAILURE(library):
+    def DONE_BUILD_FAILURE(library, revision):
         return """
 It looks like we experienced one or more build failures when trying to apply this
 update. You will need to apply this update manually; you can replicate the patch
-locally with `./mach vendor %s`.  I'm going to abandon the Phabricator patch and
+locally with `%s`.  I'm going to abandon the Phabricator patch and
 let you submit a new one.
 
 If the build failure wasn't caused by a library change, and was instead caused by
@@ -107,34 +112,34 @@ Slack:#secinf.
 
 I do my best to automatically add new files to the build, but some moz.build files
 are complicated and you may need to fix them manually.
-""" % (library.yaml_path)
+""" % CommentTemplates.VENDOR_COMMAND(library, revision)
 
     @staticmethod
-    def DONE_CLASSIFIED_FAILURE(prefix, library):
+    def DONE_CLASSIFIED_FAILURE(prefix, library, revision):
         return prefix + "\n" + """
 These failures may mean that the library update succeeded; you'll need to review
 them yourself and decide. If there are lint failures, you will need to fix them in
 a follow-up patch. (Or ignore the patch I made, and recreate it yourself with
-`./mach vendor %s`.)
+`%s`.)
 
 In either event, I have done all I can, so you will need to take it from here.
 When reviewing, please note that this is external code, which needs a full and
 careful inspection - *not* a rubberstamp.
-""" % (library.yaml_path)
+""" % CommentTemplates.VENDOR_COMMAND(library, revision)
 
     @staticmethod
-    def DONE_UNCLASSIFIED_FAILURE(prefix, library):
+    def DONE_UNCLASSIFIED_FAILURE(prefix, library, revision):
         return prefix + "\n" + """
 These failures could mean that the library update changed something and caused
 tests to fail. You'll need to review them yourself and decide where to go from here.
 
 In either event, I have done all I can and you will need to take it from here. If you
 don't want to land my patch, you can replicate it locally for editing with
-`./mach vendor %s`
+`%s`
 
 When reviewing, please note that this is external code, which needs a full and
 careful inspection - *not* a rubberstamp.
-""" % (library.yaml_path)
+""" % CommentTemplates.VENDOR_COMMAND(library, revision)
 
     @staticmethod
     def DONE_ALL_SUCCESS():
@@ -149,8 +154,8 @@ careful inspection - *not* a rubberstamp.
 """
 
     @staticmethod
-    def COULD_NOT_VENDOR(library, errormessage):
-        s = "`./mach vendor %s` failed" % library.yaml_path
+    def COULD_NOT_VENDOR(library, revision, errormessage):
+        s = "`%s` failed" % CommentTemplates.VENDOR_COMMAND(library, revision)
         if errormessage:
             s += " with the following message:\n\n"
             for line in errormessage.split("\n"):
@@ -170,15 +175,15 @@ the try run I would have, with:
 """ % (reason, try_command)
 
     @staticmethod
-    def COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, errormessage):
+    def COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, revision, errormessage):
         return """
 I couldn't submit this update to Phabricator: %s
 
 You'll need to submit it yourself. You can recreate my patch locally with
-`./mach vendor %s` and submit it with `moz-phab`.
+`%s` and submit it with `moz-phab`.
 
 Updatebot will be unable to do anything more for this library version.
-""" % (errormessage, library.yaml_path)
+""" % (errormessage, CommentTemplates.VENDOR_COMMAND(library, revision))
 
     @staticmethod
     def COULD_NOT_GENERAL_ERROR(action, errormessage=None):
@@ -225,8 +230,8 @@ Updatebot will be unable to do anything more for this library version.
         return s
 
     @staticmethod
-    def COULD_NOT_VENDOR_ALL_FILES(library, errormessage):
-        s = "`./mach vendor %s` reported an error editing moz.build files:\n" % library.yaml_path
+    def COULD_NOT_VENDOR_ALL_FILES(library, revision, errormessage):
+        s = "`%s` reported an error editing moz.build files:\n" % CommentTemplates.VENDOR_COMMAND(library, revision)
         for line in errormessage.split("\n"):
             s += "> " + line + "\n"
         s += "\n"

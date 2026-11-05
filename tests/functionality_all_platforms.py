@@ -36,7 +36,7 @@ from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, T
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_aiprovider import MockAIProvider
 from tests.mock_libraryprovider import MockLibraryProvider
-from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH
+from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH, TYPE_BUGSUGGESTIONS
 from tests.database import transform_db_config_to_tmp_db
 
 try:
@@ -1221,6 +1221,8 @@ class TestFunctionality(SimpleLoggingTest):
         def treeherder(request_type, fullpath):
             if request_type == TYPE_HEALTH:
                 return "health_build_failed.txt"
+            elif request_type == TYPE_BUGSUGGESTIONS:
+                return "bugsuggestions_build_failure.txt"
             else:  # TYPE_JOBS
                 if treeherder.jobs_calls == 0:
                     return "jobs_still_running.txt"
@@ -1235,12 +1237,15 @@ class TestFunctionality(SimpleLoggingTest):
             assert "83050" in cmd, "Did not see the Phabricator revision we expected to when we abandoned one."
             return CONDUIT_EDIT_OUTPUT
 
+        # The bug is open once it's been filed
+        open_bugs = [{}]
+
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: {},  # filed_bug_ids_func
+            lambda b: open_bugs[0],  # filed_bug_ids_func
             treeherder,
             command_callbacks={'abandon': abandon_callback}
         )
@@ -1250,6 +1255,7 @@ class TestFunctionality(SimpleLoggingTest):
             u.run(library_filter=library_filter)
             # Check that we created the job successfully
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            open_bugs[0] = OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
             # Run it again, this time we'll tell it the jobs are still in process
             u.run(library_filter=library_filter)
@@ -1261,23 +1267,27 @@ class TestFunctionality(SimpleLoggingTest):
             # Should be DONE and Failed.
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
             self.assertTrue(was_abandoned, "Did not successfully abandon the phabricator patch.")
+            self.assertEqual(treeherder.bug_suggestions_calls, 1, "Should have stopped checking build failures for intermittents at the first one that isn't")
         finally:
             self._cleanup(u, expected_values)
 
-    # Create -> Build Failed because of an intermittent (Issue #453)
-    # The jobs list and push health are the real Treeherder responses for the try push of
-    # https://bugzilla.mozilla.org/show_bug.cgi?id=2089270 (harfbuzz 15.1.0): build-win64/opt
-    # busted from a known intermittent (bug 2087899), leaving the tests that depended on it
-    # unscheduled, with a few intermittent test failures. Updatebot reports this as a build
-    # failure and abandons the patch.
-    @logEntryExitHeaderLine
-    def testExistingJobIntermittentBuildFailure(self):
+    # Create -> Build Failed because of an intermittent -> Retrigger the build (Issue #453)
+    # The jobs list, push health and bug suggestions are the real Treeherder responses for
+    # the try push of https://bugzilla.mozilla.org/show_bug.cgi?id=2089270 (harfbuzz 15.1.0):
+    # build-win64/opt busted from a known intermittent (bug 2087899), leaving the tests that
+    # depended on it unscheduled, with a few intermittent test failures.
+    def _run_intermittent_build_failure(self, jobs_after_retrigger, expected_status, expected_outcome):
         @treeherder_response
         def treeherder(request_type, fullpath):
             if request_type == TYPE_HEALTH:
                 return "health_build_intermittent.txt"
+            elif request_type == TYPE_BUGSUGGESTIONS:
+                assert "604934614" in fullpath, "Requested bug suggestions for the wrong job: " + fullpath
+                return "bugsuggestions_build_intermittent.txt"
             else:  # TYPE_JOBS
-                return "jobs_build_intermittent.txt"
+                if treeherder.jobs_calls == 0:
+                    return "jobs_build_intermittent.txt"
+                return jobs_after_retrigger
 
         abandoned = [False]
 
@@ -1286,32 +1296,65 @@ class TestFunctionality(SimpleLoggingTest):
             assert "83050" in cmd, "Did not see the Phabricator revision we expected to when we abandoned one."
             return CONDUIT_EDIT_OUTPUT
 
+        # The bug is open once it's been filed
+        open_bugs = [{}]
+
         library_filter = 'dav1d'
         (u, expected_values, _check_jobs) = self._setup(
             library_filter,
             lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
             lambda: 50,  # get_filed_bug_id_func,
-            lambda b: {},  # filed_bug_ids_func
+            lambda b: open_bugs[0],  # filed_bug_ids_func
             treeherder,
             command_callbacks={'abandon': abandon_callback}
         )
         comments = []
         original_comment_on_bug = u.bugzillaProvider.comment_on_bug
         u.bugzillaProvider.comment_on_bug = lambda bug_id, comment, *args, **kwargs: (comments.append(comment), original_comment_on_bug(bug_id, comment, *args, **kwargs))
+        retriggers = []
+        original_retrigger_jobs = u.taskclusterProvider.retrigger_jobs
+        u.taskclusterProvider.retrigger_jobs = lambda jobs, *args, **kwargs: (retriggers.append(([j.job_type_name for j in jobs], kwargs.get('times'))), original_retrigger_jobs(jobs, *args, **kwargs))[1]
 
         try:
             # Create the job and submit to try.
             u.run(library_filter=library_filter)
             _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            open_bugs[0] = OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
 
-            # The try run finished with the busted build.
+            # The try run finished with the intermittently busted build: retrigger it once
+            # and keep waiting.
             u.run(library_filter=library_filter)
-            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
-            self.assertTrue(abandoned[0], "Did not abandon the phabricator patch.")
-            self.assertEqual(len([c for c in comments if "experienced one or more build failures" in c]), 1,
-                             "Expected exactly one build failure comment")
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+            self.assertEqual(retriggers, [(["build-win64/opt"], 1)])
+            self.assertFalse(abandoned[0], "Abandoned the phabricator patch for an intermittent build failure.")
+            self.assertEqual([c for c in comments if "experienced one or more build failures" in c], [])
+
+            # The retriggered build has finished.
+            u.run(library_filter=library_filter)
+            _check_jobs(expected_status, expected_outcome)
+            return (retriggers, abandoned, comments)
         finally:
             self._cleanup(u, expected_values)
+
+    # The retriggered build succeeds, so we carry on and retrigger the failed tests as usual.
+    @logEntryExitHeaderLine
+    def testExistingJobIntermittentBuildFailureRetriggerSucceeds(self):
+        (retriggers, abandoned, comments) = self._run_intermittent_build_failure(
+            "jobs_build_intermittent_retrigger_succeeded.txt", JOBSTATUS.AWAITING_RETRIGGER_RESULTS, JOBOUTCOME.PENDING)
+        self.assertEqual(len(retriggers), 2, "Expected to retrigger the failed tests after the build")
+        self.assertNotIn("build-win64/opt", retriggers[1][0])
+        self.assertFalse(abandoned[0], "Abandoned the phabricator patch for an intermittent build failure.")
+        self.assertEqual([c for c in comments if "experienced one or more build failures" in c], [])
+
+    # The retriggered build fails too, so it's a build failure.
+    @logEntryExitHeaderLine
+    def testExistingJobIntermittentBuildFailureRetriggerFails(self):
+        (retriggers, abandoned, comments) = self._run_intermittent_build_failure(
+            "jobs_build_intermittent_retrigger_failed.txt", JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
+        self.assertEqual(len(retriggers), 1, "Retriggered the build a second time")
+        self.assertTrue(abandoned[0], "Did not abandon the phabricator patch.")
+        self.assertEqual(len([c for c in comments if "experienced one or more build failures" in c]), 1,
+                         "Expected exactly one build failure comment")
 
     # Create -> Build Failed leaving dependent tasks Unscheduled (Issue #422)
     # A build failure can leave dependent tasks in the 'unscheduled' state; they
@@ -1323,6 +1366,8 @@ class TestFunctionality(SimpleLoggingTest):
         def treeherder(request_type, fullpath):
             if request_type == TYPE_HEALTH:
                 return "health_build_failed.txt"
+            elif request_type == TYPE_BUGSUGGESTIONS:
+                return "bugsuggestions_build_failure.txt"
             else:  # TYPE_JOBS
                 return "jobs_unscheduled.txt"
 
@@ -2073,6 +2118,8 @@ class TestFunctionality(SimpleLoggingTest):
         def treeherder(request_type, fullpath):
             if request_type == TYPE_HEALTH:
                 return "health_build_failed.txt"
+            elif request_type == TYPE_BUGSUGGESTIONS:
+                return "bugsuggestions_build_failure.txt"
             else:  # TYPE_JOBS
                 if treeherder.jobs_calls == 0:
                     return "jobs_still_running.txt"

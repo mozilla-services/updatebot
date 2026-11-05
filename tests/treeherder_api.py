@@ -14,7 +14,7 @@ from threading import Thread
 sys.path.append(".")
 sys.path.append("..")
 from components.logging import SimpleLoggerConfig
-from components.utilities import static_vars
+from components.utilities import static_vars, Struct
 from apis.taskcluster import TaskclusterProvider
 
 from tests.functionality_utilities import treeherder_response
@@ -28,6 +28,11 @@ from tests.mock_treeherder_server import MockTreeherderServerFactory, FAILURE_CL
 @static_vars(have_sent_page_1=False)
 @treeherder_response
 def treeherder_responses(requesttype, fullpath):
+    if "/bug_suggestions/" in fullpath:
+        if "/604934614/" in fullpath:
+            return "bugsuggestions_build_intermittent.txt"
+        return "bugsuggestions_build_failure.txt"
+
     if "push_id=1" in fullpath:
         if treeherder_responses.have_sent_page_1:
             treeherder_responses.have_sent_page_1 = False
@@ -134,6 +139,25 @@ class TestTaskclusterProvider(unittest.TestCase):
         self.assertEqual(data[1].hello, "WHAT")
         self.assertEqual(data[1].world, "UP")
         self.assertEqual(data[1].decision_task.hello, "WHAT")
+
+    def test_known_intermittent(self):
+        # The xul.lib install race from bug 2089270's try run, which matches bug 2087899
+        job = Struct(id=604934614, job_type_name="build-win64/opt", task_id="ZBU6hYOhTiyVUWlkodykhw")
+        self.assertTrue(self.taskclusterProvider.is_known_intermittent(job))
+
+    def test_not_known_intermittent(self):
+        # A compile error, followed by generic lines that match intermittent bugs without ids
+        # and a Perma bug
+        job = Struct(id=111, job_type_name="build-linux64/opt", task_id="AAAAAAAAAAAAAAAAAAAAAA")
+        self.assertFalse(self.taskclusterProvider.is_known_intermittent(job))
+
+    def test_build_components_not_checked_for_intermittents(self):
+        # build-components-* jobs run unit tests, so don't treat their failures as build
+        # intermittents, even if the first line matches one
+        calls = treeherder_responses.bug_suggestions_calls
+        job = Struct(id=604934614, job_type_name="build-components-feature-qr", task_id="ZBU6hYOhTiyVUWlkodykhw")
+        self.assertFalse(self.taskclusterProvider.is_known_intermittent(job))
+        self.assertEqual(treeherder_responses.bug_suggestions_calls, calls, "Should not have requested bug suggestions")
 
     def test_retrigger(self):
         job_list = self.taskclusterProvider.get_job_details('1')

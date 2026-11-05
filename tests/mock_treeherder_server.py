@@ -12,8 +12,9 @@ from components.logging import log, LogLevel
 
 TYPE_HEALTH = "health"
 TYPE_JOBS = "jobs"
+TYPE_BUGSUGGESTIONS = "bugsuggestions"
 
-FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id":8,"name":"intermittent needs bugid"},{"id":3,"name":"expected fail"},{"id":2,"name":"fixed by commit"},{"id":5,"name":"infra"},{"id":4,"name":"intermittent"},{"id":1,"name":"not classified"}]"""
+FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id":8,"name":"intermittent needs bugid"},{"id":3,"name":"expected fail"},{"id":2,"name":"fixed by commit"},{"id":5,"name":"infra"},{"id":6,"name":"new failure not classified"},{"id":4,"name":"intermittent"},{"id":1,"name":"not classified"}]"""
 
 EXPECTEDPATH_PUSH = "push/?revision="
 EXPECTEDPATH_JOBS = "jobs/?push_id="
@@ -21,6 +22,7 @@ EXPECTEDPATH_FAILURECLASSIFICATION = "/failureclassification"
 EXPECTEDPATH_ACTIONSJSON = "api/queue/v1/task"
 EXPECTEDPATH_RETRIGGER = "api/hooks/v1/hooks"
 EXPECTEDPATH_PUSHHEALTH = "push/health/?revision="
+EXPECTEDPATH_BUGSUGGESTIONS = "/bug_suggestions/"
 
 EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"
 RETRIGGER_RESPONSE = """
@@ -88,6 +90,10 @@ def MockTreeherderServerFactory(response_function):
             elif EXPECTEDPATH_FAILURECLASSIFICATION in self.path:
                 self.wfile.write(FAILURE_CLASSIFICATIONS.encode())
                 return
+
+            elif EXPECTEDPATH_BUGSUGGESTIONS in self.path:
+                log("MockTreeherderServer (bug suggestions): Got path %s" % self.path, level=LogLevel.Info)
+                filename = self.response_func(TYPE_BUGSUGGESTIONS, self.path)
 
             elif EXPECTEDPATH_PUSHHEALTH in self.path:
                 revision = self.path[self.path.index(EXPECTEDPATH_PUSHHEALTH) + len(EXPECTEDPATH_PUSHHEALTH):]

@@ -13,7 +13,7 @@ from components.utilities import AssertFalse
 from components.logging import logEntryExit
 from components.providerbase import INeedsLoggingProvider
 
-from tests.mock_treeherder_server import TYPE_HEALTH, TYPE_JOBS
+from tests.mock_treeherder_server import TYPE_HEALTH, TYPE_JOBS, TYPE_BUGSUGGESTIONS
 
 
 """
@@ -361,9 +361,12 @@ def treeherder_response(treeherder_response_func):
             func_wrapper.health_calls += 1
         elif request_type == TYPE_JOBS:
             func_wrapper.jobs_calls += 1
+        elif request_type == TYPE_BUGSUGGESTIONS:
+            func_wrapper.bug_suggestions_calls += 1
         else:
             raise Exception("Unknown request type given to treeherder_response")
         return ret
     func_wrapper.health_calls = 0
     func_wrapper.jobs_calls = 0
+    func_wrapper.bug_suggestions_calls = 0
     return func_wrapper

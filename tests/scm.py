@@ -18,6 +18,7 @@ from components.scmprovider import SCMProvider
 from components.logging import SimpleLogger, log
 from components.commandprovider import CommandProvider
 from components.utilities import Struct
+import components.utilities
 
 from tests.mock_repository import default_test_repo, test_repo_path_wrapper, COMMITS_MAIN, COMMITS_BRANCH2, COMMITS_BRANCH1
 
@@ -288,6 +289,34 @@ class TestMergeCommits(unittest.TestCase):
         # ...so the new commits are moved to the top.
         self.assertEqual(order(self.scmProvider.build_bug_description(all_commits, 65534, new_commits=unseen)[0]), ['c3', 's2', 's1b', 's1a'])
         self.assertEqual(order(self.scmProvider.build_bug_description(all_commits, 65534, options={'verbose-diff': True}, new_commits=unseen)[0]), ['c3', 's2', 's1b', 's1a'])
+
+
+class TestClone(unittest.TestCase):
+    def testCloneRetriesAfterAPartialClone(self):
+        scm = SCMProvider({})
+        scm.update_config({'CommandProvider': Struct(run=None), 'LoggingProvider': SimpleLogger({'local': True})})
+        scm.initialize()
+        attempts = []
+
+        def run(args, **kwargs):
+            attempts.append(sorted(os.listdir(".")))
+            if len(attempts) == 1:
+                # Fail part way through, leaving a partial checkout behind
+                os.makedirs(".git/objects")
+                raise subprocess.CalledProcessError(128, args, stderr=b"error: RPC failed; HTTP 502\nfatal: the remote end hung up unexpectedly")
+            open("README", "w").close()
+        scm.run = run
+
+        original_sleep = components.utilities.time.sleep
+        components.utilities.time.sleep = lambda s: None
+        try:
+            scm._ensure_checkout("https://example.invalid/repo")
+            os.chdir(scm.previous_dir_stack.pop())
+        finally:
+            components.utilities.time.sleep = original_sleep
+            scm.reset()
+
+        self.assertEqual(attempts, [[], []], "The retry should start from an empty directory")
 
 
 if __name__ == '__main__':

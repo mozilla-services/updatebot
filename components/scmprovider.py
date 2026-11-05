@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import functools
 
-from components.utilities import Memoize
+from components.utilities import Memoize, retry
 from components.logging import LogLevel, logEntryExit
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
@@ -128,6 +128,17 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def _reset(self):
         shutil.rmtree(self.tmpdirname, ignore_errors=True)
 
+    # Remote servers occasionally fail a clone (e.g. 'error: RPC failed; HTTP 502' then
+    # 'fatal: the remote end hung up unexpectedly'), so retry it for a few minutes.
+    @retry(times=4, sleep_s=30)
+    def _clone(self, repo_url):
+        # A failed clone can leave a partial checkout behind, which would make the next
+        # attempt fail because the directory isn't empty.
+        for name in os.listdir(self.tmpdirname):
+            path = os.path.join(self.tmpdirname, name)
+            shutil.rmtree(path) if os.path.isdir(path) and not os.path.islink(path) else os.remove(path)
+        self.run(["git", "clone", repo_url, "."])
+
     def _ensure_checkout(self, repo_url, specific_revision=None):
         self.previous_dir_stack.append(os.getcwd())
 
@@ -137,7 +148,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             if not repo_url:
                 raise Exception("Wound up in _ensure_checkout but missing a repo_url")
 
-            self.run(["git", "clone", repo_url, "."])
+            self._clone(repo_url)
 
             if specific_revision:
                 self.run(["git", "checkout", specific_revision])

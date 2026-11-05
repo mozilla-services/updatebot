@@ -401,10 +401,62 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         return push_health
 
+    def _get_bug_suggestions_url(self, job_id):
+        return self.url_treeherder + "api/%sjobs/%s/bug_suggestions/" % (self.url_project_path, job_id)
+
+    @logEntryExit
+    @retry
+    def get_bug_suggestions(self, job):
+        bug_suggestions_url = self._get_bug_suggestions_url(job.id)
+        self.logger.log("Requesting bug suggestions for %s (%s) from %s" % (job.job_type_name, job.task_id, bug_suggestions_url), level=LogLevel.Info)
+
+        r = requests.get(bug_suggestions_url, headers=self.HEADERS)
+        try:
+            return r.json()
+        except Exception:
+            raise Exception("Could not parse the result of the bug suggestions as json. Url: %s Response:\n%s" % (bug_suggestions_url, r.text))
+
+    @logEntryExitNoArgs
+    def is_known_intermittent(self, job):
+        """
+        Whether the first failure line of a failed build matches a filed intermittent bug.
+
+        This is meant for build jobs only. Intermittent build failures are filed against the
+        specific line that fails (a network abort, an sccache timeout, a race installing a
+        file), which a genuine compile error never matches. On autoland in Oct-Nov 2026 it
+        matched 0 of 443 builds sheriffs classified as fixed by commit, and 112 of 166 they
+        classified as intermittent.
+
+        It is too permissive for test failures. Intermittent test failures are usually filed
+        as a per-test 'single tracking bug', which any failure of that test matches,
+        including a real regression; and Treeherder's matching is fuzzy enough to suggest one
+        test's tracking bug for another. Over 25 Updatebot try runs most test failures that
+        matched an intermittent bug failed on every retrigger. For tests, retriggering is how
+        we find out.
+
+        Only the first line is considered: generic lines that follow any failure (such as
+        '[taskcluster:error] exit status 2') match intermittent bugs too.
+        """
+        # The Android build-components-* jobs run the components' unit tests, so their
+        # failures are test failures.
+        if job.job_type_name.startswith("build-components"):
+            return False
+
+        suggestions = self.get_bug_suggestions(job)
+        if not suggestions:
+            return False
+        bugs = suggestions[0].get('bugs', {})
+        for b in bugs.get('open_recent', []) + bugs.get('all_others', []):
+            if b.get('id') and b.get('summary', '').startswith(("Intermittent", "Frequent")):
+                self.logger.log("%s (%s) failed with '%s', a known intermittent: Bug %s - %s" % (
+                    job.job_type_name, job.task_id, suggestions[0].get('search'), b['id'], b['summary']), level=LogLevel.Info)
+                return True
+        return False
+
     # =================================================================
     # =================================================================
     @logEntryExitNoArgs
-    def retrigger_jobs(self, retrigger_list):
+    def retrigger_jobs(self, retrigger_list, times=TRIGGER_TOTAL - 1):
         # Group the jobs to retrigger by decision task
         decision_task_groups = defaultdict(list)
         for j in retrigger_list:
@@ -438,7 +490,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             context = {
                 'taskGroupId': retrigger_action['hookPayload']['decision']['action']['taskGroupId'],
                 'taskId': None,
-                'input': {'requests': [{'tasks': retrigger_tasks, 'times': TRIGGER_TOTAL - 1}]}
+                'input': {'requests': [{'tasks': retrigger_tasks, 'times': times}]}
             }
             template = retrigger_action['hookPayload']
 

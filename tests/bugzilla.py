@@ -260,6 +260,20 @@ class TestBugzillaProvider(unittest.TestCase):
         self.assertIn("https://firefox-ci-tc.services.mozilla.com/tasks/abc123", sent[1]['comment']['body'])
         self.assertEqual(sent[1]['flags'][0]['requestee'], 'Jon', "The replacement should keep the needinfo")
 
+    def testVendorCommandsIncludeTheRevision(self):
+        library = Struct(yaml_path="media/libfoo/moz.yaml")
+        command = "./mach vendor media/libfoo/moz.yaml --revision 1.2.3"
+        self.assertEqual(command, CommentTemplates.VENDOR_COMMAND(library, "1.2.3"))
+        for comment in [
+            CommentTemplates.DONE_BUILD_FAILURE(library, "1.2.3"),
+            CommentTemplates.DONE_CLASSIFIED_FAILURE("", library, "1.2.3"),
+            CommentTemplates.DONE_UNCLASSIFIED_FAILURE("", library, "1.2.3"),
+            CommentTemplates.COULD_NOT_VENDOR(library, "1.2.3", "an error"),
+            CommentTemplates.COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, "1.2.3", "too large"),
+            CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, "1.2.3", "an error"),
+        ]:
+            self.assertIn("`%s`" % command, comment)
+
     def testCommentRejectedWithoutTaskId(self):
         self.assertIn("log of the Updatebot run", CommentTemplates.COMMENT_REJECTED(None))
 

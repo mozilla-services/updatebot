@@ -213,11 +213,11 @@ class VendorTaskRunner(BaseTaskRunner):
 
             # Handle `./mach vendor` failing
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, msg), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, new_version, msg), needinfo=library.maintainer_bz)
             return
         elif result == VendorResult.MOZBUILD_ERROR:
             # Add a comment but do not abort
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, msg))
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, new_version, msg))
         elif result == VendorResult.SUCCESS:
             pass
         else:
@@ -335,7 +335,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.dbProvider.add_phab_revision(created_job, revision, purpose)
         except DiffTooLargeError as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, str(e)), needinfo=library.maintainer_bz)
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, new_version, str(e)), needinfo=library.maintainer_bz)
             self.logger.log(str(e), level=LogLevel.Warning)
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
@@ -574,7 +574,7 @@ class VendorTaskRunner(BaseTaskRunner):
         for j in job_list:
             if j.result not in ["retry", "success"]:
                 if "build" in j.job_type_name:
-                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library, existing_job.version), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
                     if not existing_job.relinquished:
                         for p in existing_job.phab_revisions:
                             try:
@@ -652,7 +652,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         self.bugzillaProvider.comment_on_bug(
             existing_job.bugzilla_id,
-            CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library),
+            CommentTemplates.DONE_UNCLASSIFIED_FAILURE(comment, library, existing_job.version),
             needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None,
             assignee=(existing_job.bugzilla_assignee or library.maintainer_bz) if existing_job.bugzilla_is_open else None)
 
@@ -671,7 +671,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         self.bugzillaProvider.comment_on_bug(
             existing_job.bugzilla_id,
-            CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library),
+            CommentTemplates.DONE_CLASSIFIED_FAILURE(comment, library, existing_job.version),
             assignee=(existing_job.bugzilla_assignee or library.maintainer_bz) if existing_job.bugzilla_is_open else None)
 
         self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.CLASSIFIED_FAILURES)

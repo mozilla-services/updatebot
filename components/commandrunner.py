@@ -6,7 +6,6 @@
 
 import os
 import time
-import platform
 import subprocess
 from subprocess import PIPE
 
@@ -34,19 +33,6 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
         raise Exception("Only call run() with a string when passing shell=True")
 
     debuglog("----------------------------------------------")
-
-    # On Windows we need to call things slightly differently
-    if isinstance(args, list) and platform.system() == 'Windows':
-        # translate git -> git.exe
-        if args[0] == "git":
-            infolog("Translating git to git.exe")
-            args[0] = 'git.exe'
-        # ./mach doesn't work on automation, we need to pass it to an interpretter
-        # ./mach is actually a shell script that re-executes itself with the correct python
-        # BUT in automation it uses the default python3, so we can skip the shell-based
-        # python3 locator code and go straight to python3
-        elif args[0] == "./mach" and "MOZ_AUTOMATION" in os.environ:
-            args.insert(0, "python3")
 
     start = time.time()
     infolog("Running", args)

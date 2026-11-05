@@ -5,23 +5,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import re
 import json
-import platform
 
 from components.utilities import retry
 from components.logging import logEntryExit, LogLevel
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
 
-def _arc():
-    if platform.system() == "Windows":
-        return "arc.bat"
-    return "arc"
-
-
 def quote_echo_string(s):
-    if platform.system() != "Windows":
-        return "'" + s + "'"
-    return s
+    return "'" + s + "'"
 
 
 # arc diff asks before submitting a file whose diff (with full-file context) is
@@ -51,7 +42,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         @retry(giveup=(DiffTooLargeError,))
         def submit_to_phabricator(rev_id, retry_attempt=None):
-            cmd = [_arc(), "diff", "--verbatim", "--conduit-uri", self.url]
+            cmd = ["arc", "diff", "--verbatim", "--conduit-uri", self.url]
             if retry_attempt > 1:
                 cmd.append("--trace")
             if rev_id:
@@ -106,7 +97,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         def chain_revisions(parent_rev, child_rev):
             # First get the PHID of the parent revision
             cmd = "echo " + quote_echo_string("""{"constraints": {"ids":[%s]}}""" % parent_rev)
-            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.search --""" % (_arc(), self.url)
+            cmd += " | arc call-conduit --conduit-uri=%s differential.revision.search --""" % self.url
 
             ret = self.run(cmd, shell=True)
             try:
@@ -127,7 +118,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
             # Now connect them - add parent as parent of child
             cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"parents.add", "value":["%s"]}], "objectIdentifier": "%s"}""" % (parent_phid, child_rev))
-            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
+            cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
             ret = self.run(cmd, shell=True)
             try:
                 result = json.loads(ret.stdout.decode())
@@ -145,7 +136,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         @retry
         def associate_bug_id(phab_revision):
             cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, phab_revision))
-            cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
+            cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
             ret = self.run(cmd, shell=True)
             try:
                 result = json.loads(ret.stdout.decode())
@@ -169,11 +160,11 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         if phab_username[0] == "#":
             # Get the group's phid (groups are implemented as 'projects'')
             cmd = "echo " + quote_echo_string("""{"constraints": {"slugs":["%s"]}}""" % phab_username)
-            cmd += " | %s call-conduit --conduit-uri=%s project.search --""" % (_arc(), self.url)
+            cmd += " | arc call-conduit --conduit-uri=%s project.search --""" % self.url
         else:
             # Get the user's phid
             cmd = "echo " + quote_echo_string("""{"constraints": {"usernames":["%s"]}}""" % phab_username)
-            cmd += " | %s call-conduit --conduit-uri=%s user.search --""" % (_arc(), self.url)
+            cmd += " | arc call-conduit --conduit-uri=%s user.search --""" % self.url
 
         ret = self.run(cmd, shell=True)
         try:
@@ -193,7 +184,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         phid = result['response']['data'][0]['phid']
 
         cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}""" % (phid, phab_revision))
-        cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
+        cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
         ret = self.run(cmd, shell=True)
         try:
             result = json.loads(ret.stdout.decode())
@@ -206,7 +197,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     @retry
     def abandon(self, phab_revision):
         cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}""" % phab_revision)
-        cmd += " | %s call-conduit --conduit-uri=%s differential.revision.edit --""" % (_arc(), self.url)
+        cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
         ret = self.run(cmd, shell=True)
         try:
             result = json.loads(ret.stdout.decode())

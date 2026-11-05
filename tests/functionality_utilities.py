@@ -4,7 +4,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import platform
 import inspect
 from functools import wraps
 from collections import OrderedDict
@@ -60,8 +59,7 @@ def FAKE_HISTORY_IS_ANCESTOR(expected_values, cmd):
 
 def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
     def echo_str(s):
-        if platform.system() != "Windows":
-            return s.replace("echo {", "echo '{")
+        return s.replace("echo {", "echo '{")
 
     global phab_calls
     phab_calls = -1

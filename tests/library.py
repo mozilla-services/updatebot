@@ -36,7 +36,7 @@ LIBRARIES = [
                         'enabled': True
                     }, "n/a")
         ],
-        "yaml_path": ".github/gecko-test/libcubeb-query/moz.yaml".replace("/", os.path.sep)
+        "yaml_path": ".github/gecko-test/libcubeb-query/moz.yaml"
     }),
     Library({
         "name": "cubeb-preset",
@@ -57,7 +57,7 @@ LIBRARIES = [
                         'enabled': True
                     }, "n/a")
         ],
-        "yaml_path": ".github/gecko-test/libcubeb-preset/moz.yaml".replace("/", os.path.sep)
+        "yaml_path": ".github/gecko-test/libcubeb-preset/moz.yaml"
     }),
     Library({
         "name": "cubeb-path",
@@ -79,7 +79,7 @@ LIBRARIES = [
                         'options': ['one', 'two']
                     }, "n/a")
         ],
-        "yaml_path": ".github/gecko-test/libcubeb-path/moz.yaml".replace("/", os.path.sep)
+        "yaml_path": ".github/gecko-test/libcubeb-path/moz.yaml"
     }),
     Library({
         "name": "dav1d",
@@ -98,7 +98,7 @@ LIBRARIES = [
                         'enabled': True,
                     }, "n/a")
         ],
-        "yaml_path": ".github/gecko-test/libdav1d/moz.yaml".replace("/", os.path.sep),
+        "yaml_path": ".github/gecko-test/libdav1d/moz.yaml",
         "vendor_directory": "third_party/dav1d"
     }),
     Library({
@@ -122,7 +122,7 @@ LIBRARIES = [
     })
 ]
 
-LIBRARY_FIND_OUTPUT = "\n".join([f.replace("/", os.path.sep) for f in [
+LIBRARY_FIND_OUTPUT = "\n".join([
     "{0}/.github/gecko-test/libcubeb-query/moz.yaml",
     "{0}/.github/gecko-test/libcubeb-preset/moz.yaml",
     "{0}/.github/gecko-test/libcubeb-path/moz.yaml",
@@ -130,7 +130,7 @@ LIBRARY_FIND_OUTPUT = "\n".join([f.replace("/", os.path.sep) for f in [
     "{0}/.github/gecko-test/libdav1d/moz.yaml",
     "{0}/.github/gecko-test/libnope/moz.yaml",
     "{0}/.github/gecko-test/libpng/moz.yaml"
-]]).format(os.getcwd())
+]).format(os.getcwd())
 
 
 class TestLibraryProvider(unittest.TestCase):
@@ -239,6 +239,29 @@ updatebot:
         self.assertIs(artifact_build("  artifact-build: True"), True)
         self.assertIs(artifact_build("  artifact-build: false"), False)
         self.assertIs(artifact_build(""), False)
+
+    def testOnlyLinuxTasksRun(self):
+        def task_types(tasks):
+            return [t.type for t in LibraryProvider.validate_library("""
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libfoo
+  revision: 0123456789abcdef
+vendoring:
+  url: https://example.com/libfoo
+updatebot:
+  maintainer-bz: foo
+  maintainer-phab: bar
+  tasks:
+%s""" % tasks, "fake/path").tasks]
+
+        self.assertEqual(task_types("    - type: vendoring"), ["vendoring"])
+        self.assertEqual(task_types("    - type: vendoring\n      platform: linux"), ["vendoring"])
+        # Updatebot only runs on Linux, so a task for Windows is valid but never runs
+        self.assertEqual(task_types("    - type: vendoring\n      platform: windows\n    - type: commit-alert"), ["commit-alert"])
 
     def testLibraryExceptions(self):
         test_vectors = [

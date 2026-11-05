@@ -6,7 +6,6 @@
 
 import os
 import yaml
-import platform
 import functools
 
 from components.logging import LogLevel
@@ -176,18 +175,12 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
     def get_libraries(self, gecko_path):
         if self._libraries is None:
             libraries = []
-            if platform.system() == 'Windows':
-                # dir is not an executable but a built-in of the Windows shell, so we need to run
-                # this with shell=True
-                command = ["dir", "/B", "/S", os.path.join(gecko_path, "moz.yaml")]
-                mozilla_central_yamls = self.run(" ".join(command), shell=True).stdout.decode()
-            else:
-                command = ["find", gecko_path, "-type", "f", "-name", "moz.yaml"]
-                mozilla_central_yamls = self.run(command).stdout.decode()
+            command = ["find", gecko_path, "-type", "f", "-name", "moz.yaml"]
+            mozilla_central_yamls = self.run(command).stdout.decode()
 
             mozilla_central_yamls = mozilla_central_yamls.strip().split("\n")
             for file in mozilla_central_yamls:
-                file = file.strip()  # Needed to remove the Windows trailing \r
+                file = file.strip()
                 if not file:
                     continue
                 with open(file, "r") as mozyaml:
@@ -288,7 +281,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
                 for t in library['updatebot']['tasks']:
                     validated_task = LibraryProvider.validate_task(t, library['origin']['name'])
 
-                    if validated_task['enabled'] and validated_task['platform'] == platform.system().lower():
+                    # Updatebot only runs on Linux; tasks for other platforms are ignored
+                    if validated_task['enabled'] and validated_task['platform'] == 'linux':
                         validated_library['tasks'].append(validated_task)
 
         if validated_library['tasks']:

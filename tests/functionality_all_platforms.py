@@ -1346,6 +1346,26 @@ class TestFunctionality(SimpleLoggingTest):
         self.assertFalse(abandoned[0], "Abandoned the phabricator patch for an intermittent build failure.")
         self.assertEqual([c for c in comments if "experienced one or more build failures" in c], [])
 
+    # We retriggered the build, but the new build isn't visible yet: keep waiting rather than
+    # retriggering it again.
+    @logEntryExitHeaderLine
+    def testExistingJobIntermittentBuildFailureRetriggerNotVisibleYet(self):
+        (retriggers, abandoned, comments) = self._run_intermittent_build_failure(
+            "jobs_build_intermittent_retrigger_not_visible.txt", JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+        self.assertEqual(len(retriggers), 1, "Retriggered the build a second time")
+        self.assertFalse(abandoned[0], "Abandoned the phabricator patch while waiting for the retriggered build.")
+        self.assertEqual([c for c in comments if "experienced one or more build failures" in c], [])
+
+    # The retrigger action failed, so don't retrigger again; it's a build failure.
+    @logEntryExitHeaderLine
+    def testExistingJobIntermittentBuildFailureRetriggerActionFailed(self):
+        (retriggers, abandoned, comments) = self._run_intermittent_build_failure(
+            "jobs_build_intermittent_retrigger_action_failed.txt", JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
+        self.assertEqual(len(retriggers), 1, "Retriggered the build a second time")
+        self.assertTrue(abandoned[0], "Did not abandon the phabricator patch.")
+        self.assertEqual(len([c for c in comments if "experienced one or more build failures" in c]), 1,
+                         "Expected exactly one build failure comment")
+
     # The retriggered build fails too, so it's a build failure.
     @logEntryExitHeaderLine
     def testExistingJobIntermittentBuildFailureRetriggerFails(self):

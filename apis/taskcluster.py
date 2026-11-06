@@ -418,6 +418,25 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         except Exception:
             raise Exception("Could not parse the result of the bug suggestions as json. Url: %s Response:\n%s" % (bug_suggestions_url, r.text))
 
+    @logEntryExit
+    @retry
+    def retrigger_was_automated(self, job):
+        """
+        Whether an 'Action: Retrigger' job was triggered by a task, such as an Updatebot
+        cron run, rather than by a person. Tasks trigger actions with their task
+        credentials ('task-client/<taskId>/...'); people with their own.
+        """
+        task_url = self.url_taskcluster + "api/queue/v1/task/%s" % job.task_id
+        self.logger.log("Requesting the task definition of %s (%s) from %s" % (job.job_type_name, job.task_id, task_url), level=LogLevel.Info)
+
+        r = requests.get(task_url, headers=self.HEADERS)
+        r.raise_for_status()
+        try:
+            client_id = r.json()['extra']['action']['context']['clientId']
+        except Exception:
+            raise Exception("Could not find the action's clientId in the task definition. Url: %s Response:\n%s" % (task_url, r.text))
+        return client_id.startswith("task-client/")
+
     @logEntryExitNoArgs
     def is_known_intermittent(self, job):
         """

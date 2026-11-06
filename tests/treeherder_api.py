@@ -30,6 +30,9 @@ from tests.mock_treeherder_server import MockTreeherderServerFactory, FAILURE_CL
 @static_vars(have_sent_page_1=False)
 @treeherder_response
 def treeherder_responses(requesttype, fullpath):
+    if "/api/queue/v1/task/" in fullpath and "/runs/" not in fullpath:
+        return "task_retrigger_action_person.txt" if "PersonAction" in fullpath else "task_retrigger_action_updatebot.txt"
+
     if "/bug_suggestions/" in fullpath:
         if "/604934614/" in fullpath:
             return "bugsuggestions_build_intermittent.txt"
@@ -169,6 +172,13 @@ class TestTaskclusterProvider(unittest.TestCase):
         finally:
             components.utilities.RETRY_TIMES_OVERRIDE, components.utilities.time.sleep = original_override, original_sleep
         self.assertEqual(treeherder_responses.bug_suggestions_calls - calls, 3, "Expected the request to be retried")
+
+    def test_retrigger_was_automated(self):
+        # Updatebot's retrigger from a real try push, triggered with its cron task's credentials
+        updatebot = Struct(job_type_name="Action: Retrigger", task_id="Y9uB-4roQemM36ti5Apxgw")
+        self.assertTrue(self.taskclusterProvider.retrigger_was_automated(updatebot))
+        person = Struct(job_type_name="Action: Retrigger", task_id="PersonActionXXXXXXXXXX")
+        self.assertFalse(self.taskclusterProvider.retrigger_was_automated(person))
 
     def test_build_components_not_checked_for_intermittents(self):
         # build-components-* jobs run unit tests, so don't treat their failures as build

@@ -591,8 +591,10 @@ class VendorTaskRunner(BaseTaskRunner):
             if len(intermittent_builds) == len(failed_builds):
                 # Our retrigger shows up on the push as an 'Action: Retrigger' job. If there's one
                 # already, don't retrigger again: if it succeeded the new builds just aren't
-                # visible yet, and if it failed we treat it as a build failure.
-                retrigger_actions = [j for j in job_list if j.job_type_name == "Action: Retrigger"]
+                # visible yet, and if it failed we treat it as a build failure. We only retrigger
+                # tests once every build has succeeded, so any retrigger we made by now was of
+                # builds; retriggers people made are ignored.
+                retrigger_actions = [j for j in job_list if j.job_type_name == "Action: Retrigger" and self.taskclusterProvider.retrigger_was_automated(j)]
                 if not retrigger_actions:
                     self.logger.log("Retriggering %s build(s) that failed with known intermittents: %s" % (
                         len(intermittent_builds), ", ".join(j.job_type_name for j in intermittent_builds)), level=LogLevel.Info)

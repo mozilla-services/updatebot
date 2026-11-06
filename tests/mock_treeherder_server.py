@@ -13,6 +13,7 @@ from components.logging import log, LogLevel
 TYPE_HEALTH = "health"
 TYPE_JOBS = "jobs"
 TYPE_BUGSUGGESTIONS = "bugsuggestions"
+TYPE_TASK = "task"
 
 FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id":8,"name":"intermittent needs bugid"},{"id":3,"name":"expected fail"},{"id":2,"name":"fixed by commit"},{"id":5,"name":"infra"},{"id":6,"name":"new failure not classified"},{"id":4,"name":"intermittent"},{"id":1,"name":"not classified"}]"""
 
@@ -107,7 +108,10 @@ def MockTreeherderServerFactory(response_function):
                 filename = self.response_func(TYPE_HEALTH, revision)
 
             else:
-                if EXPECTEDPATH_ACTIONSJSON in self.path:
+                if EXPECTEDPATH_ACTIONSJSON in self.path and "/runs/" not in self.path:
+                    log("MockTreeherderServer (task definition): Got path %s" % self.path, level=LogLevel.Info)
+                    filename = self.response_func(TYPE_TASK, self.path)
+                elif EXPECTEDPATH_ACTIONSJSON in self.path:
                     log("MockTreeherderServer (actiosnjson)", level=LogLevel.Info)
                     filename = "actionsjson.txt"
                 elif EXPECTEDPATH_JOBS in self.path:

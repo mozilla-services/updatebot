@@ -311,9 +311,9 @@ class TestClone(unittest.TestCase):
         components.utilities.time.sleep = lambda s: None
         try:
             scm._ensure_checkout("https://example.invalid/repo")
-            os.chdir(scm.previous_dir_stack.pop())
         finally:
             components.utilities.time.sleep = original_sleep
+            os.chdir(scm.previous_dir_stack.pop())
             scm.reset()
 
         self.assertEqual(attempts, [[], []], "The retry should start from an empty directory")

@@ -7,6 +7,7 @@
 import sys
 import json
 import unittest
+import requests
 
 from http import server
 from threading import Thread
@@ -14,7 +15,8 @@ from threading import Thread
 sys.path.append(".")
 sys.path.append("..")
 from components.logging import SimpleLoggerConfig
-from components.utilities import static_vars
+from components.utilities import static_vars, Struct
+import components.utilities
 from apis.taskcluster import TaskclusterProvider
 
 from tests.functionality_utilities import treeherder_response
@@ -28,6 +30,16 @@ from tests.mock_treeherder_server import MockTreeherderServerFactory, FAILURE_CL
 @static_vars(have_sent_page_1=False)
 @treeherder_response
 def treeherder_responses(requesttype, fullpath):
+    if "/api/queue/v1/task/" in fullpath and "/runs/" not in fullpath:
+        return "task_retrigger_action_person.txt" if "PersonAction" in fullpath else "task_retrigger_action_updatebot.txt"
+
+    if "/bug_suggestions/" in fullpath:
+        if "/604934614/" in fullpath:
+            return "bugsuggestions_build_intermittent.txt"
+        if "/503/" in fullpath:
+            return 503
+        return "bugsuggestions_build_failure.txt"
+
     if "push_id=1" in fullpath:
         if treeherder_responses.have_sent_page_1:
             treeherder_responses.have_sent_page_1 = False
@@ -134,6 +146,47 @@ class TestTaskclusterProvider(unittest.TestCase):
         self.assertEqual(data[1].hello, "WHAT")
         self.assertEqual(data[1].world, "UP")
         self.assertEqual(data[1].decision_task.hello, "WHAT")
+
+    def test_known_intermittent(self):
+        # The xul.lib install race from bug 2089270's try run, which matches bug 2087899
+        job = Struct(id=604934614, job_type_name="build-win64/opt", task_id="ZBU6hYOhTiyVUWlkodykhw")
+        self.assertTrue(self.taskclusterProvider.is_known_intermittent(job))
+
+    def test_not_known_intermittent(self):
+        # A compile error, followed by generic lines that match intermittent bugs without ids
+        # and a Perma bug
+        job = Struct(id=111, job_type_name="build-linux64/opt", task_id="AAAAAAAAAAAAAAAAAAAAAA")
+        self.assertFalse(self.taskclusterProvider.is_known_intermittent(job))
+
+    def test_bug_suggestions_http_error(self):
+        # Treeherder's errors have JSON bodies, which must be retried and then raised rather
+        # than parsed as bug suggestions
+        calls = treeherder_responses.bug_suggestions_calls
+        job = Struct(id=503, job_type_name="build-linux64/opt", task_id="AAAAAAAAAAAAAAAAAAAAAA")
+        original_override, original_sleep = components.utilities.RETRY_TIMES_OVERRIDE, components.utilities.time.sleep
+        components.utilities.RETRY_TIMES_OVERRIDE = 3
+        components.utilities.time.sleep = lambda s: None
+        try:
+            with self.assertRaises(requests.exceptions.HTTPError):
+                self.taskclusterProvider.is_known_intermittent(job)
+        finally:
+            components.utilities.RETRY_TIMES_OVERRIDE, components.utilities.time.sleep = original_override, original_sleep
+        self.assertEqual(treeherder_responses.bug_suggestions_calls - calls, 3, "Expected the request to be retried")
+
+    def test_retrigger_was_automated(self):
+        # Updatebot's retrigger from a real try push, triggered with its cron task's credentials
+        updatebot = Struct(job_type_name="Action: Retrigger", task_id="Y9uB-4roQemM36ti5Apxgw")
+        self.assertTrue(self.taskclusterProvider.retrigger_was_automated(updatebot))
+        person = Struct(job_type_name="Action: Retrigger", task_id="PersonActionXXXXXXXXXX")
+        self.assertFalse(self.taskclusterProvider.retrigger_was_automated(person))
+
+    def test_build_components_not_checked_for_intermittents(self):
+        # build-components-* jobs run unit tests, so don't treat their failures as build
+        # intermittents, even if the first line matches one
+        calls = treeherder_responses.bug_suggestions_calls
+        job = Struct(id=604934614, job_type_name="build-components-feature-qr", task_id="ZBU6hYOhTiyVUWlkodykhw")
+        self.assertFalse(self.taskclusterProvider.is_known_intermittent(job))
+        self.assertEqual(treeherder_responses.bug_suggestions_calls, calls, "Should not have requested bug suggestions")
 
     def test_retrigger(self):
         job_list = self.taskclusterProvider.get_job_details('1')

@@ -12,8 +12,10 @@ from components.logging import log, LogLevel
 
 TYPE_HEALTH = "health"
 TYPE_JOBS = "jobs"
+TYPE_BUGSUGGESTIONS = "bugsuggestions"
+TYPE_TASK = "task"
 
-FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id":8,"name":"intermittent needs bugid"},{"id":3,"name":"expected fail"},{"id":2,"name":"fixed by commit"},{"id":5,"name":"infra"},{"id":4,"name":"intermittent"},{"id":1,"name":"not classified"}]"""
+FAILURE_CLASSIFICATIONS = """[{"id":7,"name":"autoclassified intermittent"},{"id":8,"name":"intermittent needs bugid"},{"id":3,"name":"expected fail"},{"id":2,"name":"fixed by commit"},{"id":5,"name":"infra"},{"id":6,"name":"new failure not classified"},{"id":4,"name":"intermittent"},{"id":1,"name":"not classified"}]"""
 
 EXPECTEDPATH_PUSH = "push/?revision="
 EXPECTEDPATH_JOBS = "jobs/?push_id="
@@ -21,6 +23,7 @@ EXPECTEDPATH_FAILURECLASSIFICATION = "/failureclassification"
 EXPECTEDPATH_ACTIONSJSON = "api/queue/v1/task"
 EXPECTEDPATH_RETRIGGER = "api/hooks/v1/hooks"
 EXPECTEDPATH_PUSHHEALTH = "push/health/?revision="
+EXPECTEDPATH_BUGSUGGESTIONS = "/bug_suggestions/"
 
 EXPECTED_RETRIGGER_DECISION_TASK = "CQNj9DM5Qn2-rDY4fTxgSQ"
 RETRIGGER_RESPONSE = """
@@ -65,12 +68,22 @@ def MockTreeherderServerFactory(response_function):
                 assert False, "MockTreeherderServer POST got a path it didn't expect: " + self.path
 
         def do_GET(self):
+            if EXPECTEDPATH_BUGSUGGESTIONS in self.path:
+                log("MockTreeherderServer (bug suggestions): Got path %s" % self.path, level=LogLevel.Info)
+                filename = self.response_func(TYPE_BUGSUGGESTIONS, self.path)
+                if isinstance(filename, int):
+                    # An HTTP error, which Treeherder reports with a JSON body
+                    self.send_response(filename)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b'{"detail": "Service Unavailable"}')
+                    return
+                self._stream(filename)
+                return
+
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-
-            file_prefix = "tests/" if not os.getcwd().endswith("tests") else ""
-            file_prefix += "treeherder_api_responses/"
 
             if EXPECTEDPATH_PUSH in self.path:
                 revision = self.path[self.path.index(EXPECTEDPATH_PUSH) + len(EXPECTEDPATH_PUSH):]
@@ -95,7 +108,10 @@ def MockTreeherderServerFactory(response_function):
                 filename = self.response_func(TYPE_HEALTH, revision)
 
             else:
-                if EXPECTEDPATH_ACTIONSJSON in self.path:
+                if EXPECTEDPATH_ACTIONSJSON in self.path and "/runs/" not in self.path:
+                    log("MockTreeherderServer (task definition): Got path %s" % self.path, level=LogLevel.Info)
+                    filename = self.response_func(TYPE_TASK, self.path)
+                elif EXPECTEDPATH_ACTIONSJSON in self.path:
                     log("MockTreeherderServer (actiosnjson)", level=LogLevel.Info)
                     filename = "actionsjson.txt"
                 elif EXPECTEDPATH_JOBS in self.path:
@@ -103,6 +119,17 @@ def MockTreeherderServerFactory(response_function):
                     filename = self.response_func(TYPE_JOBS, self.path)
                 else:
                     assert False, "MockTreeherderServer GET got a path it didn't expect: " + self.path
+
+            self._stream(filename, headers_sent=True)
+
+        def _stream(self, filename, headers_sent=False):
+            if not headers_sent:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+
+            file_prefix = "tests/" if not os.getcwd().endswith("tests") else ""
+            file_prefix += "treeherder_api_responses/"
 
             assert filename, "MockTreeherderServer somehow got a blank filename"
             log("MockTreeherderServer: Streaming %s" % filename, level=LogLevel.Info)

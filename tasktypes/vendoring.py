@@ -7,6 +7,7 @@
 import copy
 import functools
 import subprocess
+from collections import defaultdict
 
 from tasktypes.base import BaseTaskRunner
 from apis.phabricator import DiffTooLargeError
@@ -570,19 +571,50 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.logger.log("Not all jobs on the try revision are completed, so skipping this job until they are.", level=LogLevel.Info)
                 return False
 
-        # First, look for any failed build jobs
+        # First, look for build jobs that failed and never succeeded.
+        builds_by_name = defaultdict(list)
         for j in job_list:
-            if j.result not in ["retry", "success"]:
-                if "build" in j.job_type_name:
-                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library, existing_job.version), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
-                    if not existing_job.relinquished:
-                        for p in existing_job.phab_revisions:
-                            try:
-                                self.phabricatorProvider.abandon(p.revision)
-                            except Exception:
-                                self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("abandon the phabricator revision %s" % p.revision), needinfo=library.maintainer_bz)
-                    self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
+            if "build" in j.job_type_name and j.result != "retry":
+                builds_by_name[j.job_type_name].append(j)
+        failed_builds = [jobs for jobs in builds_by_name.values() if not any(j.result == "success" for j in jobs)]
+
+        # If every failed build failed only once, with a known intermittent, retrigger them
+        # once and check back. If the retrigger fails too, it's a build failure. (We only do
+        # this for builds; see is_known_intermittent for why it isn't used for tests.)
+        if failed_builds and existing_job.bugzilla_is_open:
+            intermittent_builds = []
+            for jobs in failed_builds:
+                if len(jobs) == 1 and self.taskclusterProvider.is_known_intermittent(jobs[0]):
+                    intermittent_builds.append(jobs[0])
+                else:
+                    break
+            if len(intermittent_builds) == len(failed_builds):
+                # Our retrigger shows up on the push as an 'Action: Retrigger' job. If there's one
+                # already, don't retrigger again: if it succeeded the new builds just aren't
+                # visible yet, and if it failed we treat it as a build failure. We only retrigger
+                # tests once every build has succeeded, so any retrigger we made by now was of
+                # builds; retriggers people made are ignored.
+                retrigger_actions = [j for j in job_list if j.job_type_name == "Action: Retrigger" and self.taskclusterProvider.retrigger_was_automated(j)]
+                if not retrigger_actions:
+                    self.logger.log("Retriggering %s build(s) that failed with known intermittents: %s" % (
+                        len(intermittent_builds), ", ".join(j.job_type_name for j in intermittent_builds)), level=LogLevel.Info)
+                    self.taskclusterProvider.retrigger_jobs(intermittent_builds, times=1)
                     return False
+                if all(j.result == "success" for j in retrigger_actions):
+                    self.logger.log("We retriggered builds that failed with known intermittents, but the new builds aren't visible yet, so skipping this job until they are.", level=LogLevel.Info)
+                    return False
+                self.logger.log("The retrigger of builds that failed with known intermittents failed, so treating them as build failures.", level=LogLevel.Warning)
+
+        if failed_builds:
+            self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library, existing_job.version), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)
+            if not existing_job.relinquished:
+                for p in existing_job.phab_revisions:
+                    try:
+                        self.phabricatorProvider.abandon(p.revision)
+                    except Exception:
+                        self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("abandon the phabricator revision %s" % p.revision), needinfo=library.maintainer_bz)
+            self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
+            return False
 
         return True
 

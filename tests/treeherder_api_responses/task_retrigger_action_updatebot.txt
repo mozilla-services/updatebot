@@ -1,0 +1,120 @@
+{
+  "provisionerId": "gecko-1",
+  "workerType": "decision",
+  "taskQueueId": "gecko-1/decision",
+  "schedulerId": "gecko-level-1",
+  "projectId": "none",
+  "taskGroupId": "EwkfmMdXRYiFSgMeWlTSZQ",
+  "dependencies": [],
+  "requires": "all-completed",
+  "routes": [
+    "tc-treeherder.v2.try.3caa9673e039ee648b4fd61caed23cd114afda33",
+    "index.gecko.v2.try.revision.3caa9673e039ee648b4fd61caed23cd114afda33.taskgraph.actions.Y9uB-4roQemM36ti5Apxgw",
+    "index.gecko.v2.try.pushlog-id.1563163.actions.Y9uB-4roQemM36ti5Apxgw"
+  ],
+  "priority": "lowest",
+  "retries": 5,
+  "created": "2026-10-14T12:45:29.033Z",
+  "deadline": "2026-10-15T12:45:29.033Z",
+  "expires": "2026-11-11T12:45:29.033Z",
+  "scopes": [
+    "assume:repo:hg.mozilla.org/try:action:generic"
+  ],
+  "payload": {
+    "env": {
+      "ACTION_INPUT": "{\"requests\":[{\"tasks\":[\"test-android-em-14-x86_64/debug-geckoview-crashtest\",\"test-android-hw-a55-14-0-aarch64/opt-geckoview-reftest-qr-nofis-2\",\"test-android-hw-a55-14-0-aarch64/opt-geckoview-crashtest-qr-nofis\",\"test-android-hw-a55-14-0-aarch64/debug-geckoview-reftest-qr-nogpu-2\",\"test-android-hw-a55-14-0-aarch64/debug-geckoview-reftest-qr-nofis-2\",\"test-android-hw-a55-14-0-aarch64/opt-geckoview-reftest-qr-nogpu-2\"],\"times\":3}]}",
+      "HG_STORE_PATH": "/builds/worker/checkouts/hg-store",
+      "ACTION_TASK_ID": "null",
+      "GECKO_BASE_REV": "ef7d0e4646d53a486c9f2ca30ebb02dd1ec3e198",
+      "GECKO_HEAD_REF": "3caa9673e039ee648b4fd61caed23cd114afda33",
+      "GECKO_HEAD_REV": "3caa9673e039ee648b4fd61caed23cd114afda33",
+      "MOZ_AUTOMATION": "1",
+      "MOZ_UPLOAD_DIR": "/builds/worker/artifacts",
+      "ACTION_CALLBACK": "retrigger-multiple",
+      "TASKCLUSTER_CACHES": "/builds/worker/checkouts",
+      "TASKCLUSTER_VOLUMES": "/builds/worker/artifacts",
+      "ACTION_TASK_GROUP_ID": "EwkfmMdXRYiFSgMeWlTSZQ",
+      "GECKO_BASE_REPOSITORY": "https://hg.mozilla.org/mozilla-unified",
+      "GECKO_HEAD_REPOSITORY": "https://hg.mozilla.org/try",
+      "PYTHONDONTWRITEBYTECODE": "1"
+    },
+    "cache": {
+      "gecko-level-1-checkouts-sparse-v4": "/builds/worker/checkouts"
+    },
+    "image": "mozillareleases/gecko_decision:5.1.0@sha256:8879ecb7f859e1001b0aa67de440a18c3a896446bfd0e2e87688bb367e590667",
+    "command": [
+      "/builds/worker/bin/run-task-hg",
+      "--gecko-checkout=/builds/worker/checkouts/gecko",
+      "--gecko-sparse-profile=build/sparse-profiles/taskgraph",
+      "--",
+      "bash",
+      "-cx",
+      "cd /builds/worker/checkouts/gecko && ln -s /builds/worker/artifacts artifacts && ./mach --log-no-times taskgraph action-callback\n"
+    ],
+    "features": {
+      "chainOfTrust": true,
+      "taskclusterProxy": true
+    },
+    "artifacts": {
+      "public": {
+        "path": "/builds/worker/artifacts",
+        "type": "directory",
+        "expires": "2026-11-11T12:45:29.033Z"
+      },
+      "public/docker-contexts": {
+        "path": "/builds/worker/checkouts/gecko/docker-contexts",
+        "type": "directory",
+        "expires": "2026-10-21T12:45:29.033Z"
+      }
+    },
+    "maxRunTime": 1800
+  },
+  "metadata": {
+    "name": "Action: Retrigger",
+    "owner": "mozilla-taskcluster-maintenance@mozilla.com",
+    "source": "https://hg.mozilla.org/try/raw-file/3caa9673e039ee648b4fd61caed23cd114afda33/.taskcluster.yml",
+    "description": "Create a clone of the task.\n\n[Treeherder job](https://treeherder.mozilla.org/#/jobs?repo=try&revision=3caa9673e039ee648b4fd61caed23cd114afda33&selectedTaskRun=Y9uB-4roQemM36ti5Apxgw)\n\nAction triggered by clientID `task-client/IanooeXKRoahK2IbfdHz2A/0/on/us-central1-c/1675427691058352422/until/1791982740.498`\n"
+  },
+  "tags": {
+    "kind": "action-callback",
+    "project": "try",
+    "trust-domain": "gecko",
+    "createdForUser": "mozilla-taskcluster-maintenance@mozilla.com",
+    "worker-implementation": "docker-worker"
+  },
+  "extra": {
+    "action": {
+      "name": "retrigger-multiple",
+      "context": {
+        "input": {
+          "requests": [
+            {
+              "tasks": [
+                "test-android-em-14-x86_64/debug-geckoview-crashtest",
+                "test-android-hw-a55-14-0-aarch64/opt-geckoview-reftest-qr-nofis-2",
+                "test-android-hw-a55-14-0-aarch64/opt-geckoview-crashtest-qr-nofis",
+                "test-android-hw-a55-14-0-aarch64/debug-geckoview-reftest-qr-nogpu-2",
+                "test-android-hw-a55-14-0-aarch64/debug-geckoview-reftest-qr-nofis-2",
+                "test-android-hw-a55-14-0-aarch64/opt-geckoview-reftest-qr-nogpu-2"
+              ],
+              "times": 3
+            }
+          ]
+        },
+        "taskId": null,
+        "clientId": "task-client/IanooeXKRoahK2IbfdHz2A/0/on/us-central1-c/1675427691058352422/until/1791982740.498",
+        "taskGroupId": "EwkfmMdXRYiFSgMeWlTSZQ"
+      }
+    },
+    "parent": "EwkfmMdXRYiFSgMeWlTSZQ",
+    "tasks_for": "action",
+    "treeherder": {
+      "symbol": "rt",
+      "machine": {
+        "platform": "gecko-decision"
+      },
+      "groupName": "action-callback",
+      "groupSymbol": "AC"
+    }
+  }
+}

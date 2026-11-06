@@ -7,6 +7,7 @@
 import sys
 import json
 import unittest
+import requests
 
 from http import server
 from threading import Thread
@@ -15,6 +16,7 @@ sys.path.append(".")
 sys.path.append("..")
 from components.logging import SimpleLoggerConfig
 from components.utilities import static_vars, Struct
+import components.utilities
 from apis.taskcluster import TaskclusterProvider
 
 from tests.functionality_utilities import treeherder_response
@@ -31,6 +33,8 @@ def treeherder_responses(requesttype, fullpath):
     if "/bug_suggestions/" in fullpath:
         if "/604934614/" in fullpath:
             return "bugsuggestions_build_intermittent.txt"
+        if "/503/" in fullpath:
+            return 503
         return "bugsuggestions_build_failure.txt"
 
     if "push_id=1" in fullpath:
@@ -150,6 +154,21 @@ class TestTaskclusterProvider(unittest.TestCase):
         # and a Perma bug
         job = Struct(id=111, job_type_name="build-linux64/opt", task_id="AAAAAAAAAAAAAAAAAAAAAA")
         self.assertFalse(self.taskclusterProvider.is_known_intermittent(job))
+
+    def test_bug_suggestions_http_error(self):
+        # Treeherder's errors have JSON bodies, which must be retried and then raised rather
+        # than parsed as bug suggestions
+        calls = treeherder_responses.bug_suggestions_calls
+        job = Struct(id=503, job_type_name="build-linux64/opt", task_id="AAAAAAAAAAAAAAAAAAAAAA")
+        original_override, original_sleep = components.utilities.RETRY_TIMES_OVERRIDE, components.utilities.time.sleep
+        components.utilities.RETRY_TIMES_OVERRIDE = 3
+        components.utilities.time.sleep = lambda s: None
+        try:
+            with self.assertRaises(requests.exceptions.HTTPError):
+                self.taskclusterProvider.is_known_intermittent(job)
+        finally:
+            components.utilities.RETRY_TIMES_OVERRIDE, components.utilities.time.sleep = original_override, original_sleep
+        self.assertEqual(treeherder_responses.bug_suggestions_calls - calls, 3, "Expected the request to be retried")
 
     def test_build_components_not_checked_for_intermittents(self):
         # build-components-* jobs run unit tests, so don't treat their failures as build

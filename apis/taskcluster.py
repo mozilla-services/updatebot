@@ -411,6 +411,8 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         self.logger.log("Requesting bug suggestions for %s (%s) from %s" % (job.job_type_name, job.task_id, bug_suggestions_url), level=LogLevel.Info)
 
         r = requests.get(bug_suggestions_url, headers=self.HEADERS)
+        # Treeherder's errors are JSON too, so check the status for them to be retried
+        r.raise_for_status()
         try:
             return r.json()
         except Exception:
@@ -443,7 +445,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             return False
 
         suggestions = self.get_bug_suggestions(job)
-        if not suggestions:
+        if not suggestions or not isinstance(suggestions, list):
             return False
         bugs = suggestions[0].get('bugs', {})
         for b in bugs.get('open_recent', []) + bugs.get('all_others', []):

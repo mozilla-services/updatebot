@@ -590,10 +590,19 @@ class VendorTaskRunner(BaseTaskRunner):
                 else:
                     break
             if len(intermittent_builds) == len(failed_builds):
-                self.logger.log("Retriggering %s build(s) that failed with known intermittents: %s" % (
-                    len(intermittent_builds), ", ".join(j.job_type_name for j in intermittent_builds)), level=LogLevel.Info)
-                self.taskclusterProvider.retrigger_jobs(intermittent_builds, times=1)
-                return False
+                # Our retrigger shows up on the push as an 'Action: Retrigger' job. If there's one
+                # already, don't retrigger again: if it succeeded the new builds just aren't
+                # visible yet, and if it failed we treat it as a build failure.
+                retrigger_actions = [j for j in job_list if j.job_type_name == "Action: Retrigger"]
+                if not retrigger_actions:
+                    self.logger.log("Retriggering %s build(s) that failed with known intermittents: %s" % (
+                        len(intermittent_builds), ", ".join(j.job_type_name for j in intermittent_builds)), level=LogLevel.Info)
+                    self.taskclusterProvider.retrigger_jobs(intermittent_builds, times=1)
+                    return False
+                if all(j.result == "success" for j in retrigger_actions):
+                    self.logger.log("We retriggered builds that failed with known intermittents, but the new builds aren't visible yet, so skipping this job until they are.", level=LogLevel.Info)
+                    return False
+                self.logger.log("The retrigger of builds that failed with known intermittents failed, so treating them as build failures.", level=LogLevel.Warning)
 
         if failed_builds:
             self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.DONE_BUILD_FAILURE(library, existing_job.version), needinfo=library.maintainer_bz if existing_job.bugzilla_is_open else None)

@@ -67,12 +67,22 @@ def MockTreeherderServerFactory(response_function):
                 assert False, "MockTreeherderServer POST got a path it didn't expect: " + self.path
 
         def do_GET(self):
+            if EXPECTEDPATH_BUGSUGGESTIONS in self.path:
+                log("MockTreeherderServer (bug suggestions): Got path %s" % self.path, level=LogLevel.Info)
+                filename = self.response_func(TYPE_BUGSUGGESTIONS, self.path)
+                if isinstance(filename, int):
+                    # An HTTP error, which Treeherder reports with a JSON body
+                    self.send_response(filename)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(b'{"detail": "Service Unavailable"}')
+                    return
+                self._stream(filename)
+                return
+
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-
-            file_prefix = "tests/" if not os.getcwd().endswith("tests") else ""
-            file_prefix += "treeherder_api_responses/"
 
             if EXPECTEDPATH_PUSH in self.path:
                 revision = self.path[self.path.index(EXPECTEDPATH_PUSH) + len(EXPECTEDPATH_PUSH):]
@@ -91,10 +101,6 @@ def MockTreeherderServerFactory(response_function):
                 self.wfile.write(FAILURE_CLASSIFICATIONS.encode())
                 return
 
-            elif EXPECTEDPATH_BUGSUGGESTIONS in self.path:
-                log("MockTreeherderServer (bug suggestions): Got path %s" % self.path, level=LogLevel.Info)
-                filename = self.response_func(TYPE_BUGSUGGESTIONS, self.path)
-
             elif EXPECTEDPATH_PUSHHEALTH in self.path:
                 revision = self.path[self.path.index(EXPECTEDPATH_PUSHHEALTH) + len(EXPECTEDPATH_PUSHHEALTH):]
                 log("MockTreeherderServer (push health): Looking for revision %s" % revision, level=LogLevel.Info)
@@ -109,6 +115,17 @@ def MockTreeherderServerFactory(response_function):
                     filename = self.response_func(TYPE_JOBS, self.path)
                 else:
                     assert False, "MockTreeherderServer GET got a path it didn't expect: " + self.path
+
+            self._stream(filename, headers_sent=True)
+
+        def _stream(self, filename, headers_sent=False):
+            if not headers_sent:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+
+            file_prefix = "tests/" if not os.getcwd().endswith("tests") else ""
+            file_prefix += "treeherder_api_responses/"
 
             assert filename, "MockTreeherderServer somehow got a blank filename"
             log("MockTreeherderServer: Streaming %s" % filename, level=LogLevel.Info)

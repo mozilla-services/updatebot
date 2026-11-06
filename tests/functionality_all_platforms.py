@@ -36,7 +36,7 @@ from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, T
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_aiprovider import MockAIProvider
 from tests.mock_libraryprovider import MockLibraryProvider
-from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH, TYPE_BUGSUGGESTIONS
+from tests.mock_treeherder_server import MockTreeherderServerFactory, TYPE_HEALTH, TYPE_BUGSUGGESTIONS, TYPE_TASK
 from tests.database import transform_db_config_to_tmp_db
 
 try:
@@ -1276,7 +1276,7 @@ class TestFunctionality(SimpleLoggingTest):
     # the try push of https://bugzilla.mozilla.org/show_bug.cgi?id=2089270 (harfbuzz 15.1.0):
     # build-win64/opt busted from a known intermittent (bug 2087899), leaving the tests that
     # depended on it unscheduled, with a few intermittent test failures.
-    def _run_intermittent_build_failure(self, jobs_after_retrigger, expected_status, expected_outcome):
+    def _run_intermittent_build_failure(self, jobs_after_retrigger, expected_status, expected_outcome, retrigger_action="task_retrigger_action_updatebot.txt"):
         @treeherder_response
         def treeherder(request_type, fullpath):
             if request_type == TYPE_HEALTH:
@@ -1284,6 +1284,8 @@ class TestFunctionality(SimpleLoggingTest):
             elif request_type == TYPE_BUGSUGGESTIONS:
                 assert "604934614" in fullpath, "Requested bug suggestions for the wrong job: " + fullpath
                 return "bugsuggestions_build_intermittent.txt"
+            elif request_type == TYPE_TASK:
+                return retrigger_action
             else:  # TYPE_JOBS
                 if treeherder.jobs_calls == 0:
                     return "jobs_build_intermittent.txt"
@@ -1355,6 +1357,16 @@ class TestFunctionality(SimpleLoggingTest):
         self.assertEqual(len(retriggers), 1, "Retriggered the build a second time")
         self.assertFalse(abandoned[0], "Abandoned the phabricator patch while waiting for the retriggered build.")
         self.assertEqual([c for c in comments if "experienced one or more build failures" in c], [])
+
+    # Someone retriggered something else on the push by hand: that isn't our retrigger, so
+    # retrigger the build.
+    @logEntryExitHeaderLine
+    def testExistingJobIntermittentBuildFailurePersonRetriggered(self):
+        (retriggers, abandoned, comments) = self._run_intermittent_build_failure(
+            "jobs_build_intermittent_retrigger_not_visible.txt", JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING,
+            retrigger_action="task_retrigger_action_person.txt")
+        self.assertEqual(retriggers, [(["build-win64/opt"], 1), (["build-win64/opt"], 1)])
+        self.assertFalse(abandoned[0], "Abandoned the phabricator patch for an intermittent build failure.")
 
     # The retrigger action failed, so don't retrigger again; it's a build failure.
     @logEntryExitHeaderLine

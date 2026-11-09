@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import unittest
+import urllib.parse
 
 from threading import Thread
 from http import server
@@ -19,6 +20,7 @@ from components.utilities import Struct, string_date_to_uniform_string_date
 from components.bugzilla import BugzillaProvider, CommentTemplates
 from components.logging import SimpleLoggerConfig
 
+import components.utilities
 from apis.bugzilla_api import task_id_whiteboard, CommentRejectedError
 
 TRY_REVISION = "this-is-my-try-link"
@@ -28,11 +30,36 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
     closed_bug_ids = []
     filed_bugs = []
     received_comments = {}
+    # Writes that failed with a gateway error, but that Bugzilla processed anyway
+    processed_bugs = {}
+    processed_comments = {}
+    comment_gets = {}
+
+    def _gateway_error(self, status):
+        self.send_response(status)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"stream timeout")
 
     def do_POST(self):
         expectedPath_file = "/bug?api_key=bob"
         size = int(self.headers.get('content-length'))
         content = json.loads(self.rfile.read(size).decode("utf-8"))
+
+        # Filing fails with a 502 the first time; 'gateway-processed' was filed anyway
+        if 'gateway-' in content.get('summary', ''):
+            MockBugzillaServer.filed_bugs.append(content)
+            attempts = len([b for b in MockBugzillaServer.filed_bugs if b['summary'] == content['summary']])
+            if attempts == 1:
+                if 'gateway-processed' in content['summary']:
+                    MockBugzillaServer.processed_bugs[content['summary']] = 460
+                self._gateway_error(502)
+                return
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"id":459}')
+            return
 
         self.send_response(200)
         self.send_header("Content-type", "application/json")
@@ -83,11 +110,26 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         expectedPath_comments_github = "/bug/7893/comment"
         expectedPath_comments_mozilla_central = "/bug/7894/comment"
 
+        # Checking bug 1233's comments fails with a gateway error the first time
+        if self.path.startswith("/bug/1233/comment"):
+            MockBugzillaServer.comment_gets["1233"] = MockBugzillaServer.comment_gets.get("1233", 0) + 1
+            if MockBugzillaServer.comment_gets["1233"] == 1:
+                self._gateway_error(504)
+                return
+
         self.send_response(200)
         self.send_header("Content-type", "application/json")
         self.end_headers()
 
-        if expectedPath_find in self.path:
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        if query.get('f1') == ['status_whiteboard']:
+            # Looking for a bug filed by this task with this summary
+            bug_id = MockBugzillaServer.processed_bugs.get(query['v2'][0])
+            self.wfile.write(json.dumps({'bugs': [{'id': bug_id}] if bug_id else []}).encode())
+        elif re.match(r"/bug/(1231|1233|7895)/comment", self.path):
+            bug_id = re.match(r"/bug/([0-9]+)/", self.path).group(1)
+            self.wfile.write(json.dumps({'bugs': {bug_id: {'comments': MockBugzillaServer.processed_comments.get(bug_id, [])}}}).encode())
+        elif expectedPath_find in self.path:
             self.wfile.write('{"bugs":[{"id":2,"assigned_to_detail":{"id":578488,"email":"tom@mozilla.com","real_name":"Tom Ritter [:tjr]","name":"tom@mozilla.com","nick":"tjr"},"assigned_to":"tom@mozilla.com"}],"faults":[]}'.encode())
         elif expectedPath_comments_autoland == self.path:
             self.wfile.write('{"bugs":{"7892":{"comments":[{"text":"landing: https://hg.mozilla.org/integration/autoland/rev/abc123"}]}}}'.encode())
@@ -108,6 +150,16 @@ class MockBugzillaServer(server.BaseHTTPRequestHandler):
         content = json.loads(self.rfile.read(size).decode("utf-8"))
         bug_id = re.match(r"/bug/([0-9]+)\?api_key=bob", self.path).groups(0)[0]
         MockBugzillaServer.received_comments.setdefault(bug_id, []).append(content)
+
+        # Gateway errors: bugs 1230 and 1233 fail once, bug 1231 fails but is processed
+        # anyway, bug 1232 always fails, and closing bug 7895 fails but is processed anyway
+        attempts = len(MockBugzillaServer.received_comments[bug_id])
+        if bug_id in ("1231", "7895"):
+            MockBugzillaServer.processed_comments.setdefault(bug_id, []).append(
+                {'text': content['comment']['body'], 'tags': content['comment_tags']})
+        if (bug_id in ("1230", "1233") and attempts == 1) or bug_id in ("1231", "1232", "7895"):
+            self._gateway_error(504)
+            return
 
         # Like Bugzilla's web filter: an empty 406. Bug 1238 rejects everything
         # but Updatebot's short replacement comment; bug 1239 rejects everything.
@@ -273,6 +325,51 @@ class TestBugzillaProvider(unittest.TestCase):
             CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, "1.2.3", "an error"),
         ]:
             self.assertIn("`%s`" % command, comment)
+
+    def _with_task_id(self, func):
+        os.environ['TASK_ID'] = 'abc123'
+        original_sleep = components.utilities.time.sleep
+        components.utilities.time.sleep = lambda s: None
+        try:
+            return func()
+        finally:
+            components.utilities.time.sleep = original_sleep
+            del os.environ['TASK_ID']
+
+    def testCommentRetriedAfterGatewayError(self):
+        self._with_task_id(lambda: self.bugzillaProvider.comment_on_bug(1230, "Retried comment"))
+        self.assertEqual(len(MockBugzillaServer.received_comments["1230"]), 2)
+
+    def testCommentNotRepeatedIfProcessed(self):
+        # The comment failed with a 504 but Bugzilla posted it, so posting it again would duplicate it
+        self._with_task_id(lambda: self.bugzillaProvider.comment_on_bug(1231, "Processed comment"))
+        self.assertEqual(len(MockBugzillaServer.received_comments["1231"]), 1)
+
+    def testCommentGatewayErrorGivesUp(self):
+        with self.assertRaisesRegex(Exception, "status=504"):
+            self._with_task_id(lambda: self.bugzillaProvider.comment_on_bug(1232, "Failing comment"))
+        self.assertEqual(len(MockBugzillaServer.received_comments["1232"]), 3)
+
+    def testFileRetriedAfterGatewayError(self):
+        library = Struct(name='gw', bugzilla_product='Core', bugzilla_component='ImageLib')
+        self.assertEqual(self._with_task_id(lambda: self.bugzillaProvider.file_bug(library, "Update gw to gateway-retry", "", [])), 459)
+        self.assertEqual(len([b for b in MockBugzillaServer.filed_bugs if b['summary'] == "Update gw to gateway-retry"]), 2)
+
+    def testFileNotRepeatedIfProcessed(self):
+        library = Struct(name='gw', bugzilla_product='Core', bugzilla_component='ImageLib')
+        self.assertEqual(self._with_task_id(lambda: self.bugzillaProvider.file_bug(library, "Update gw to gateway-processed", "", [])), 460)
+        self.assertEqual(len([b for b in MockBugzillaServer.filed_bugs if b['summary'] == "Update gw to gateway-processed"]), 1)
+
+    def testGatewayErrorWhileCheckingIsRetried(self):
+        # The comment fails, then so does checking whether it was posted; the last
+        # attempt checks again, finds it wasn't, and posts it
+        self._with_task_id(lambda: self.bugzillaProvider.comment_on_bug(1233, "Retried comment"))
+        self.assertEqual(MockBugzillaServer.comment_gets["1233"], 2)
+        self.assertEqual(len(MockBugzillaServer.received_comments["1233"]), 2)
+
+    def testCloseNotRepeatedIfProcessed(self):
+        self._with_task_id(lambda: self.bugzillaProvider.wontfix_bug(7895, "Closing"))
+        self.assertEqual(len(MockBugzillaServer.received_comments["7895"]), 1)
 
     def testCommentRejectedWithoutTaskId(self):
         self.assertIn("log of the Updatebot run", CommentTemplates.COMMENT_REJECTED(None))

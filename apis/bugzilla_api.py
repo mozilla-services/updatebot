@@ -30,6 +30,55 @@ def task_log_url():
     return root.rstrip('/') + '/tasks/' + os.environ['TASK_ID']
 
 
+class BugzillaGatewayError(Exception):
+    """Bugzilla's front end failed the request (e.g. '504 stream timeout'). The request
+    may or may not have been processed."""
+    pass
+
+
+# Bugzilla's front end answers with these when a request times out or doesn't reach
+# Bugzilla. The ones we've seen weren't processed, but that can't be relied on, so
+# before retrying a write we check whether the failed attempt went through.
+GATEWAY_STATUSES = (502, 503, 504)
+
+
+def _raise_if_gateway_error(r, where):
+    if getattr(r, "status_code", None) not in GATEWAY_STATUSES:
+        return
+    message = "%s: Bugzilla's front end failed the request (status=%s): %s" % (where, r.status_code, r.text[:2000])
+    # We can only tell whether a write went through from the task id it was marked
+    # with, so outside of Taskcluster we don't retry it
+    if "TASK_ID" not in os.environ:
+        raise Exception(message)
+    raise BugzillaGatewayError(message)
+
+
+def _bug_filed_by_this_task(url, apikey, summary):
+    r = requests.get(url + "bug", params={
+        'api_key': apikey,
+        'f1': 'status_whiteboard', 'o1': 'substring', 'v1': 'task_id: ' + os.environ['TASK_ID'],
+        'f2': 'short_desc', 'o2': 'equals', 'v2': summary,
+        'include_fields': 'id'})
+    # A gateway error here is retried too, and the next attempt checks again
+    _raise_if_gateway_error(r, "fileBug check")
+    bugs = _load_json_or_raise(r, "fileBug check")['bugs']
+    return bugs[0]['id'] if bugs else None
+
+
+def _comment_posted_by_this_task(url, apikey, bugID, comment):
+    r = requests.get(url + "bug/" + str(bugID) + "/comment", params={'api_key': apikey})
+    _raise_if_gateway_error(r, "comment check")
+    bugs = _load_json_or_raise(r, "comment check")['bugs']
+    for c in bugs.get(str(bugID), {}).get('comments', []):
+        if os.environ['TASK_ID'] in c.get('tags', []) and c.get('text', '').strip() == comment.strip():
+            return True
+    return False
+
+
+# Writes are retried only for gateway errors, with checks that they didn't go through
+retry_write = retry(times=3, sleep_s=30, exceptions=(BugzillaGatewayError,))
+
+
 class CommentRejectedError(Exception):
     """Bugzilla's web filter (not Bugzilla itself) refused the comment, with an
     empty 406 response. It has done this for comments quoting shell trace output."""
@@ -62,8 +111,14 @@ def _load_json_or_raise(r, where: str):
         ) from e
 
 
-def fileBug(url, apikey, ff_version, product, component, summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential, mark_affected=True):
+@retry_write
+def fileBug(url, apikey, ff_version, product, component, summary, description, cc_list, needinfo, see_also, depends_on, blocks, moco_confidential, mark_affected=True, retry_attempt=1):
     assert isinstance(cc_list, list)
+
+    if retry_attempt > 1:
+        filed_id = _bug_filed_by_this_task(url, apikey, summary)
+        if filed_id:
+            return filed_id
 
     data = {
         'version': "unspecified",
@@ -102,6 +157,7 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, c
             })
 
     r = requests.post(url + "bug?api_key=" + apikey, json=data)
+    _raise_if_gateway_error(r, "fileBug")
 
     j = _load_json_or_raise(r, "fileBug")
 
@@ -111,7 +167,11 @@ def fileBug(url, apikey, ff_version, product, component, summary, description, c
     raise Exception(j)
 
 
-def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
+@retry_write
+def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None, retry_attempt=1):
+    if retry_attempt > 1 and _comment_posted_by_this_task(url, apikey, bugID, comment):
+        return
+
     data = {
         'id': bugID,
         'comment': {'body': comment},
@@ -132,6 +192,7 @@ def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
         json=data
     )
 
+    _raise_if_gateway_error(r, "commentOnBug")
     if r.status_code == 406:
         raise CommentRejectedError("Bugzilla rejected the comment on Bug %s (status=406)" % bugID)
 
@@ -145,8 +206,12 @@ def commentOnBug(url, apikey, bugID, comment, needinfo=None, assignee=None):
     raise Exception(j)
 
 
-def closeBug(url, apikey, bugID, resolution, comment, dup_id=None):
+@retry_write
+def closeBug(url, apikey, bugID, resolution, comment, dup_id=None, retry_attempt=1):
     assert dup_id is None or resolution == 'DUPLICATE'
+    # Closing the bug and its comment happen together, so finding the comment means it closed
+    if retry_attempt > 1 and _comment_posted_by_this_task(url, apikey, bugID, comment):
+        return
     data = {
         'id': bugID,
         'status': 'RESOLVED',
@@ -163,6 +228,7 @@ def closeBug(url, apikey, bugID, resolution, comment, dup_id=None):
         json=data
     )
 
+    _raise_if_gateway_error(r, "closeBug")
     j = _load_json_or_raise(r, "closeBug")
 
     if 'bugs' in j:
@@ -200,6 +266,7 @@ def openBugsMetadata(url, bugIDs):
         raise Exception(j) from e
 
 
+@retry_write
 def markFFVersionAffected(url, apikey, bugID, ff_version, affected):
     if not is_prod(url):
         return
@@ -214,6 +281,8 @@ def markFFVersionAffected(url, apikey, bugID, ff_version, affected):
         json=data
     )
 
+    # Setting a field again is harmless, so a retry needs no check
+    _raise_if_gateway_error(r, "markFFVersionAffected")
     j = _load_json_or_raise(r, "markFFVersionAffected")
 
     if 'bugs' in j:

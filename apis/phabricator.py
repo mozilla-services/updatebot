@@ -207,5 +207,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         if result['error']:
             if "You can not abandon this revision because it has already been closed." in result['errorMessage']:
                 self.logger.log("Strangely, the phabricator revision %s was already closed when we tried to abandon it. Oh well." % phab_revision, level=LogLevel.Warning)
+            elif "You can not abandon this revision because you are not the author." in result['errorMessage']:
+                # Someone commandeered the revision, so it's theirs to keep or abandon
+                self.logger.log("The phabricator revision %s has been commandeered by someone else, so we're leaving it alone instead of abandoning it." % phab_revision, level=LogLevel.Info)
             else:
                 raise Exception("Got an error from phabricator when trying to abandon %s: %s" % (phab_revision, result))

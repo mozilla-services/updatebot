@@ -105,8 +105,9 @@ class VendorTaskRunner(BaseTaskRunner):
         spurious = False
         try:
             try:
-                # The vendored changes are uncommitted here, so mach has to be told that's expected
-                self.vendorProvider.patch(library, None, ignore_modified=True)
+                # The vendored changes are uncommitted here, so mach has to be told that's expected.
+                # The patches failing to apply isn't an error here; the normal flow handles it.
+                self.vendorProvider.patch(library, None, ignore_modified=True, log_failure=False)
             except Exception as e:
                 # The normal flow will report the failure; we just can't tell if it's spurious.
                 self.logger.log("Couldn't apply the patches to check for a spurious update: %s" % e, level=LogLevel.Info)

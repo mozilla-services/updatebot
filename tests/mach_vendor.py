@@ -6,6 +6,7 @@
 
 import sys
 import unittest
+import subprocess
 
 sys.path.append(".")
 sys.path.append("..")
@@ -59,6 +60,34 @@ class TestVendorProvider(unittest.TestCase):
 
     def testNoUpdateAvailable(self):
         self.assertEqual(self._check_for_update(""), (None, None))
+
+    def _patch(self, returncode, **kwargs):
+        calls = []
+
+        def run(cmd, clean_return=True, **run_kwargs):
+            calls.append(clean_return)
+            return subprocess.CompletedProcess(cmd, returncode, stdout=b"Could not apply foo.patch", stderr=b"")
+
+        vendorProvider = VendorProvider({})
+        vendorProvider.update_config(dict(SimpleLoggerConfig, CommandProvider=Struct(run=run)))
+        try:
+            vendorProvider.patch(LIBRARY, REVISION, **kwargs)
+            return (calls, None)
+        except subprocess.CalledProcessError as e:
+            return (calls, e)
+
+    def testPatchLogsFailuresByDefault(self):
+        (calls, e) = self._patch(0)
+        self.assertEqual(calls, [True])
+        self.assertIsNone(e)
+
+    def testPatchFailureCanBeQuiet(self):
+        # The spurious-update check expects the patches may not apply, so mustn't log it
+        # as an error, but still needs the same exception and output
+        (calls, e) = self._patch(1, ignore_modified=True, log_failure=False)
+        self.assertEqual(calls, [False])
+        self.assertIsInstance(e, subprocess.CalledProcessError)
+        self.assertEqual(e.output, b"Could not apply foo.patch")
 
 
 if __name__ == "__main__":

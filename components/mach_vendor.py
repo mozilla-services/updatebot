@@ -69,9 +69,13 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
             return (VendorResult.GENERAL_ERROR, msg)
 
     @logEntryExit
-    def patch(self, library, revision, ignore_modified=False):
+    def patch(self, library, revision, ignore_modified=False, log_failure=True):
+        """
+        Raises CalledProcessError if mach fails. Pass log_failure=False when a failure
+        is expected and handled, so it isn't logged as an error.
+        """
         cmd = ["./mach", "vendor", "--patch-mode", "only", library.yaml_path]
         if ignore_modified:
             # mach otherwise refuses to run while any tracked file is modified
             cmd.append("--ignore-modified")
-        self.run(cmd, clean_return=True)
+        self.run(cmd, clean_return=log_failure).check_returncode()

@@ -123,7 +123,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         ("arc diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
         ("arcanist diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
         (echo_str("echo {\"constraints\""), lambda: CONDUIT_USERNAME_SEARCH_OUTPUT),  # This is also used for differential.revision.search, that's alright
-        (echo_str("echo {\"transactions\": [{\"type\":\"reviewers.set\""), lambda: CONDUIT_EDIT_OUTPUT),
+        (echo_str("echo {\"transactions\": [{\"type\":\"reviewers.add\""), lambda: CONDUIT_EDIT_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\":\"abandon\""), command_callbacks.get('abandon', AssertFalse)),
         (echo_str("echo {\"transactions\": [{\"type\":\"bugzilla.bug-id\""), lambda: CONDUIT_EDIT_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\":\"parents.add\""), lambda: CONDUIT_EDIT_OUTPUT),

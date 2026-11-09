@@ -55,8 +55,9 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
         exception = e
     else:
         ran_to_completion = True
-        stdout = ret.stdout.decode()
-        stderr = ret.stderr.decode()
+        # Only for the log: callers get the raw output, which may not be UTF-8
+        stdout = ret.stdout.decode(errors="replace")
+        stderr = ret.stderr.decode(errors="replace")
     finally:
         if stdin_handle:
             stdin_handle.close()

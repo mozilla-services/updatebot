@@ -4,6 +4,7 @@
 
 import os
 import copy
+import collections
 import shutil
 import tempfile
 import functools
@@ -56,6 +57,7 @@ class Commit:
         # populate_details. Used to build a compare URL whose range includes
         # this commit.
         self.parent_revision = None
+        self.signed = None
         self.populated = False
 
     def populate_details(self, repo, run):
@@ -84,6 +86,12 @@ class Commit:
         self.summary = run(["git", "log", "--pretty=%s", "-1", self.revision]).stdout.decode()
         self.author = run(["git", "log", "--pretty=%an <%ae>", "-1", self.revision]).stdout.decode()
         self.description = run(["git", "log", "--pretty=%b", "-1", self.revision]).stdout.decode()
+        # A signed commit (with GPG or SSH) has a gpgsig header. We can't verify the
+        # signature without the signer's key, only tell whether there is one.
+        # cat-file prints the commit as stored, which may not be UTF-8 (unlike git log,
+        # which converts it), but the header names we look for are ASCII.
+        headers = run(["git", "cat-file", "commit", self.revision]).stdout.decode("utf-8", "replace").split("\n\n", 1)[0]
+        self.signed = any(line.startswith(("gpgsig ", "gpgsig-sha256 ")) for line in headers.split("\n"))
         self.revision_link = repo_and_commit_to_url(repo, self.revision)
         self.populated = True
 
@@ -298,6 +306,33 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         raise Exception(problem)
 
     # =================================================================
+
+    @staticmethod
+    def build_author_summary(list_of_commits, max_authors=20):
+        """
+        A list of each author's number of commits, most first, and whether they were signed.
+        """
+        counts = collections.defaultdict(lambda: [0, 0])
+        for c in list_of_commits:
+            counts[c.author.strip()][0 if c.signed else 1] += 1
+        if not counts:
+            return ""
+
+        # We can only tell a commit has a signature, not check it
+        def signatures(signed, unsigned):
+            if signed and unsigned:
+                return "%d signed but unverified, %d unsigned" % (signed, unsigned)
+            state = "signed but unverified" if signed else "unsigned"
+            return state if signed + unsigned == 1 else "all " + state
+
+        authors = sorted(counts.items(), key=lambda a: (-sum(a[1]), a[0]))
+        lines = ["Commits by author:"]
+        for author, (signed, unsigned) in authors[:max_authors]:
+            lines.append("  %4d  %s (%s)" % (signed + unsigned, author, signatures(signed, unsigned)))
+        if len(authors) > max_authors:
+            rest = authors[max_authors:]
+            lines.append("  ... and %d more authors, with %d commits" % (len(rest), sum(sum(a[1]) for a in rest)))
+        return "\n".join(lines)
 
     def _commit_block(self, c, verbosity):
         # Render a single commit at the given verbosity:

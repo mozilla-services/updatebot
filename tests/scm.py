@@ -14,7 +14,7 @@ import unittest
 
 sys.path.append(".")
 sys.path.append("..")
-from components.scmprovider import SCMProvider
+from components.scmprovider import SCMProvider, Commit
 from components.logging import SimpleLogger, log
 from components.commandprovider import CommandProvider
 from components.utilities import Struct
@@ -317,6 +317,33 @@ class TestClone(unittest.TestCase):
             scm.reset()
 
         self.assertEqual(attempts, [[], []], "The retry should start from an empty directory")
+
+
+class TestNonUTF8Commit(unittest.TestCase):
+    def testISO88591Commit(self):
+        # git cat-file prints a commit as stored, so one in another encoding isn't UTF-8
+        runner = CommandProvider({})
+        runner.update_config({'LoggingProvider': SimpleLogger({'local': True})})
+        previous_dir = os.getcwd()
+        with tempfile.TemporaryDirectory() as repo:
+            os.chdir(repo)
+            try:
+                git = ["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false"]
+                subprocess.run(["git", "init", "-q"], check=True)
+                subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "First"], check=True)
+                with open("message", "wb") as f:
+                    f.write("Ajout d'une fonctionnalit\u00e9 \u00e0 la biblioth\u00e8que".encode("iso-8859-1"))
+                subprocess.run(git + ["-c", "i18n.commitEncoding=ISO-8859-1", "commit", "-q", "--allow-empty", "-F", "message"], check=True)
+                head = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True).stdout.decode().strip()
+                stored = subprocess.run(["git", "cat-file", "commit", head], check=True, capture_output=True).stdout
+                with self.assertRaises(UnicodeDecodeError, msg="The commit should be stored in ISO-8859-1"):
+                    stored.decode()
+
+                commit = Commit(head + "|2020-01-01 00:00:00 +0000|2020-01-02 00:00:00 +0000")
+                commit.populate_details("https://github.com/org/repo", runner.run)
+                self.assertFalse(commit.signed)
+            finally:
+                os.chdir(previous_dir)
 
 
 if __name__ == '__main__':

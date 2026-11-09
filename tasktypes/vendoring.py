@@ -187,10 +187,12 @@ class VendorTaskRunner(BaseTaskRunner):
         try:
             all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
             if library.should_show_commit_details:
-                commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - 220, library.repo_url, options=task.options, new_commits=unseen_upstream_commits, compare_range=(library.revision, new_version))
+                author_summary = self.scmProvider.build_author_summary(all_upstream_commits)
+                commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - len(author_summary) - 220, library.repo_url, options=task.options, new_commits=unseen_upstream_commits, compare_range=(library.revision, new_version))
             else:
+                author_summary = ""
                 commit_chunks = [""]
-            bug_description = CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_chunks[0])
+            bug_description = CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_chunks[0], author_summary)
         except Exception as e:
             # Listing the upstream commits means cloning the upstream repo, which
             # fails if its host is down. Still file the bug: the job already exists,

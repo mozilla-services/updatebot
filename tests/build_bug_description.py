@@ -11,6 +11,7 @@ sys.path.append(".")
 sys.path.append("..")
 
 from components.scmprovider import SCMProvider, Commit
+from components.utilities import Struct
 
 GITHUB_REPO = "https://github.com/org/repo"
 
@@ -142,6 +143,44 @@ class TestBuildBugDescription(unittest.TestCase):
         self.assertIn("including 2 new upstream commits", CommentTemplates.UPDATE_DETAILS(3, 2, "", ""))
         self.assertIn("covers 3 commits, all of which I've filed a bug on before.", CommentTemplates.UPDATE_DETAILS(3, 0, "", ""))
         self.assertNotIn("top 0", CommentTemplates.UPDATE_DETAILS(3, 0, "", ""))
+
+    def test_signed_commits_are_detected(self):
+        def cat_file(headers):
+            outputs = {"cat-file": headers + "\n\nThe message\n", "rev-parse": "p0", "diff": "", "log": ""}
+
+            def run(cmd):
+                return Struct(stdout=next(v for k, v in outputs.items() if k in cmd).encode())
+            c = Commit("abc1234|2020-01-01 00:00:00 +0000|2020-01-02 00:00:00 +0000")
+            c.populate_details(GITHUB_REPO, run)
+            return c.signed
+
+        self.assertTrue(cat_file("tree t\nauthor a <a@example.com> 1 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n wsBc\n -----END PGP SIGNATURE-----"))
+        self.assertTrue(cat_file("tree t\ngpgsig -----BEGIN SSH SIGNATURE-----\n U1NI\n -----END SSH SIGNATURE-----"))
+        self.assertFalse(cat_file("tree t\nauthor a <a@example.com> 1 +0000\ncommitter a <a@example.com> 1 +0000"))
+
+    def test_author_summary(self):
+        def commit(author, signed):
+            c = make_commit("c" + str(len(author)) + ("1" if signed else "0"), "p")
+            c.author = author + "\n"
+            c.signed = signed
+            return c
+        commits = [commit("A Dev <a@example.com>", True)] * 3 + [commit("B Dev <b@example.com>", False)] + \
+            [commit("C Dev <c@example.com>", True), commit("C Dev <c@example.com>", False)]
+        self.assertEqual(SCMProvider.build_author_summary(commits),
+                         "Commits by author:\n"
+                         "     3  A Dev <a@example.com> (all signed but unverified)\n"
+                         "     2  C Dev <c@example.com> (1 signed but unverified, 1 unsigned)\n"
+                         "     1  B Dev <b@example.com> (unsigned)")
+        self.assertEqual(SCMProvider.build_author_summary(commits, max_authors=1).split("\n")[-1],
+                         "  ... and 2 more authors, with 3 commits")
+        self.assertEqual(SCMProvider.build_author_summary([]), "")
+
+    def test_update_details_author_summary_follows_the_stats(self):
+        from components.bugzilla import CommentTemplates
+        details = CommentTemplates.UPDATE_DETAILS(3, 3, "STATS", "COMMITS", "AUTHORS")
+        self.assertLess(details.index("STATS"), details.index("AUTHORS"))
+        self.assertLess(details.index("AUTHORS"), details.index("COMMITS"))
+        self.assertNotIn("\n\n\n", CommentTemplates.UPDATE_DETAILS(3, 3, "STATS", "COMMITS"))
 
     def test_chained_no_compare_url_for_unsupported_host(self):
         commits = self._commits()

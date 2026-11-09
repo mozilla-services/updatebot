@@ -137,6 +137,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         ("git log --pretty=%s", lambda: "Roll SPIRV-Tools from a61d07a72763 to 1cda495274bb (1 revision)"),
         ("git log --pretty=%an", lambda: "Tom Ritter"),
         ("git log --pretty=%b", lambda: GIT_COMMIT_BODY),
+        ("git cat-file commit", lambda: GIT_CAT_FILE_SIGNED_COMMIT),
     ])
 
 
@@ -262,6 +263,19 @@ A	src/tests/gl_tests/StateChangeTest2.cpp
 D	src/tests/gl_tests/StateChangeTest3.cpp
 R	src/tests/gl_tests/StateChangeTest4.cpp
 Q	src/tests/gl_tests/StateChangeTest5.cpp
+"""
+
+# The headers of a signed commit, from `git cat-file commit`
+GIT_CAT_FILE_SIGNED_COMMIT = """tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+parent abcdef1234567890abcdef1234567890abcdef12
+author Tom Ritter <tom@ritter.vg> 1612908604 -0500
+committer GitHub <noreply@github.com> 1612908604 -0500
+gpgsig -----BEGIN PGP SIGNATURE-----
+ wsBcBAABCAAQBQJgIu88CRBK7hj4Ov3rIwAAdHIIAJgf
+ =abcd
+ -----END PGP SIGNATURE-----
+
+Roll SPIRV-Tools from a61d07a72763 to 1cda495274bb (1 revision)
 """
 
 GIT_COMMIT_BODY = """

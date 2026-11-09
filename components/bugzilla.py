@@ -33,7 +33,7 @@ Here are the overall diff statistics.
 """ % (library.repo_url, error.strip().replace("\n", "\n> "), commit_stats)
 
     @staticmethod
-    def UPDATE_DETAILS(num_commits, num_new_commits, commit_stats, commit_details):
+    def UPDATE_DETAILS(num_commits, num_new_commits, commit_stats, commit_details, author_summary=""):
         new_commit_str = ""
         if num_new_commits != num_commits:
             if num_new_commits == 0:
@@ -48,9 +48,9 @@ This update covers %s commits%s. Here are the overall diff statistics%s.
 
 ----------------------------------------
 %s
-
 %s
-""" % (num_commits, new_commit_str, ", and then the commit information" if commit_details else "", commit_stats, commit_details)
+%s
+""" % (num_commits, new_commit_str, ", and then the commit information" if commit_details else "", commit_stats, ("\n" + author_summary + "\n") if author_summary else "", commit_details)
 
     @staticmethod
     def EXAMINE_COMMITS_SUMMARY(library, new_commits):

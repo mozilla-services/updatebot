@@ -183,7 +183,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
 
         phid = result['response']['data'][0]['phid']
 
-        cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"reviewers.set", "value":["%s"]}], "objectIdentifier": "%s"}""" % (phid, phab_revision))
+        # reviewers.add, not reviewers.set: anyone already reviewing should stay a reviewer
+        cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"reviewers.add", "value":["%s"]}], "objectIdentifier": "%s"}""" % (phid, phab_revision))
         cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
         ret = self.run(cmd, shell=True)
         try:
@@ -191,7 +192,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         except Exception:
             raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
         if result['error']:
-            raise Exception("Got an error from phabricator when trying to set reviewers to %s (%s) for %s: %s" % (phab_username, phid, phab_revision, result))
+            raise Exception("Got an error from phabricator when trying to add %s (%s) as a reviewer of %s: %s" % (phab_username, phid, phab_revision, result))
 
     @logEntryExit
     @retry

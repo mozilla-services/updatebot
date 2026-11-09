@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import sys
+import json
 import copy
 import inspect
 import unittest
@@ -1268,6 +1269,56 @@ class TestFunctionality(SimpleLoggingTest):
             _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
             self.assertTrue(was_abandoned, "Did not successfully abandon the phabricator patch.")
             self.assertEqual(treeherder.bug_suggestions_calls, 1, "Should have stopped checking build failures for intermittents at the first one that isn't")
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Create -> Build Failed, but someone commandeered the Phabricator revision (Issue #397)
+    @logEntryExitHeaderLine
+    def testExistingJobBuildFailedRevisionCommandeered(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_build_failed.txt"
+            elif request_type == TYPE_BUGSUGGESTIONS:
+                return "bugsuggestions_build_failure.txt"
+            else:  # TYPE_JOBS
+                return "jobs_build_failed.txt"
+
+        abandon_calls = [0]
+
+        def abandon_callback(cmd):
+            abandon_calls[0] += 1
+            # What Phabricator answered in https://github.com/mozilla-services/updatebot/issues/397
+            return json.dumps({
+                "error": "ERR-CONDUIT-CORE",
+                "errorMessage": "ERR-CONDUIT-CORE: <differential.revision.edit> Validation errors:\n  - You can not abandon this revision because you are not the author. You can only abandon revisions you own. You can change this behavior by adjusting the \"differential.always-allow-abandon\" setting in Config.",
+                "response": None})
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["55ca6286e3e4f4fba5d0448333fa99fc5a404a73|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: {},  # filed_bug_ids_func
+            treeherder,
+            command_callbacks={'abandon': abandon_callback}
+        )
+        comments = []
+        original_comment_on_bug = u.bugzillaProvider.comment_on_bug
+        u.bugzillaProvider.comment_on_bug = lambda bug_id, comment, *args, **kwargs: (comments.append(comment), original_comment_on_bug(bug_id, comment, *args, **kwargs))
+        exceptions = []
+        original_log_exception = u.logger.log_exception
+        u.logger.log_exception = lambda e: (exceptions.append(e), original_log_exception(e))
+
+        try:
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.BUILD_FAILED)
+            self.assertEqual(abandon_calls[0], 1, "Shouldn't retry abandoning a revision someone else owns")
+            self.assertEqual([c for c in comments if "error while trying to abandon" in c], [], "Shouldn't report failing to abandon a commandeered revision")
+            self.assertEqual(exceptions, [])
         finally:
             self._cleanup(u, expected_values)
 

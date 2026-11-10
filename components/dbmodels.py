@@ -120,6 +120,7 @@ class Job:
             self.outcome = JOBOUTCOME(row['outcome'])
             self.relinquished = not not row['relinquished']
             self.bugzilla_id = row['bugzilla_id']
+            self.task_id = row.get('task_id')
             self.ff_versions = set()
             self.phab_revisions = []
             self.try_runs = []

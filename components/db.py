@@ -10,13 +10,14 @@ from components.providerbase import BaseProvider, INeedsLoggingProvider
 from components.logging import LogLevel
 from components.dbmodels import TryRun, PhabRevision, transform_job_and_try_results_into_objects, JOBSTATUS, JOBOUTCOME, JOBTYPE
 
+import os
 import pymysql
 
 
 # ==================================================================================
 
 
-CURRENT_DATABASE_CONFIG_VERSION = 16
+CURRENT_DATABASE_CONFIG_VERSION = 17
 
 CREATION_QUERIES = {
     "config": """
@@ -58,6 +59,7 @@ CREATION_QUERIES = {
         `outcome` TINYINT NOT NULL,
         `relinquished` TINYINT NOT NULL,
         `bugzilla_id` INT NULL,
+        `task_id` VARCHAR(32) NULL,
         PRIMARY KEY (`id`)
       ) ENGINE = InnoDB;
       """,
@@ -439,6 +441,11 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
 
                         self._query_execute("ALTER TABLE jobs DROP phab_revision")
 
+                    if config_version <= 16 and CURRENT_DATABASE_CONFIG_VERSION >= 17:
+                        self.logger.log("Upgrading to database version 17", level=LogLevel.Warning)
+                        # The Taskcluster task of the Updatebot run that created the job
+                        self._query_execute("ALTER TABLE `jobs` ADD COLUMN `task_id` VARCHAR(32) NULL AFTER `bugzilla_id`")
+
                     query = "UPDATE config SET v=%s WHERE k = 'database_version'"
                     args = (CURRENT_DATABASE_CONFIG_VERSION)
                     self._query_execute(query, args)
@@ -573,8 +580,8 @@ class MySQLDatabase(BaseProvider, INeedsLoggingProvider):
     @logEntryExit
     def create_job(self, jobtype, library, new_version, ff_version, status, outcome, bug_id):
         # Omitting the created column initializes it to current timestamp
-        query = "INSERT INTO jobs(job_type, library, version, status, outcome, relinquished, bugzilla_id) VALUES(%s, %s, %s, %s, %s, 0, %s)"
-        args = (jobtype, library.name, new_version, status, outcome, bug_id)
+        query = "INSERT INTO jobs(job_type, library, version, status, outcome, relinquished, bugzilla_id, task_id) VALUES(%s, %s, %s, %s, %s, 0, %s, %s)"
+        args = (jobtype, library.name, new_version, status, outcome, bug_id, os.environ.get('TASK_ID'))
         job_id = self._query_execute(query, args)
 
         query = "INSERT INTO job_to_ff_version(job_id, ff_version) VALUES(%s, %s)"

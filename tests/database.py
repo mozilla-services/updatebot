@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 import time
 import copy
@@ -68,8 +69,9 @@ class TestDatabaeQueries(unittest.TestCase):
         try:
             self.assertEqual(None, self.db.get_job(library, version))
 
-            self.db.create_job(JOBTYPE.VENDORING, library, version,
-                               JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING, bugid)
+            with mock.patch.dict(os.environ, {'TASK_ID': 'abc123'}):
+                self.db.create_job(JOBTYPE.VENDORING, library, version,
+                                   JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING, bugid)
 
             newJob = self.db.get_job(library, version)
             self.assertNotEqual(None, newJob)
@@ -79,8 +81,38 @@ class TestDatabaeQueries(unittest.TestCase):
             self.assertEqual(newJob.status, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
             self.assertEqual(newJob.outcome, JOBOUTCOME.PENDING)
             self.assertEqual(newJob.bugzilla_id, bugid)
+            self.assertEqual(newJob.task_id, 'abc123')
         finally:
             self.db.delete_job(job_id=newJob.id)
+
+    def testJobWithoutTaskId(self):
+        # Outside of Taskcluster there's no task to record
+        library = Struct(**{
+            'name': 'test_library_local',
+            'yaml_path': 'path/to/moz.yaml',
+        })
+        version = "test_local_version"
+        with mock.patch.dict(os.environ):
+            os.environ.pop('TASK_ID', None)
+            self.db.create_job(JOBTYPE.VENDORING, library, version,
+                               JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING, 50)
+        job = self.db.get_job(library, version)
+        try:
+            self.assertIsNone(job.task_id)
+        finally:
+            self.db.delete_job(job_id=job.id)
+
+    def testUpgradeAddsTaskId(self):
+        # Put the database back to version 16, before jobs had a task_id
+        mysql = self.db.db
+        mysql._query_execute("ALTER TABLE jobs DROP COLUMN task_id")
+        mysql._query_execute("UPDATE config SET v=16 WHERE k = 'database_version'")
+
+        self.assertEqual(self.db.check_database(), 17)
+        columns = [r['COLUMN_NAME'] for r in mysql._query_get_rows(
+            "SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema = %s AND table_name = 'jobs'",
+            (mysql.database_config['db'],))]
+        self.assertIn('task_id', columns)
 
 
 class TestDatabaseConnection(unittest.TestCase):

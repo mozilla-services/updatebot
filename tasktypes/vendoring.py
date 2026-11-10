@@ -140,6 +140,10 @@ class VendorTaskRunner(BaseTaskRunner):
 
         if not prior_job.bugzilla_is_open or self.bugzillaProvider.bug_has_landing_link(prior_job.bugzilla_id):
             self.logger.log("The prior job's bugzilla bug is closed or about to be closed, so we only need to relinquish it.", level=LogLevel.Info)
+        elif superseceding_bugzilla_id and self._has_commandeered_revision(prior_job):
+            # Someone is working on the revision themselves, so it isn't ours to close
+            self.logger.log("The prior job's phabricator revision has been commandeered, so we're leaving its bug open.", level=LogLevel.Info)
+            self.bugzillaProvider.comment_on_bug(prior_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED_BUT_COMMANDEERED(superseceding_bugzilla_id))
         elif superseceding_bugzilla_id:
             self.logger.log("The prior job's bugzilla bug is open, marking it as superseded by Bug ID %s ." % superseceding_bugzilla_id, level=LogLevel.Info)
 
@@ -153,6 +157,16 @@ class VendorTaskRunner(BaseTaskRunner):
                         self.logger.log_exception(e)  # We're going to log this exception, but not stop processing the new job
 
         self.dbProvider.update_job_relinquish(prior_job)
+
+    def _has_commandeered_revision(self, job):
+        for p in job.phab_revisions:
+            try:
+                if self.phabricatorProvider.is_commandeered(p.revision):
+                    return True
+            except Exception as e:
+                # If we can't tell, close the bug as we always have
+                self.logger.log_exception(e)
+        return False
 
     @logEntryExit
     def _process_new_job(self, library, task, new_version, timestamp, most_recent_job):

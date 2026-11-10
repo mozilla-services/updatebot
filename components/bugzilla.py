@@ -265,6 +265,14 @@ Updatebot will be unable to do anything more for this library version.
         return "I've submitted a try run for this commit: https://treeherder.mozilla.org/jobs?repo=try&revision=" + revision
 
     @staticmethod
+    def BUG_SUPERSEDED_BUT_COMMANDEERED(new_bug_id):
+        return """
+A newer version of this library is in Bug %s. Because someone has taken over the
+Phabricator revision here, I'm leaving this bug open instead of closing it as a
+duplicate of that one.
+""" % new_bug_id
+
+    @staticmethod
     def BUG_SUPERSEDED():
         return """
 This bug is being closed because a newer revision of the library is available.

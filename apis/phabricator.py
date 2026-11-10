@@ -63,6 +63,19 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def _edit_revision(self, phab_revision, transactions):
         return self._call_conduit("differential.revision.edit", {"transactions": transactions, "objectIdentifier": str(phab_revision)})
 
+    # Only called from is_commandeered, which retries
+    def _own_phid(self):
+        if not getattr(self, '_phid', None):
+            self._phid = self._call_conduit("user.whoami", {})['phid']
+        return self._phid
+
+    @logEntryExit
+    @retry
+    def is_commandeered(self, phab_revision):
+        """Whether someone else has made themselves the author of one of our revisions."""
+        revision = self._search_one("differential.revision.search", {"ids": [int(phab_revision)]}, "revision %s" % phab_revision)
+        return revision['fields']['authorPHID'] != self._own_phid()
+
     @logEntryExit
     def submit_patches(self, bug_id, num_commits):
         phab_revisions = []

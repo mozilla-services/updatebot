@@ -319,6 +319,36 @@ class TestClone(unittest.TestCase):
         self.assertEqual(attempts, [[], []], "The retry should start from an empty directory")
 
 
+class TestPartialClone(unittest.TestCase):
+    def testWorksWithoutFileContents(self):
+        # Local clones ignore --filter, so serve the test repo over file:// with filtering on
+        runner = CommandProvider({})
+        runner.update_config({'LoggingProvider': SimpleLogger({'local': True})})
+        scm = SCMProvider({})
+        scm.update_config({'CommandProvider': runner, 'LoggingProvider': SimpleLogger({'local': True})})
+        with tempfile.TemporaryDirectory() as d:
+            upstream = os.path.join(d, "upstream")
+            subprocess.run(["git", "clone", "-q", "--bare", test_repo_path_wrapper(default_test_repo()), upstream], check=True)
+            subprocess.run(["git", "-C", upstream, "config", "uploadpack.allowFilter", "true"], check=True)
+            subprocess.run(["git", "-C", upstream, "config", "uploadpack.allowAnySHA1InWant", "true"], check=True)
+
+            scm.initialize()
+            try:
+                library = Struct(repo_url="file://" + upstream, name='Partial-Library', revision=COMMITS_MAIN[2], should_show_commit_details=True)
+                all_commits, unseen_commits = scm.check_for_update(library, Struct(branch=None), COMMITS_MAIN[0], None)
+
+                filter_config = subprocess.run(["git", "-C", scm.tmpdirname, "config", "remote.origin.partialclonefilter"],
+                                               capture_output=True).stdout.decode().strip()
+                self.assertEqual(filter_config, "blob:none", "The clone should have been partial")
+                self.assertEqual([c.revision for c in all_commits], [COMMITS_MAIN[1], COMMITS_MAIN[0]])
+                for c in all_commits:
+                    self.assertTrue(c.author.strip())
+                    self.assertTrue(c.files_modified + c.files_added + c.files_deleted + c.files_other)
+                    self.assertFalse(c.signed)
+            finally:
+                scm.reset()
+
+
 class TestNonUTF8Commit(unittest.TestCase):
     def testISO88591Commit(self):
         # git cat-file prints a commit as stored, so one in another encoding isn't UTF-8

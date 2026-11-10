@@ -145,7 +145,10 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         for name in os.listdir(self.tmpdirname):
             path = os.path.join(self.tmpdirname, name)
             shutil.rmtree(path) if os.path.isdir(path) and not os.path.islink(path) else os.remove(path)
-        self.run(["git", "clone", repo_url, "."])
+        # We only read commits and trees, so don't download file contents or check
+        # anything out (for V8, 366 MB instead of 1.7 GB). A host that doesn't support
+        # partial clones ignores the filter and sends everything.
+        self.run(["git", "clone", "--filter=blob:none", "--no-checkout", repo_url, "."])
 
     def _ensure_checkout(self, repo_url, specific_revision=None):
         self.previous_dir_stack.append(os.getcwd())

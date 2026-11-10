@@ -30,10 +30,11 @@ from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.mach_vendor import VendorProvider
 from components.hg import MercurialProvider
 from components.scmprovider import SCMProvider
+from components.bugzilla import CommentTemplates
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
-from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, TRY_CLOSED_OUTPUT, TRY_TREESTATUS_UNAVAILABLE_OUTPUT, ARC_OUTPUT, CONDUIT_EDIT_OUTPUT, MockedBugzillaProvider, treeherder_response
+from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, TRY_LOCKED_OUTPUT, TRY_CLOSED_OUTPUT, TRY_TREESTATUS_UNAVAILABLE_OUTPUT, ARC_OUTPUT, CONDUIT_EDIT_OUTPUT, CONDUIT_USERNAME_SEARCH_OUTPUT, MockedBugzillaProvider, treeherder_response
 from tests.mock_commandprovider import TestCommandProvider
 from tests.mock_aiprovider import MockAIProvider
 from tests.mock_libraryprovider import MockLibraryProvider
@@ -1865,6 +1866,76 @@ class TestFunctionality(SimpleLoggingTest):
             self.assertEqual(all_jobs[1].outcome, JOBOUTCOME.ALL_SUCCESS, "The first job should still be successful.")
             self.assertTrue(all_jobs[1].relinquished, "The first job should be relinquished.")
             self.assertTrue(was_abandoned, "Did not successfully abandon the phabricator patch.")
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Create -> Finish -> someone commandeers the revision -> Create (Issue #384)
+    # The first job's bug is left open, and its revision isn't abandoned.
+    @logEntryExitHeaderLine
+    def testSecondJobFirstRevisionCommandeered(self):
+        @treeherder_response
+        def treeherder(request_type, fullpath):
+            if request_type == TYPE_HEALTH:
+                return "health_all_success.txt"
+            else:  # TYPE_JOBS
+                return "jobs_all_success.txt"
+
+        call_counter = [0]
+
+        def git_pretty_output(since_last_job):
+            lines = [
+                "56082fc4acfacba40993e47ef8302993c59e264f|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000",
+                "56082fc4acfacba40993e47ef8302993c59e264e|2020-11-12 10:01:18 +0000|2020-11-12 13:10:14 +0000",
+                "62c10c170bb33f1ad6c9eb13d0cbdf13f95fb27e|2020-11-12 07:00:44 +0000|2020-11-12 08:44:21 +0000",
+            ]
+            if call_counter[0] == 0:
+                return lines[1:]
+            return lines[0:1] if since_last_job else lines
+
+        def get_filed_bugs(only_open):
+            if call_counter[0] == 0:
+                return {}
+            return OrderedDict({50: {'id': 50, 'assigned_to_detail': {'email': 'nobody@mozilla.org'}}})
+
+        abandoned = [False]
+
+        def abandon_callback(cmd):
+            abandoned[0] = True
+            return CONDUIT_EDIT_OUTPUT
+
+        def conduit_search():
+            # Someone other than Updatebot is now the author of the revision
+            return CONDUIT_USERNAME_SEARCH_OUTPUT.replace("PHID-USER-updatebot0000000000", "PHID-USER-somebodyelse0000000")
+
+        library_filter = 'dav1d'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            git_pretty_output,
+            lambda: 50 if call_counter[0] == 0 else 51,  # get_filed_bug_id_func
+            get_filed_bugs,
+            treeherder,
+            command_callbacks={'abandon': abandon_callback, 'conduit_search': conduit_search}
+        )
+        comments = []
+        original_comment_on_bug = u.bugzillaProvider.comment_on_bug
+        u.bugzillaProvider.comment_on_bug = lambda bug_id, comment, *args, **kwargs: (comments.append((bug_id, comment)), original_comment_on_bug(bug_id, comment, *args, **kwargs))
+        dupes = []
+        u.bugzillaProvider.dupe_bug = lambda bug_id, comment, dup_id: dupes.append((bug_id, dup_id))
+
+        try:
+            u.run(library_filter=library_filter)
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.DONE, JOBOUTCOME.ALL_SUCCESS)
+
+            call_counter[0] += 1
+            u.run(library_filter=library_filter)
+            _check_jobs(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, JOBOUTCOME.PENDING)
+
+            all_jobs = u.dbProvider.get_all_jobs()
+            self.assertTrue(all_jobs[1].relinquished, "The first job should be relinquished.")
+            self.assertEqual(dupes, [], "Shouldn't close a bug whose revision was commandeered")
+            self.assertFalse(abandoned[0], "Shouldn't abandon a commandeered revision")
+            self.assertEqual([c for (b, c) in comments if "taken over the" in c and b == 50], [CommentTemplates.BUG_SUPERSEDED_BUT_COMMANDEERED(51)])
         finally:
             self._cleanup(u, expected_values)
 

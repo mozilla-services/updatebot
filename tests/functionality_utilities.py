@@ -122,7 +122,8 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         ("hg diff --stat", lambda: " accessible/interfaces/ia2/moz.build |  6 +++---\n 1 files changed, 3 insertions(+), 3 deletions(-)\n"),
         ("arc diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
         ("arcanist diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
-        (echo_str("echo {\"constraints\""), lambda: CONDUIT_USERNAME_SEARCH_OUTPUT),  # This is also used for differential.revision.search, that's alright
+        (echo_str("echo {\"constraints\""), command_callbacks.get('conduit_search', lambda: CONDUIT_USERNAME_SEARCH_OUTPUT)),  # This is also used for differential.revision.search, that's alright
+        (echo_str("echo {}"), lambda: CONDUIT_WHOAMI_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\": \"reviewers.add\""), lambda: CONDUIT_EDIT_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\": \"abandon\""), command_callbacks.get('abandon', AssertFalse)),
         (echo_str("echo {\"transactions\": [{\"type\": \"bugzilla.bug-id\""), lambda: CONDUIT_EDIT_OUTPUT),
@@ -249,7 +250,11 @@ Completed
 # This is also used for differential.revision.search, that's alright, because it returns a PHID
 # even if it's not the right type of PHID.
 CONDUIT_USERNAME_SEARCH_OUTPUT = """
-{"error":null,"errorMessage":null,"response":{"data":[{"id":154,"type":"USER","phid":"PHID-USER-dd6rge2k2csia46r2wcw","fields":{"username":"tjr","realName":"Tom Ritter","roles":["verified","approved","activated"],"dateCreated":1519415695,"dateModified":1519416233,"policy":{"view":"public","edit":"no-one"}},"attachments":[]}],"maps":[],"query":{"queryKey":null},"cursor":{"limit":100,"after":null,"before":null,"order":null}}}
+{"error":null,"errorMessage":null,"response":{"data":[{"id":154,"type":"USER","phid":"PHID-USER-dd6rge2k2csia46r2wcw","fields":{"authorPHID":"PHID-USER-updatebot0000000000","username":"tjr","realName":"Tom Ritter","roles":["verified","approved","activated"],"dateCreated":1519415695,"dateModified":1519416233,"policy":{"view":"public","edit":"no-one"}},"attachments":[]}],"maps":[],"query":{"queryKey":null},"cursor":{"limit":100,"after":null,"before":null,"order":null}}}
+"""
+
+CONDUIT_WHOAMI_OUTPUT = """
+{"error":null,"errorMessage":null,"response":{"phid":"PHID-USER-updatebot0000000000","userName":"updatebot","realName":"Updatebot"}}
 """
 
 CONDUIT_EDIT_OUTPUT = """

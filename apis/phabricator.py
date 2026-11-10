@@ -24,6 +24,12 @@ class DiffTooLargeError(Exception):
     pass
 
 
+class ConduitError(Exception):
+    def __init__(self, method, result):
+        super().__init__("Got an error from phabricator calling %s: %s" % (method, result))
+        self.error_message = result.get('errorMessage') or ""
+
+
 class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         if 'url' not in config:
@@ -35,6 +41,27 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 assert ('url' in config) or (config['General']['env'] in ["dev", "prod"]), "No phabricator url provided, and unknown operating environment"
         else:
             self.url = config['url']
+
+    def _call_conduit(self, method, params):
+        cmd = "echo " + quote_echo_string(json.dumps(params))
+        cmd += " | arc call-conduit --conduit-uri=%s %s --" % (self.url, method)
+        ret = self.run(cmd, shell=True)
+        try:
+            result = json.loads(ret.stdout.decode())
+        except Exception:
+            raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
+        if result['error']:
+            raise ConduitError(method, result)
+        return result['response']
+
+    def _search_one(self, method, constraints, what):
+        data = self._call_conduit(method, {"constraints": constraints})['data']
+        if len(data) != 1:
+            raise Exception("When querying conduit for %s, we got back %i results" % (what, len(data)))
+        return data[0]
+
+    def _edit_revision(self, phab_revision, transactions):
+        return self._call_conduit("differential.revision.edit", {"transactions": transactions, "objectIdentifier": str(phab_revision)})
 
     @logEntryExit
     def submit_patches(self, bug_id, num_commits):
@@ -95,37 +122,8 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         # Chain revisions together if needed
         @retry
         def chain_revisions(parent_rev, child_rev):
-            # First get the PHID of the parent revision
-            cmd = "echo " + quote_echo_string("""{"constraints": {"ids":[%s]}}""" % parent_rev)
-            cmd += " | arc call-conduit --conduit-uri=%s differential.revision.search --""" % self.url
-
-            ret = self.run(cmd, shell=True)
-            try:
-                result = json.loads(ret.stdout.decode())
-            except Exception:
-                raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
-
-            if result['error']:
-                raise Exception("Got an error from phabricator when trying to search for %s" % (parent_rev))
-
-            assert 'response' in result
-            assert 'data' in result['response']
-            if len(result['response']['data']) != 1:
-                raise Exception("When querying conduit for diff %s, we got back %i results"
-                                % (parent_rev, len(result['response']['data'])))
-
-            parent_phid = result['response']['data'][0]['phid']
-
-            # Now connect them - add parent as parent of child
-            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"parents.add", "value":["%s"]}], "objectIdentifier": "%s"}""" % (parent_phid, child_rev))
-            cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
-            ret = self.run(cmd, shell=True)
-            try:
-                result = json.loads(ret.stdout.decode())
-            except Exception:
-                raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
-            if result['error']:
-                raise Exception("Got an error from phabricator when trying chain revisions, parent: %s, child %s %s" % (parent_rev, child_rev, parent_phid))
+            parent_phid = self._search_one("differential.revision.search", {"ids": [int(parent_rev)]}, "revision %s" % parent_rev)['phid']
+            self._edit_revision(child_rev, [{"type": "parents.add", "value": [parent_phid]}])
 
         parent_rev = phab_revisions[0]
         for child_rev in phab_revisions[1:]:
@@ -135,15 +133,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         # Associate the patches with the bug
         @retry
         def associate_bug_id(phab_revision):
-            cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"bugzilla.bug-id", "value":"%s"}], "objectIdentifier": "%s"}""" % (bug_id, phab_revision))
-            cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
-            ret = self.run(cmd, shell=True)
-            try:
-                result = json.loads(ret.stdout.decode())
-            except Exception:
-                raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
-            if result['error']:
-                raise Exception("Got an error from phabricator when trying to set the bugzilla id for %s" % (phab_revision))
+            self._edit_revision(phab_revision, [{"type": "bugzilla.bug-id", "value": str(bug_id)}])
 
         for p in phab_revisions:
             associate_bug_id(p)
@@ -156,59 +146,25 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     @logEntryExit
     @retry
     def set_reviewer(self, phab_revision, phab_username):
-        # We have to call a different API endpoint if this is a review group
+        # A review group is a project, with its own search endpoint
         if phab_username[0] == "#":
-            # Get the group's phid (groups are implemented as 'projects'')
-            cmd = "echo " + quote_echo_string("""{"constraints": {"slugs":["%s"]}}""" % phab_username)
-            cmd += " | arc call-conduit --conduit-uri=%s project.search --""" % self.url
+            phid = self._search_one("project.search", {"slugs": [phab_username]}, "project %s" % phab_username)['phid']
         else:
-            # Get the user's phid
-            cmd = "echo " + quote_echo_string("""{"constraints": {"usernames":["%s"]}}""" % phab_username)
-            cmd += " | arc call-conduit --conduit-uri=%s user.search --""" % self.url
-
-        ret = self.run(cmd, shell=True)
-        try:
-            result = json.loads(ret.stdout.decode())
-        except Exception:
-            raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
-
-        if result['error']:
-            raise Exception("Got an error from phabricator when trying to search for %s" % (phab_username))
-
-        assert 'response' in result
-        assert 'data' in result['response']
-        if len(result['response']['data']) != 1:
-            raise Exception("When querying conduit for username %s, we got back %i results"
-                            % (phab_username, len(result['response']['data'])))
-
-        phid = result['response']['data'][0]['phid']
+            phid = self._search_one("user.search", {"usernames": [phab_username]}, "username %s" % phab_username)['phid']
 
         # reviewers.add, not reviewers.set: anyone already reviewing should stay a reviewer
-        cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"reviewers.add", "value":["%s"]}], "objectIdentifier": "%s"}""" % (phid, phab_revision))
-        cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
-        ret = self.run(cmd, shell=True)
-        try:
-            result = json.loads(ret.stdout.decode())
-        except Exception:
-            raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
-        if result['error']:
-            raise Exception("Got an error from phabricator when trying to add %s (%s) as a reviewer of %s: %s" % (phab_username, phid, phab_revision, result))
+        self._edit_revision(phab_revision, [{"type": "reviewers.add", "value": [phid]}])
 
     @logEntryExit
     @retry
     def abandon(self, phab_revision):
-        cmd = "echo " + quote_echo_string("""{"transactions": [{"type":"abandon", "value":true}],"objectIdentifier": "%s"}""" % phab_revision)
-        cmd += " | arc call-conduit --conduit-uri=%s differential.revision.edit --""" % self.url
-        ret = self.run(cmd, shell=True)
         try:
-            result = json.loads(ret.stdout.decode())
-        except Exception:
-            raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
-        if result['error']:
-            if "You can not abandon this revision because it has already been closed." in result['errorMessage']:
+            self._edit_revision(phab_revision, [{"type": "abandon", "value": True}])
+        except ConduitError as e:
+            if "You can not abandon this revision because it has already been closed." in e.error_message:
                 self.logger.log("Strangely, the phabricator revision %s was already closed when we tried to abandon it. Oh well." % phab_revision, level=LogLevel.Warning)
-            elif "You can not abandon this revision because you are not the author." in result['errorMessage']:
+            elif "You can not abandon this revision because you are not the author." in e.error_message:
                 # Someone commandeered the revision, so it's theirs to keep or abandon
                 self.logger.log("The phabricator revision %s has been commandeered by someone else, so we're leaving it alone instead of abandoning it." % phab_revision, level=LogLevel.Info)
             else:
-                raise Exception("Got an error from phabricator when trying to abandon %s: %s" % (phab_revision, result))
+                raise

@@ -129,7 +129,7 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
         (echo_str("echo {\"transactions\": [{\"type\": \"bugzilla.bug-id\""), lambda: CONDUIT_EDIT_OUTPUT),
         (echo_str("echo {\"transactions\": [{\"type\": \"parents.add\""), lambda: CONDUIT_EDIT_OUTPUT),
         ("git log -1 --oneline", lambda: "0481f1c (HEAD -> issue-115-add-revision-to-log, origin/issue-115-add-revision-to-log) Issue #115 - Add revision of updatebot to log output"),
-        ("git clone https://example.invalid .", command_callbacks.get('upstream_clone', lambda: "")),
+        ("git clone --filter=blob:none --no-checkout https://example.invalid .", command_callbacks.get('upstream_clone', lambda: "")),
         ("git merge-base --is-ancestor", lambda cmd: FAKE_HISTORY_IS_ANCESTOR(expected_values, cmd)),
         ("git merge-base", lambda: "_current"),
         ("git rev-parse", lambda: "abcdef1234567890abcdef1234567890abcdef12"),

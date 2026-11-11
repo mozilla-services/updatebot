@@ -6,6 +6,7 @@
 
 import os
 import sys
+import json
 import copy
 import shutil
 import tempfile
@@ -15,7 +16,7 @@ import unittest
 sys.path.append(".")
 sys.path.append("..")
 from components.scmprovider import SCMProvider, Commit
-from components.logging import SimpleLogger, log
+from components.logging import SimpleLogger, LogLevel, log
 from components.commandprovider import CommandProvider
 from components.utilities import Struct
 import components.utilities
@@ -347,6 +348,98 @@ class TestPartialClone(unittest.TestCase):
                     self.assertFalse(c.signed)
             finally:
                 scm.reset()
+
+
+class TestPreExistingRepos(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.upstream = os.path.join(self.dir.name, "upstream")
+        subprocess.run(["git", "clone", "-q", "--bare", test_repo_path_wrapper(default_test_repo()), self.upstream], check=True)
+        subprocess.run(["git", "-C", self.upstream, "config", "uploadpack.allowFilter", "true"], check=True)
+        subprocess.run(["git", "-C", self.upstream, "config", "uploadpack.allowAnySHA1InWant", "true"], check=True)
+        self.seed = os.path.join(self.dir.name, "seed")
+        subprocess.run(["git", "clone", "-q", self.upstream, self.seed], check=True)
+        self.mapping = os.path.join(self.dir.name, "pre-existing-repos.json")
+        with open(self.mapping, "w") as f:
+            json.dump({"Seeded-Library": self.seed}, f)
+        self.warnings = []
+        self.errors = []
+        self.exceptions = []
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def _check_for_update(self, library_name, pre_existing_repos):
+        runner = CommandProvider({})
+        runner.update_config({'LoggingProvider': SimpleLogger({'local': True})})
+        scm = SCMProvider({'pre-existing-repos': pre_existing_repos})
+        logger = SimpleLogger({'local': True})
+        logger.log = lambda msg, level=None, **kwargs: self.warnings.append(msg) if level == LogLevel.Warning else self.errors.append(msg) if level == LogLevel.Error else None
+        logger.log_exception = self.exceptions.append
+        scm.update_config({'CommandProvider': runner, 'LoggingProvider': logger})
+        scm.initialize()
+        try:
+            library = Struct(repo_url="file://" + self.upstream, name=library_name, revision=COMMITS_MAIN[2], should_show_commit_details=True)
+            all_commits, _ = scm.check_for_update(library, Struct(branch=None), COMMITS_MAIN[0], None)
+            self.assertEqual([c.revision for c in all_commits], [COMMITS_MAIN[1], COMMITS_MAIN[0]])
+            for c in all_commits:
+                self.assertTrue(c.author.strip())
+                self.assertTrue(c.files_modified + c.files_added + c.files_deleted + c.files_other)
+            alternates = os.path.join(scm.tmpdirname, ".git", "objects", "info", "alternates")
+            return open(alternates).read().strip() if os.path.exists(alternates) else None
+        finally:
+            scm.reset()
+
+    def testBorrowsFromTheListedCopy(self):
+        self.assertEqual(self._check_for_update("Seeded-Library", self.mapping), os.path.join(self.seed, ".git", "objects"))
+        self.assertEqual(self.warnings, [])
+
+    def testUnlistedLibraryClonesNormally(self):
+        self.assertIsNone(self._check_for_update("Other-Library", self.mapping))
+        self.assertEqual(self.warnings, [])
+
+    def testMissingCopyClonesNormally(self):
+        shutil.rmtree(self.seed)
+        self.assertIsNone(self._check_for_update("Seeded-Library", self.mapping))
+
+    def testRelativeFileIsIgnored(self):
+        previous_dir = os.getcwd()
+        os.chdir(self.dir.name)
+        try:
+            self.assertIsNone(self._check_for_update("Seeded-Library", "pre-existing-repos.json"))
+        finally:
+            os.chdir(previous_dir)
+        self.assertEqual(len(self.errors), 1)
+        self.assertIn("is not an absolute path", self.errors[0])
+        self.assertEqual([type(e).__name__ for e in self.exceptions], ["RelativePreExistingRepoPath"])
+
+    def testRelativeRepoIsIgnored(self):
+        with open(self.mapping, "w") as f:
+            json.dump({"Seeded-Library": "seed", "Other-Library": self.seed}, f)
+        self.assertIsNone(self._check_for_update("Seeded-Library", self.mapping))
+        self.assertEqual(len(self.errors), 1)
+        self.assertIn("seed for Seeded-Library", self.errors[0])
+        self.assertEqual([type(e).__name__ for e in self.exceptions], ["RelativePreExistingRepoPath"])
+        # The absolute entry is still used
+        self.assertEqual(self._check_for_update("Other-Library", self.mapping), os.path.join(self.seed, ".git", "objects"))
+
+    def testMalformedMappingClonesNormally(self):
+        # A different library each time, because check_for_update is memoized
+        for i, contents in enumerate(([], {"Malformed-1": None}, {"Malformed-2": ["/a"]})):
+            self.warnings = []
+            with open(self.mapping, "w") as f:
+                json.dump(contents, f)
+            self.assertIsNone(self._check_for_update("Malformed-%d" % i, self.mapping))
+            self.assertEqual(len(self.warnings), 1, contents)
+
+    def testWithoutTheSetting(self):
+        self.assertIsNone(self._check_for_update("Seeded-Library", None))
+        self.assertEqual(self.warnings, [])
+
+    def testUnreadableMappingClonesNormally(self):
+        self.assertIsNone(self._check_for_update("Seeded-Library", os.path.join(self.dir.name, "missing.json")))
+        self.assertEqual(len(self.warnings), 1)
+        self.assertIn("Could not read the pre-existing repositories", self.warnings[0])
 
 
 class TestNonUTF8Commit(unittest.TestCase):

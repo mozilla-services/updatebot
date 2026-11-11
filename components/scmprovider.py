@@ -4,6 +4,7 @@
 
 import os
 import copy
+import json
 import collections
 import shutil
 import tempfile
@@ -124,9 +125,55 @@ def _contains_commit(list_of_commits, revision):
     return False
 
 
+class RelativePreExistingRepoPath(Exception):
+    pass
+
+
 class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
-        pass
+        # A JSON file mapping library names to local clones of their upstream
+        # repositories (e.g. ones baked into the Docker image), which clones can
+        # borrow objects from instead of downloading them.
+        self.pre_existing_repos_file = config.get('pre-existing-repos')
+        self._pre_existing_repos = None
+
+    # We chdir into the clone directory before reading the file or using a path
+    # from it, so relative paths would resolve against the wrong directory.
+    def _report_relative_path(self, message):
+        self.logger.log(message, level=LogLevel.Error)
+        try:
+            raise RelativePreExistingRepoPath(message)
+        except RelativePreExistingRepoPath as e:
+            self.logger.log_exception(e)
+
+    def _load_pre_existing_repos(self):
+        if not self.pre_existing_repos_file:
+            return {}
+        if not os.path.isabs(self.pre_existing_repos_file):
+            self._report_relative_path("The pre-existing repositories file %s is not an absolute path, so we're ignoring it." % self.pre_existing_repos_file)
+            return {}
+        try:
+            with open(self.pre_existing_repos_file) as f:
+                mapping = json.load(f)
+            if not isinstance(mapping, dict):
+                raise ValueError("it isn't a JSON object")
+        except Exception as e:
+            self.logger.log("Could not read the pre-existing repositories from %s, so cloning without them: %s" % (self.pre_existing_repos_file, e), level=LogLevel.Warning)
+            return {}
+        repos = {}
+        for name, path in mapping.items():
+            if not isinstance(path, str):
+                self.logger.log("The pre-existing repository for %s in %s is %r, not a path, so we're ignoring it." % (name, self.pre_existing_repos_file, path), level=LogLevel.Warning)
+            elif os.path.isabs(path):
+                repos[name] = path
+            else:
+                self._report_relative_path("The pre-existing repository %s for %s in %s is not an absolute path, so we're ignoring it." % (path, name, self.pre_existing_repos_file))
+        return repos
+
+    def _pre_existing_repo(self, library_name):
+        if self._pre_existing_repos is None:
+            self._pre_existing_repos = self._load_pre_existing_repos()
+        return self._pre_existing_repos.get(library_name)
 
     def _initialize(self):
         self.tmpdirname = tempfile.mkdtemp()
@@ -139,7 +186,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     # Remote servers occasionally fail a clone (e.g. 'error: RPC failed; HTTP 502' then
     # 'fatal: the remote end hung up unexpectedly'), so retry it for a few minutes.
     @retry(times=4, sleep_s=30)
-    def _clone(self, repo_url):
+    def _clone(self, repo_url, pre_existing_repo=None):
         # A failed clone can leave a partial checkout behind, which would make the next
         # attempt fail because the directory isn't empty.
         for name in os.listdir(self.tmpdirname):
@@ -148,9 +195,12 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         # We only read commits and trees, so don't download file contents or check
         # anything out (for V8, 366 MB instead of 1.7 GB). A host that doesn't support
         # partial clones ignores the filter and sends everything.
-        self.run(["git", "clone", "--filter=blob:none", "--no-checkout", repo_url, "."])
+        # --reference-if-able takes whatever objects it can from the local copy, and
+        # falls back to a normal clone if the copy isn't there.
+        reference = ["--reference-if-able", pre_existing_repo] if pre_existing_repo else []
+        self.run(["git", "clone"] + reference + ["--filter=blob:none", "--no-checkout", repo_url, "."])
 
-    def _ensure_checkout(self, repo_url, specific_revision=None):
+    def _ensure_checkout(self, repo_url, specific_revision=None, library_name=None):
         self.previous_dir_stack.append(os.getcwd())
 
         os.chdir(self.tmpdirname)
@@ -159,7 +209,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             if not repo_url:
                 raise Exception("Wound up in _ensure_checkout but missing a repo_url")
 
-            self._clone(repo_url)
+            self._clone(repo_url, self._pre_existing_repo(library_name))
 
             if specific_revision:
                 self.run(["git", "checkout", specific_revision])
@@ -188,7 +238,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         try:
             # Step 0: Get the repo and update to the correct branch.
             # If no branch is specified, the default branch we clone is assumed to be correct
-            self._ensure_checkout(library.repo_url, task.branch)
+            self._ensure_checkout(library.repo_url, task.branch, library.name)
 
             # Step 1: Find the common ancestor between the commit we are and new_version
             common_ancestor = self.run(["git", "merge-base", library.revision, new_version]).stdout.decode().strip()

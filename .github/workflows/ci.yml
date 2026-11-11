@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -40,7 +40,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.14"]
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -60,7 +60,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        os: [ubuntu-latest]
+        os: [ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -80,7 +80,7 @@ jobs:
       - name: Start MySQL service
         run: sudo systemctl start mysql.service
       - name: Install Mercurial
-        run: sudo apt-get install -y mercurial
+        run: sudo apt-get update && sudo apt-get install -y mercurial
       - name: Test updatebot
         run: poetry run coverage run test.py
       - name: Generate coverage metrics

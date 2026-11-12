@@ -26,6 +26,7 @@ TESTS = [
     "frequency",
     "mach_vendor",
     "license_files",
+    "mock_interfaces",
     "scm",
     "sentry_logging"
 ]

@@ -304,7 +304,7 @@ class TestClone(unittest.TestCase):
             if len(attempts) == 1:
                 # Fail part way through, leaving a partial checkout behind
                 os.makedirs(".git/objects")
-                raise subprocess.CalledProcessError(128, args, stderr=b"error: RPC failed; HTTP 502\nfatal: the remote end hung up unexpectedly")
+                raise subprocess.CalledProcessError(128, args, stderr="error: RPC failed; HTTP 502\nfatal: the remote end hung up unexpectedly")
             open("README", "w").close()
         scm.run = run
 

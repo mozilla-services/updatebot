@@ -66,9 +66,9 @@ class Commit:
             return
 
         rev_range = [self.revision + "^", self.revision]
-        self.parent_revision = run(["git", "rev-parse", self.revision + "^"]).stdout.decode().strip()
+        self.parent_revision = run(["git", "rev-parse", self.revision + "^"]).stdout.strip()
 
-        files_changed = run(["git", "diff", "--name-status"] + rev_range).stdout.decode().split("\n")
+        files_changed = run(["git", "diff", "--name-status"] + rev_range).stdout.split("\n")
         for f in files_changed:
             f = f.strip()
             if not f:
@@ -84,14 +84,14 @@ class Commit:
             else:
                 self.files_other.append(parts[0] + " " + parts[1])
 
-        self.summary = run(["git", "log", "--pretty=%s", "-1", self.revision]).stdout.decode()
-        self.author = run(["git", "log", "--pretty=%an <%ae>", "-1", self.revision]).stdout.decode()
-        self.description = run(["git", "log", "--pretty=%b", "-1", self.revision]).stdout.decode()
+        self.summary = run(["git", "log", "--pretty=%s", "-1", self.revision]).stdout
+        self.author = run(["git", "log", "--pretty=%an <%ae>", "-1", self.revision]).stdout
+        self.description = run(["git", "log", "--pretty=%b", "-1", self.revision]).stdout
         # A signed commit (with GPG or SSH) has a gpgsig header. We can't verify the
         # signature without the signer's key, only tell whether there is one.
         # cat-file prints the commit as stored, which may not be UTF-8 (unlike git log,
         # which converts it), but the header names we look for are ASCII.
-        headers = run(["git", "cat-file", "commit", self.revision]).stdout.decode("utf-8", "replace").split("\n\n", 1)[0]
+        headers = run(["git", "cat-file", "commit", self.revision]).stdout.split("\n\n", 1)[0]
         self.signed = any(line.startswith(("gpgsig ", "gpgsig-sha256 ")) for line in headers.split("\n"))
         self.revision_link = repo_and_commit_to_url(repo, self.revision)
         self.populated = True
@@ -241,7 +241,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             self._ensure_checkout(library.repo_url, task.branch, library.name)
 
             # Step 1: Find the common ancestor between the commit we are and new_version
-            common_ancestor = self.run(["git", "merge-base", library.revision, new_version]).stdout.decode().strip()
+            common_ancestor = self.run(["git", "merge-base", library.revision, new_version]).stdout.strip()
             self.logger.log("Our common ancestor is %s." % (common_ancestor), level=LogLevel.Debug)
 
             # Step 2: Get the list of commits between the common ancestor and new_version
@@ -333,7 +333,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         if ret.returncode not in (0, 1):
             # e.g. a revision that doesn't exist upstream (any more)
             self.logger.log("Could not determine whether %s is an ancestor of %s: %s" % (
-                ancestor, descendant, ret.stderr.decode().strip()), level=LogLevel.Warning)
+                ancestor, descendant, ret.stderr.strip()), level=LogLevel.Warning)
         return ret.returncode == 0
 
     def _commits_between(self, revision1, revision2):
@@ -342,7 +342,7 @@ class SCMProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         If rev1 == rev2, returns an empty list.
         """
         ret = self.run(["git", "log", "--pretty=%H|%ai|%ci", "--no-merges", "%s..%s" % (revision1, revision2)])
-        commits = [line.strip() for line in ret.stdout.decode().split("\n")]
+        commits = [line.strip() for line in ret.stdout.split("\n")]
         # Put them in order of oldest to newest
         commits.reverse()
         # Populate them into a class but don't get details just yet.

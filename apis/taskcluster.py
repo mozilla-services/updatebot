@@ -177,9 +177,9 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             try_arguments.append("--artifact")
 
         ret = self.run(try_arguments, clean_return=False)
-        output = ret.stdout.decode()
+        output = ret.stdout
         if ret.returncode:
-            stderr = ret.stderr.decode() if getattr(ret, "stderr", None) else ""
+            stderr = ret.stderr if getattr(ret, "stderr", None) else ""
             closed = TREE_CLOSED.search(output + stderr)
             if closed:
                 raise TryTreeClosedError(closed.group(1).strip(), shlex.join(try_arguments))

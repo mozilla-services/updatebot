@@ -223,13 +223,13 @@ class SentryLogger(LoggerInstance):
 
     def _update_config(self, additional_config):
         version = "updatebot-"
-        version += _run(["git", "rev-parse", "HEAD"], shell=False, clean_return=True).stdout.decode().strip()
+        version += _run(["git", "rev-parse", "HEAD"], shell=False, clean_return=True).stdout.strip()
 
         environment = ""
         if "TASK_ID" in os.environ:
             environment = "taskcluster"
         else:
-            environment = _run(["hostname"], shell=False, clean_return=True).stdout.decode().strip()
+            environment = _run(["hostname"], shell=False, clean_return=True).stdout.strip()
 
         sentry_init(
             dsn=self.config['sentry_config']['url'],

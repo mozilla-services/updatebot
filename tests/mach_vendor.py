@@ -66,7 +66,7 @@ class TestVendorProvider(unittest.TestCase):
 
         def run(cmd, clean_return=True, **run_kwargs):
             calls.append(clean_return)
-            return subprocess.CompletedProcess(cmd, returncode, stdout=b"Could not apply foo.patch", stderr=b"")
+            return subprocess.CompletedProcess(cmd, returncode, stdout="Could not apply foo.patch", stderr="")
 
         vendorProvider = VendorProvider({})
         vendorProvider.update_config(dict(SimpleLoggerConfig, CommandProvider=Struct(run=run)))
@@ -87,7 +87,7 @@ class TestVendorProvider(unittest.TestCase):
         (calls, e) = self._patch(1, ignore_modified=True, log_failure=False)
         self.assertEqual(calls, [False])
         self.assertIsInstance(e, subprocess.CalledProcessError)
-        self.assertEqual(e.output, b"Could not apply foo.patch")
+        self.assertEqual(e.output, "Could not apply foo.patch")
 
 
 if __name__ == "__main__":

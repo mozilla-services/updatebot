@@ -46,7 +46,7 @@ class RecordingCommandProvider:
         if self.result_file_contents is not None and cwd:
             with open(os.path.join(cwd, CONFLICT_RESOLUTION_RESULT_FILE), "w") as f:
                 f.write(self.result_file_contents)
-        return Struct(**{"stdout": self.stdout.encode(),
+        return Struct(**{"stdout": self.stdout,
                          "returncode": self.returncode,
                          "check_returncode": lambda: None})
 

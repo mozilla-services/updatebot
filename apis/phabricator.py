@@ -47,9 +47,9 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         cmd += " | arc call-conduit --conduit-uri=%s %s --" % (self.url, method)
         ret = self.run(cmd, shell=True)
         try:
-            result = json.loads(ret.stdout.decode())
+            result = json.loads(ret.stdout)
         except Exception:
-            raise Exception("Could not decode response as JSON: %s" % ret.stdout.decode())
+            raise Exception("Could not decode response as JSON: %s" % ret.stdout)
         if result['error']:
             raise ConduitError(method, result)
         return result['response']
@@ -90,7 +90,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             cmd.append("--")
 
             ret = self.run(cmd, clean_return=False)
-            too_large = ARC_DIFF_TOO_LARGE.search(ret.stdout.decode())
+            too_large = ARC_DIFF_TOO_LARGE.search(ret.stdout)
             if too_large:
                 raise DiffTooLargeError(
                     "arc diff will not submit %s because its diff is %s bytes, over arc's limit of 4 MiB for a single file."
@@ -100,7 +100,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             else:
                 ret.check_returncode()
 
-            output = ret.stdout.decode()
+            output = ret.stdout
 
             phab_revision = False
             r = re.compile(self.url + "D([0-9]+)")

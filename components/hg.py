@@ -26,7 +26,7 @@ def reset_repository(cmdrunner):
     else:
         ret = cmdrunner.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
         if ret.returncode == 255:
-            if "abort: empty revision set" not in ret.stderr.decode():
+            if "abort: empty revision set" not in ret.stderr:
                 ret.check_returncode()
 
 
@@ -76,10 +76,10 @@ class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvid
         # deleted files, with paths relative to the root of the checkout.
         self.run(["hg", "addremove", "-q"])
         excluded = set(os.path.normpath(p) for p in exclude)
-        files = self.run(["hg", "--config", "ui.relative-paths=no", "status", "--no-status"]).stdout.decode().splitlines()
+        files = self.run(["hg", "--config", "ui.relative-paths=no", "status", "--no-status"]).stdout.splitlines()
         return [f for f in files if f and os.path.normpath(f) not in excluded]
 
     @logEntryExit
     def diff_stats(self):
         ret = self.run(["hg", "diff", "--stat"])
-        return ret.stdout.decode().rstrip()
+        return ret.stdout.rstrip()

@@ -77,7 +77,7 @@ class TestCommandProvider(BaseProvider, INeedsLoggingProvider):
             if returncode != 0:
                 raise subprocess.CalledProcessError(returncode, argument_string)
             pass
-        return Struct(**{'stdout':
-                         Struct(**{'decode': lambda *args, **kwargs: stdout}),
+        return Struct(**{'stdout': stdout,
+                         'stderr': "",
                          'returncode': returncode,
                          'check_returncode': check_returncode})

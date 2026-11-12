@@ -35,7 +35,7 @@ class CommandProvider(BaseProvider, INeedsLoggingProvider):
         return ret
 
     def _report_traceback_in_stderr(self, args, stderr):
-        stderr = stderr.decode(errors="replace") if stderr else ""
+        stderr = stderr or ""
         if "Traceback (most recent call last):" not in stderr:
             return
         lines = [line for line in stderr.strip().splitlines() if line.strip()]

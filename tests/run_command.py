@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -30,13 +31,13 @@ class TestCommandRunner(unittest.TestCase):
         ret = self._runner().run(["bash", "-c", "echo $UPDATEBOT_TEST_VAR"],
                                  env={"UPDATEBOT_TEST_VAR": "hello"})
         self.assertEqual(ret.returncode, 0)
-        self.assertEqual(ret.stdout.decode().strip(), "hello")
+        self.assertEqual(ret.stdout.strip(), "hello")
 
     def testCwd(self):
         with tempfile.TemporaryDirectory() as d:
             ret = self._runner().run(["pwd"], cwd=d)
             self.assertEqual(ret.returncode, 0)
-            self.assertEqual(os.path.realpath(ret.stdout.decode().strip()), os.path.realpath(d))
+            self.assertEqual(os.path.realpath(ret.stdout.strip()), os.path.realpath(d))
 
     def testStdinPath(self):
         # The contents of stdin_path are fed to the process's standard input.
@@ -46,7 +47,7 @@ class TestCommandRunner(unittest.TestCase):
         try:
             ret = self._runner().run(["cat"], stdin_path=stdin_path)
             self.assertEqual(ret.returncode, 0)
-            self.assertEqual(ret.stdout.decode(), "piped-in-content")
+            self.assertEqual(ret.stdout, "piped-in-content")
         finally:
             os.remove(stdin_path)
 
@@ -93,7 +94,20 @@ class TestCommandRunner(unittest.TestCase):
             os.dup2(saved_stdin, 0)
             os.close(saved_stdin)
             os.close(r)
-        self.assertEqual(ret.stdout.decode().strip(), "False ''")
+        self.assertEqual(ret.stdout.strip(), "False ''")
+
+    def testOutputIsText(self):
+        ret = self._runner().run(["python3", "-c", "import sys; sys.stdout.write('caf\\u00e9'); sys.stderr.write('err')"])
+        self.assertEqual(ret.stdout, "café")
+        self.assertEqual(ret.stderr, "err")
+
+    def testInvalidUTF8IsReplaced(self):
+        ret = self._runner().run(["python3", "-c", "import sys; sys.stdout.buffer.write(b'caf\\xe9')"])
+        self.assertEqual(ret.stdout, "caf�")
+
+    def testTimeout(self):
+        with self.assertRaises(subprocess.TimeoutExpired):
+            self._runner().run(["python3", "-c", "import time; print('started', flush=True); time.sleep(30)"], timeout=1)
 
 
 if __name__ == '__main__':

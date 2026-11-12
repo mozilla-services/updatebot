@@ -51,6 +51,8 @@ class Library:
         self.fuzzy_query = dict.get('fuzzy_query', None)
         self.fuzzy_paths = dict.get('fuzzy_paths', None)
         self.artifact_build = dict.get('artifact_build', False)
+        # Relative to the vendor directory, as in moz.yaml
+        self.license_file = dict.get('license_file') or None
         self.yaml_path = dict['yaml_path']
         # Paths are relative to the root of the gecko checkout, like yaml_path
         self.vendor_directory = dict.get('vendor_directory') or os.path.dirname(self.yaml_path)
@@ -225,6 +227,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'fuzzy_query': '',
             'fuzzy_paths': [],
             'artifact_build': False,
+            'license_file': '',
             'tasks': [],
             'yaml_path': '',
             'vendor_directory': '',
@@ -246,6 +249,9 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             validated_library['revision'] = library['origin']['revision']
         else:
             validated_library['revision'] = None
+
+        if 'origin' in library and 'license-file' in library['origin']:
+            validated_library['license_file'] = library['origin']['license-file']
 
         # Attempt to get the repository url (not required by moz.yaml) if present
         if 'vendoring' in library and 'url' in library['vendoring']:

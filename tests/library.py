@@ -99,7 +99,8 @@ LIBRARIES = [
                     }, "n/a")
         ],
         "yaml_path": ".github/gecko-test/libdav1d/moz.yaml",
-        "vendor_directory": "third_party/dav1d"
+        "vendor_directory": "third_party/dav1d",
+        "license_file": "COPYING"
     }),
     Library({
         'name': 'libpng',
@@ -118,7 +119,8 @@ LIBRARIES = [
                 'enabled': True,
             }, "n/a")
         ],
-        'yaml_path': '.github/gecko-test/libpng/moz.yaml'
+        'yaml_path': '.github/gecko-test/libpng/moz.yaml',
+        'license_file': 'LICENSE'
     })
 ]
 
@@ -239,6 +241,24 @@ updatebot:
         self.assertIs(artifact_build("  artifact-build: True"), True)
         self.assertIs(artifact_build("  artifact-build: false"), False)
         self.assertIs(artifact_build(""), False)
+
+    def testLicenseFile(self):
+        def license_file(origin_extra):
+            return LibraryProvider.validate_library("""
+schema: 1
+bugzilla:
+  product: Core
+  component: "Audio/Video: Playback"
+origin:
+  name: libfoo
+%s
+updatebot:
+  maintainer-bz: foo
+  maintainer-phab: bar
+""" % origin_extra, "fake/path").license_file
+
+        self.assertEqual(license_file("  license-file: docs/FTL.TXT"), "docs/FTL.TXT")
+        self.assertIsNone(license_file(""))
 
     def testOnlyLinuxTasksRun(self):
         def task_types(tasks):

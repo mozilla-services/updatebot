@@ -25,6 +25,7 @@ TESTS = [
     "class_passing",
     "frequency",
     "mach_vendor",
+    "license_files",
     "scm",
     "sentry_logging"
 ]

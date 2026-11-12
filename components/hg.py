@@ -80,6 +80,14 @@ class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvid
         return [f for f in files if f and os.path.normpath(f) not in excluded]
 
     @logEntryExit
+    def changed_files_in(self, directory):
+        # Modified, added, removed, missing and untracked files under directory, with
+        # paths relative to the root of the checkout. Unlike changed_files, this doesn't
+        # change what's registered with hg.
+        files = self.run(["hg", "--config", "ui.relative-paths=no", "status", "--no-status", directory]).stdout.splitlines()
+        return [f for f in files if f]
+
+    @logEntryExit
     def diff_stats(self):
         ret = self.run(["hg", "diff", "--stat"])
         return ret.stdout.rstrip()

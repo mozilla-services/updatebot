@@ -6,6 +6,7 @@
 
 import sys
 import json
+import subprocess
 import unittest
 import requests
 
@@ -14,7 +15,7 @@ from threading import Thread
 
 sys.path.append(".")
 sys.path.append("..")
-from components.logging import SimpleLoggerConfig
+from components.logging import SimpleLoggerConfig, LogLevel
 from components.utilities import static_vars, Struct
 import components.utilities
 from apis.taskcluster import TaskclusterProvider
@@ -172,6 +173,33 @@ class TestTaskclusterProvider(unittest.TestCase):
         finally:
             components.utilities.RETRY_TIMES_OVERRIDE, components.utilities.time.sleep = original_override, original_sleep
         self.assertEqual(treeherder_responses.bug_suggestions_calls - calls, 3, "Expected the request to be retried")
+
+    def test_submit_to_try_logs_uncommitted_changes(self):
+        commands, errors = [], []
+
+        def mach_try_failed():
+            raise subprocess.CalledProcessError(1, "./mach try")
+
+        def run(args, clean_return=True, **kwargs):
+            commands.append(args)
+            if args[:2] == ["./mach", "try"]:
+                return Struct(returncode=1, stdout="error: commit changes before continuing\n", stderr="", check_returncode=mach_try_failed)
+            return Struct(returncode=0, stdout="! testing/web-platform/mozilla/tests/webgpu/removed.html\n", stderr="")
+        provider = TaskclusterProvider({'url_treeherder': 'http://localhost:27490/', 'url_taskcluster': 'http://localhost:27490/'})
+        provider.update_config(dict(SimpleLoggerConfig, CommandProvider=Struct(run=run)))
+        original_log = provider.logger.log
+        provider.logger.log = lambda *args, level=LogLevel.Info, **kwargs: (errors.append(args[0]) if level == LogLevel.Error else None, original_log(*args, level=level, **kwargs))
+        original_override, original_sleep = components.utilities.RETRY_TIMES_OVERRIDE, components.utilities.time.sleep
+        components.utilities.RETRY_TIMES_OVERRIDE = 1
+        components.utilities.time.sleep = lambda s: None
+        try:
+            with self.assertRaises(subprocess.CalledProcessError):
+                provider.submit_to_try(Struct(try_preset="webgpu", fuzzy_query=None, fuzzy_paths=None, artifact_build=False))
+        finally:
+            components.utilities.RETRY_TIMES_OVERRIDE, components.utilities.time.sleep = original_override, original_sleep
+        self.assertIn(["hg", "status"], commands)
+        self.assertEqual(len([e for e in errors if "uncommitted changes" in e]), 1)
+        self.assertIn("removed.html", [e for e in errors if "uncommitted changes" in e][0])
 
     def test_retrigger_was_automated(self):
         # Updatebot's retrigger from a real try push, triggered with its cron task's credentials

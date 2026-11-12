@@ -33,6 +33,14 @@ Here are the overall diff statistics.
 """ % (library.repo_url, error.strip().replace("\n", "\n> "), commit_stats)
 
     @staticmethod
+    def LICENSE_FILES_CHANGED(files):
+        return """
+This update changes license files, so please check that the license in moz.yaml is still correct:
+
+%s
+""" % "\n".join("- " + f for f in files)
+
+    @staticmethod
     def UPDATE_DETAILS(num_commits, num_new_commits, commit_stats, commit_details, author_summary=""):
         new_commit_str = ""
         if num_new_commits != num_commits:

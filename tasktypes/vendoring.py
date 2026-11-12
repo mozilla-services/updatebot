@@ -6,6 +6,8 @@
 
 import copy
 import functools
+import os
+import re
 import subprocess
 from collections import defaultdict
 
@@ -17,6 +19,10 @@ from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
 from components.hg import reset_repository, SPURIOUS_CHECK_SHELF
+
+# Upstream's license files are usually named like these (LICENSE.txt, COPYING.LIB,
+# LICENSE_FOXIT, ...); moz.yaml's license-file covers any that aren't.
+LICENSE_FILE_NAME = re.compile(r"^(LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|UNLICENSE)", re.IGNORECASE)
 
 
 def _patch_exception_message(e):
@@ -95,6 +101,13 @@ class VendorTaskRunner(BaseTaskRunner):
         self.logger.log("Processing %s for a new upstream revision %s, the most recent job is %s." % (library.name, new_version, most_recent_job.id if most_recent_job else "(none)"), level=LogLevel.Info)
         self._process_new_job(library, task, new_version, timestamp, most_recent_job)
         self._reset_for_new_job()
+
+    # ====================================================================
+    @logEntryExit
+    def _changed_license_files(self, library):
+        license_file = os.path.normpath(os.path.join(library.vendor_directory, library.license_file)) if library.license_file else None
+        return [f for f in self.mercurialProvider.changed_files_in(library.vendor_directory)
+                if LICENSE_FILE_NAME.match(os.path.basename(f)) or os.path.normpath(f) == license_file]
 
     # ====================================================================
     @logEntryExit
@@ -198,11 +211,15 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # File the bug ------------------------
         commit_stats = self.mercurialProvider.diff_stats()
+        license_files = self._changed_license_files(library)
+        if license_files:
+            self.logger.log("This update changes the license files %s." % ", ".join(license_files), level=LogLevel.Info)
+        license_note = CommentTemplates.LICENSE_FILES_CHANGED(license_files) if license_files else ""
         try:
             all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
             if library.should_show_commit_details:
                 author_summary = self.scmProvider.build_author_summary(all_upstream_commits)
-                commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - len(author_summary) - 220, library.repo_url, options=task.options, new_commits=unseen_upstream_commits, compare_range=(library.revision, new_version))
+                commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - len(author_summary) - len(license_note) - 220, library.repo_url, options=task.options, new_commits=unseen_upstream_commits, compare_range=(library.revision, new_version))
             else:
                 author_summary = ""
                 commit_chunks = [""]
@@ -214,6 +231,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.logger.log("Could not get the upstream commits for %s; filing the bug without them: %s" % (library.name, e), level=LogLevel.Warning)
             commit_chunks = [""]
             bug_description = CommentTemplates.UPDATE_DETAILS_WITHOUT_COMMITS(library, commit_stats, _patch_exception_message(e))
+        bug_description = license_note + bug_description
 
         created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), bug_description, task.cc, blocks=task.blocking)
         self.dbProvider.update_job_add_bug_id(created_job, created_job.bugzilla_id)

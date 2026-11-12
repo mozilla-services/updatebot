@@ -112,7 +112,7 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             self.logger.log("Could not write AI debug output: %s" % e, level=LogLevel.Warning)
 
     def _parse_result(self, ret):
-        stdout = ret.stdout.decode() if isinstance(ret.stdout, bytes) else ret.stdout
+        stdout = ret.stdout
         try:
             data = json.loads(stdout)
         except ValueError:

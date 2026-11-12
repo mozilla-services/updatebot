@@ -21,8 +21,8 @@ from components.hg import reset_repository, SPURIOUS_CHECK_SHELF
 
 def _patch_exception_message(e):
     if isinstance(e, subprocess.CalledProcessError):
-        msg = ("stderr:\n" + e.stderr.decode().rstrip() + "\n\n") if e.stderr else ""
-        msg += ("stdout:\n" + e.stdout.decode().rstrip()) if e.stdout else ""
+        msg = ("stderr:\n" + e.stderr.rstrip() + "\n\n") if e.stderr else ""
+        msg += ("stdout:\n" + e.stdout.rstrip()) if e.stdout else ""
         return msg
     return str(e)
 

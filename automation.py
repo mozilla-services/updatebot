@@ -202,7 +202,7 @@ class Updatebot:
     def run(self, library_filter=""):
         try:
             start_time = time.time()
-            updatebot_version = self.cmdProvider.run(["git", "log", "-1", "--oneline"], shell=False, clean_return=True).stdout.decode().strip()
+            updatebot_version = self.cmdProvider.run(["git", "log", "-1", "--oneline"], shell=False, clean_return=True).stdout.strip()
             python_version = sys.version.replace("\n", " ")
             self.logger.log("Running Updatebot version: {0} on Python {1}".format(updatebot_version, python_version), level=LogLevel.Info)
             self.logger.log("Python prefix: {0}".format(sys.prefix), level=LogLevel.Debug)

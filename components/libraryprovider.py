@@ -176,7 +176,7 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         if self._libraries is None:
             libraries = []
             command = ["find", gecko_path, "-type", "f", "-name", "moz.yaml"]
-            mozilla_central_yamls = self.run(command).stdout.decode()
+            mozilla_central_yamls = self.run(command).stdout
 
             mozilla_central_yamls = mozilla_central_yamls.strip().split("\n")
             for file in mozilla_central_yamls:

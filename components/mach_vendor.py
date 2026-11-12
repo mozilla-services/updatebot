@@ -23,7 +23,7 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
     @logEntryExit
     @retry
     def check_for_update(self, library):
-        result = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.decode().strip()
+        result = self.run(["./mach", "vendor", "--check-for-update", library.yaml_path]).stdout.strip()
 
         if "Creating " in result and " state directory" in result:
             # If no ~/.mozbuild directory was present this gets output unfortunately.
@@ -51,8 +51,8 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
             if ret.returncode == 0:
                 return (VendorResult.SUCCESS, "")
 
-            msg = ret.stderr.decode().rstrip() + "\n\n" if ret.stderr else ""
-            msg += ret.stdout.decode().rstrip()
+            msg = ret.stderr.rstrip() + "\n\n" if ret.stderr else ""
+            msg += (ret.stdout or "").rstrip()
 
             if ret.returncode == 255:
                 return (VendorResult.MOZBUILD_ERROR, msg)
@@ -62,8 +62,8 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
                 return (VendorResult.GENERAL_ERROR, msg)
         except Exception as e:
             if isinstance(e, subprocess.CalledProcessError):
-                msg = e.stderr.decode().rstrip() + "\n\n" if e.stderr else ""
-                msg += e.stdout.decode().rstrip()
+                msg = e.stderr.rstrip() + "\n\n" if e.stderr else ""
+                msg += (e.stdout or "").rstrip()
             else:
                 msg = str(e)
             return (VendorResult.GENERAL_ERROR, msg)

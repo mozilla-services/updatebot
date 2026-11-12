@@ -45,19 +45,22 @@ def _run(args, shell, clean_return, errorlog=do_nothing, infolog=do_nothing, deb
     # Merge any extra env (e.g. secrets) over the inherited environment.
     run_env = {**os.environ, **env} if env else None
     try:
+        # Output that isn't valid UTF-8 (e.g. a commit stored in another encoding)
+        # has the bad bytes replaced, rather than making callers decode it.
         ret = subprocess.run(
             args, shell=shell, stdout=PIPE, stderr=PIPE, timeout=timeout,
-            cwd=cwd, stdin=stdin_handle or subprocess.DEVNULL, env=run_env)
+            cwd=cwd, stdin=stdin_handle or subprocess.DEVNULL, env=run_env,
+            encoding="utf-8", errors="replace")
     except subprocess.TimeoutExpired as e:
         ran_to_completion = False
-        stdout = e.stdout
-        stderr = e.stderr
+        # TimeoutExpired carries bytes even when the output is text
+        stdout = e.stdout.decode(errors="replace") if isinstance(e.stdout, bytes) else e.stdout
+        stderr = e.stderr.decode(errors="replace") if isinstance(e.stderr, bytes) else e.stderr
         exception = e
     else:
         ran_to_completion = True
-        # Only for the log: callers get the raw output, which may not be UTF-8
-        stdout = ret.stdout.decode(errors="replace")
-        stderr = ret.stderr.decode(errors="replace")
+        stdout = ret.stdout
+        stderr = ret.stderr
     finally:
         if stdin_handle:
             stdin_handle.close()

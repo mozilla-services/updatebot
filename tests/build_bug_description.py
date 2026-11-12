@@ -149,7 +149,7 @@ class TestBuildBugDescription(unittest.TestCase):
             outputs = {"cat-file": headers + "\n\nThe message\n", "rev-parse": "p0", "diff": "", "log": ""}
 
             def run(cmd):
-                return Struct(stdout=next(v for k, v in outputs.items() if k in cmd).encode())
+                return Struct(stdout=next(v for k, v in outputs.items() if k in cmd))
             c = Commit("abc1234|2020-01-01 00:00:00 +0000|2020-01-02 00:00:00 +0000")
             c.populate_details(GITHUB_REPO, run)
             return c.signed

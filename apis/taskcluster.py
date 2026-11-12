@@ -21,6 +21,9 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 # hghooks/mozhghooks/treeclosure.py).
 TREE_CLOSED = re.compile(r"\S+ is CLOSED! Reason: (.*)")
 TREE_STATUS_UNAVAILABLE = "Unable to check if the tree is open - treating as if CLOSED."
+# mach try refuses to push with uncommitted changes ("ERROR please commit changes before
+# continuing" in older versions, "error: commit changes before continuing" now)
+UNCOMMITTED_CHANGES = "commit changes before continuing"
 
 
 class TryTreeClosedError(Exception):
@@ -185,6 +188,11 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 raise TryTreeClosedError(closed.group(1).strip(), shlex.join(try_arguments))
             if TREE_STATUS_UNAVAILABLE in output + stderr:
                 raise TryTreeClosedError("its tree status couldn't be checked, so the push was refused as if it were closed", shlex.join(try_arguments))
+            if UNCOMMITTED_CHANGES in output + stderr:
+                # Our commits succeeded, so something was changed or deleted without being
+                # registered with hg (#392). Record what, so the cause can be found.
+                status = self.run(["hg", "status"], clean_return=False).stdout
+                self.logger.log("./mach try refused to push because of uncommitted changes. hg status shows:\n%s" % status, level=LogLevel.Error)
             ret.check_returncode()
 
         isNext = False

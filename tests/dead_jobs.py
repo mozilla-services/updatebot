@@ -12,8 +12,10 @@ from unittest import mock
 
 sys.path.append(".")
 sys.path.append("..")
+import components.utilities
+from apis.taskcluster import TaskclusterProvider, TryPushNotFoundError
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
-from components.logging import SimpleLogger
+from components.logging import SimpleLogger, SimpleLoggerConfig
 from components.utilities import Struct
 from tasktypes.vendoring import VendorTaskRunner
 
@@ -71,6 +73,21 @@ class TestDeadJobs(unittest.TestCase):
             self.assertFalse(r._job_is_completed_without_build_failures(None, j, []))
             self.assertEqual(r.dbProvider.updates, [], "bug open: %s, created %s" % (j.bugzilla_is_open, j.created))
 
+    def testTryPushTreeherderNoLongerHas(self):
+        # Through the whole existing-job path, as Treeherder eventually deletes old pushes
+        def missing_push(revision):
+            raise TryPushNotFoundError("Treeherder has no push for try revision %s" % revision)
+
+        for bug_open, expected in ((False, [(7, JOBSTATUS.DONE)]), (True, [])):
+            r = runner()
+            health_requests = []
+            r.taskclusterProvider = Struct(get_job_details=missing_push, get_push_health=health_requests.append)
+            j = job(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, bug_open=bug_open)
+            j.try_runs = [Struct(revision="abcdef")]
+            r._process_existing_job(None, None, j)
+            self.assertEqual(r.dbProvider.updates, expected, "bug open: %s" % bug_open)
+            self.assertEqual(health_requests, [], "Asked for the push health of a push that isn't there")
+
     def testCleanCheckoutIsNotReset(self):
         commands = []
         r = runner(commands, {"hg log": HEAD})
@@ -86,6 +103,34 @@ class TestDeadJobs(unittest.TestCase):
                 r._reset_for_new_job()
             self.assertIn(["hg", "checkout", "-C", "."], commands, outputs)
             self.assertIn(["hg", "update", HEAD], commands, outputs)
+
+
+class TestMissingTryPush(unittest.TestCase):
+    def _get_job_details(self, response):
+        requests_made = []
+
+        def get(url, **kwargs):
+            requests_made.append(url)
+            return Struct(ok=response[0], json=lambda: response[1], text=str(response[1]))
+        provider = TaskclusterProvider({'url_treeherder': 'http://treeherder.invalid/', 'url_taskcluster': 'http://taskcluster.invalid/'})
+        provider.update_config(dict(SimpleLoggerConfig, CommandProvider=Struct(run=None)))
+        with mock.patch("apis.taskcluster.requests.get", get), \
+                mock.patch.object(components.utilities, "RETRY_TIMES_OVERRIDE", 3), \
+                mock.patch.object(components.utilities.time, "sleep", lambda s: None):
+            try:
+                provider.get_job_details("abcdef")
+            except Exception as e:
+                return e, len(requests_made)
+
+    def testMissingPushIsNotRetried(self):
+        e, requests_made = self._get_job_details((True, {"results": []}))
+        self.assertIsInstance(e, TryPushNotFoundError)
+        self.assertEqual(requests_made, 1)
+
+    def testFailedRequestIsStillAnError(self):
+        e, requests_made = self._get_job_details((False, {"detail": "Server Error"}))
+        self.assertNotIsInstance(e, TryPushNotFoundError)
+        self.assertEqual(requests_made, 3, "Expected a failed request to be retried")
 
 
 if __name__ == '__main__':

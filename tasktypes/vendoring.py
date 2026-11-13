@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 from tasktypes.base import BaseTaskRunner
 from apis.phabricator import DiffTooLargeError
-from apis.taskcluster import Classification, TryTreeClosedError
+from apis.taskcluster import Classification, TryPushNotFoundError, TryTreeClosedError
 from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
@@ -479,11 +479,17 @@ class VendorTaskRunner(BaseTaskRunner):
     def _get_comments_on_push(self, library, existing_job):
         # Fetch the job list (and double check its status), and the push health
         try_revision = existing_job.try_runs[0].revision
-        job_list = self.taskclusterProvider.get_job_details(try_revision)
-        push_health = self.taskclusterProvider.get_push_health(try_revision)
+        try:
+            job_list = self.taskclusterProvider.get_job_details(try_revision)
+        except TryPushNotFoundError as e:
+            # A push old enough to be gone has no jobs left either
+            self.logger.log(str(e), level=LogLevel.Info)
+            job_list = []
 
         if not self._job_is_completed_without_build_failures(library, existing_job, job_list):
             return (False, None, None)
+
+        push_health = self.taskclusterProvider.get_push_health(try_revision)
 
         results = self.taskclusterProvider.determine_jobs_to_retrigger(push_health, job_list)
 

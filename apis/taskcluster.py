@@ -26,6 +26,10 @@ TREE_STATUS_UNAVAILABLE = "Unable to check if the tree is open - treating as if 
 UNCOMMITTED_CHANGES = "commit changes before continuing"
 
 
+class TryPushNotFoundError(Exception):
+    pass
+
+
 class TryTreeClosedError(Exception):
     """Try refused the push because it's closed (or treestatus couldn't be reached).
     Retrying won't help until the tree reopens."""
@@ -343,7 +347,7 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
         return self.url_treeherder + "api/jobs/?push_id=%s" % push_id
 
     @logEntryExit
-    @retry
+    @retry(giveup=(TryPushNotFoundError,))
     def get_job_details(self, revision):
         push_list_url = self._get_push_list_url(revision)
         self.logger.log("Requesting revision %s from %s" % (revision, push_list_url), level=LogLevel.Info)
@@ -353,6 +357,10 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             push_list = r.json()
         except Exception:
             raise Exception("Could not parse the result of the push_list as json. Url: %s Response:\n%s" % (push_list_url, r.text))
+
+        if r.ok and isinstance(push_list, dict) and push_list.get('results') == []:
+            # Treeherder no longer has the push (or never did). Asking again won't help.
+            raise TryPushNotFoundError("Treeherder has no push for try revision %s" % revision)
 
         try:
             push_id = push_list['results'][0]['id']

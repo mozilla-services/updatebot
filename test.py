@@ -27,6 +27,7 @@ TESTS = [
     "mach_vendor",
     "license_files",
     "mock_interfaces",
+    "dead_jobs",
     "scm",
     "sentry_logging"
 ]

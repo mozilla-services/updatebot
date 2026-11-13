@@ -13,7 +13,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from tasktypes.base import BaseTaskRunner
-from apis.phabricator import DiffTooLargeError
+from apis.phabricator import ArcNeedsInputError, DiffTooLargeError
 from apis.taskcluster import Classification, TryPushNotFoundError, TryTreeClosedError
 from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
@@ -386,7 +386,8 @@ class VendorTaskRunner(BaseTaskRunner):
             self.logger.log(str(e), level=LogLevel.Warning)
         except Exception as e:
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to phabricator."), needinfo=library.maintainer_bz)
+            errormessage = str(e) if isinstance(e, ArcNeedsInputError) else None
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to phabricator.", errormessage), needinfo=library.maintainer_bz)
             raise e
 
     # ====================================================================

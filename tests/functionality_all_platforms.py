@@ -907,6 +907,51 @@ class TestFunctionality(SimpleLoggingTest):
         finally:
             self._cleanup(u, expected_values)
 
+    # Create -> ./mach vendor -> commit -> try run -> arc diff asks whether to mark files as binary
+    @logEntryExitHeaderLine
+    def testPhabSubmitNeedsInput(self):
+        library_filter = 'dav1d'
+        phab_calls = [0]
+
+        def phab_submit():
+            phab_calls[0] += 1
+            # What arc diff printed for PDF.js's binary cmap files before failing, since stdin isn't a TTY
+            return (1, "Linting...\nNo lint engine configured for this project.\nRunning unit tests...\n"
+                       "No unit test engine is configured for this project.\nInvalid Content Encoding (Non-UTF8)\n"
+                       "This diff includes 2 file(s) which are not valid UTF-8 (they contain invalid\n"
+                       "byte sequences). You can either stop this workflow and fix these files, or\n"
+                       "continue. If you continue, these files will be marked as binary.\n\n"
+                       "    2 AFFECTED FILE(S)\n"
+                       "    toolkit/components/pdfjs/content/web/cmaps/CNS2-V.bcmap\n"
+                       "    toolkit/components/pdfjs/content/web/cmaps/GB-H.bcmap\n\n"
+                       "    Do you want to mark these 2 file(s) as binary and continue? [Y/n] ")
+
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 50,  # get_filed_bug_id_func,
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'phab_submit': phab_submit}
+        )
+        comments = []
+        original_comment_on_bug = u.bugzillaProvider.comment_on_bug
+        u.bugzillaProvider.comment_on_bug = lambda bug_id, comment, *args, **kwargs: (comments.append(comment), original_comment_on_bug(bug_id, comment, *args, **kwargs))
+        try:
+            u.run(library_filter=library_filter)
+
+            self.assertEqual(phab_calls[0], 1, "Retried arc diff, which would only ask the same question")
+            lib = [lib for lib in u.libraryProvider.get_libraries(u.config_dictionary['General']['gecko-path']) if library_filter in lib.name][0]
+            j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
+            self.assertEqual(JOBSTATUS.DONE, j.status, "Expected status JOBSTATUS.DONE, got status %s" % (j.status.name))
+            self.assertEqual(JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, j.outcome, "Expected outcome JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, got outcome %s" % (j.outcome.name))
+            phab_comments = [c for c in comments if "submit to phabricator" in c]
+            self.assertEqual(len(phab_comments), 1)
+            self.assertIn("Do you want to mark these 2 file(s) as binary and continue? [Y/n]", phab_comments[0])
+        finally:
+            u.bugzillaProvider.comment_on_bug = original_comment_on_bug
+            self._cleanup(u, expected_values)
+
     @logEntryExitHeaderLine
     def testPushHealthDoesntSeeFailures(self):
         @treeherder_response

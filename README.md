@@ -44,6 +44,8 @@ To get started developing Updatebot, or to run it locally you'll need to run `po
 
 Testing is handled in a single step of `poetry run ./test.py`
 
+`tests/real_arc.py` runs Updatebot's Phabricator submission with the real arc, against a fake Phabricator (`tests/fake_conduit.py`). They're skipped unless arc is on your PATH. To install arc and Mercurial the way the Docker image does, run `python3 tests/setup_real_arc.py <dir>` (with `--firefox <checkout>` to test an unlanded change to the image), then put `<dir>/bin` first on your PATH. arc needs PHP with the curl extension.
+
 For formatting code automatically please use `poetry run autopep8 --in-place --recursive --ignore E501,E402,E275 .`
 
 For linting the codebase run `poetry run flake8 --ignore=E501,E402,E275 .`

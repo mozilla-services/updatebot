@@ -28,6 +28,7 @@ TESTS = [
     "license_files",
     "mock_interfaces",
     "dead_jobs",
+    "real_arc",
     "scm",
     "sentry_logging"
 ]

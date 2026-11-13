@@ -24,6 +24,18 @@ class DiffTooLargeError(Exception):
     pass
 
 
+# arc diff asks some questions it can't be told the answer to in advance, and arc
+# exits without an answer because stdin isn't a TTY. The question is printed last,
+# after a blank line, possibly wrapped.
+ARC_UNANSWERED_PROMPT = re.compile(r"(?:^|\n\n)((?:(?!\n\n).)*\[(?:Y/n|y/N)\])\s*$", re.DOTALL)
+
+
+class ArcNeedsInputError(Exception):
+    def __init__(self, prompt):
+        super().__init__("arc diff stopped to ask a question nobody can answer: " + prompt)
+        self.prompt = prompt
+
+
 class ConduitError(Exception):
     def __init__(self, method, result):
         super().__init__("Got an error from phabricator calling %s: %s" % (method, result))
@@ -80,7 +92,7 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def submit_patches(self, bug_id, num_commits):
         phab_revisions = []
 
-        @retry(giveup=(DiffTooLargeError,))
+        @retry(giveup=(DiffTooLargeError, ArcNeedsInputError))
         def submit_to_phabricator(rev_id, retry_attempt=None):
             cmd = ["arc", "diff", "--verbatim", "--conduit-uri", self.url]
             if retry_attempt > 1:
@@ -95,6 +107,11 @@ class PhabricatorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
                 raise DiffTooLargeError(
                     "arc diff will not submit %s because its diff is %s bytes, over arc's limit of 4 MiB for a single file."
                     % too_large.groups())
+            if ret.returncode:
+                # Asking again would get the same question
+                prompt = ARC_UNANSWERED_PROMPT.search(ret.stdout)
+                if prompt:
+                    raise ArcNeedsInputError(" ".join(prompt.group(1).split()))
             if ret.returncode == 255 and retry_attempt > 1:
                 pass  # --trace results in this return code
             else:

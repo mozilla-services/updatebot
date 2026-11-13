@@ -29,7 +29,12 @@ graph TD
     A --> |Done|AssertOpen
     A ==> |Awaiting Second Platform Results|AssertCorrectNumberOfTryRun
     A -.-> |Awaiting Retrigger Results|AssertCorrectNumberOfTryRun
+    A --> |Relinquished or<br />Awaiting Initial Platform,<br />both obsolete|ObsoleteBugOpen
     A --> |AnythingElse|RaiseException --> Done
+
+    ObsoleteBugOpen{Is the bugzilla<br />bug open?}
+    ObsoleteBugOpen --> |Yes|Done
+    ObsoleteBugOpen --> |No|ObsoleteDone[Set job status to 'Done'] --> Done
 
     HandleCreated{Do we have a <br />bugzilla bug for it?} 
     HandleCreated --> |Yes|C[Comment on </br>bugzilla bug] --> HandleCreatedError
@@ -45,14 +50,21 @@ graph TD
     CheckFFVersion --> |No|MarkAffected[Mark the job as<br />affecting the current FF<br />version in bugzilla and DB] --> Done
 
     AssertCorrectNumberOfTryRun[Assert we have the<br /> correct number of try runs]
-    AssertCorrectNumberOfTryRun -.-> JobsAllDone22
-    AssertCorrectNumberOfTryRun ==>JobsAllDone33
+    AssertCorrectNumberOfTryRun -.-> AnyResults22
+    AssertCorrectNumberOfTryRun ==>AnyResults33
 
 
     %% ====================================================================================================================
     subgraph _process_job_details_for_awaiting_second_platform_results3[_process_job_details_for_awaiting_second_platform_results]
         subgraph _get_comments_on_push3[_get_comments_on_push]
             subgraph _job_is_completed_without_build_failures33[_job_is_completed_without_build_failures]
+                AnyResults33{Does the try run have<br />any job results?}
+                AnyResults33 --> |Yes|JobsAllDone33
+                AnyResults33 --> |No|ResultsGone33
+
+                ResultsGone33{Is the bug closed and<br />the job over a week old?}
+                ResultsGone33 --> |Yes|ResultsGoneDone33[Set job status to 'Done']
+
                 JobsAllDone33{Are all the jobs <br />in the try run completed?}
                 JobsAllDone33 --> |Yes|AnyBuildFailures33
                 
@@ -97,6 +109,8 @@ graph TD
     end
     class _process_job_details_for_awaiting_second_platform_results3 c_process_job_details_for_awaiting_second_platform_results;
     JobsAllDone33 --> |No|Wait --> Done
+    ResultsGone33 --> |No|Wait
+    ResultsGoneDone33 --> Done
     X333 --> Done
     RetriggerJobs33 --> Done
     HandlebuildFailures33 --> Done
@@ -106,6 +120,13 @@ graph TD
     subgraph _process_job_details_for_awaiting_retrigger_results2[_process_job_details_for_awaiting_retrigger_results]
         subgraph _get_comments_on_push2[_get_comments_on_push]
             subgraph _job_is_completed_without_build_failures22[_job_is_completed_without_build_failures]
+                AnyResults22{Does the try run have<br />any job results?}
+                AnyResults22 --> |Yes|JobsAllDone22
+                AnyResults22 --> |No|ResultsGone22
+
+                ResultsGone22{Is the bug closed and<br />the job over a week old?}
+                ResultsGone22 --> |Yes|ResultsGoneDone22[Set job status to 'Done']
+
                 JobsAllDone22{Are all the jobs <br />in the try run completed?}
                 JobsAllDone22 --> |Yes|AnyBuildFailures22
                 
@@ -141,6 +162,8 @@ graph TD
     X222 --> Done
 
     JobsAllDone22 --> |No|Wait --> Done
+    ResultsGone22 --> |No|Wait
+    ResultsGoneDone22 --> Done
     HandlebuildFailures22 --> Done
     _set_to_done2 --> Done
     end

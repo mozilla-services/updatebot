@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 from tasktypes.base import BaseTaskRunner
 from apis.phabricator import DiffTooLargeError
@@ -18,11 +19,15 @@ from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
-from components.hg import reset_repository, SPURIOUS_CHECK_SHELF
+from components.hg import reset_repository, HG_SHELVE, SPURIOUS_CHECK_SHELF
 
 # Upstream's license files are usually named like these (LICENSE.txt, COPYING.LIB,
 # LICENSE_FOXIT, ...); moz.yaml's license-file covers any that aren't.
 LICENSE_FILE_NAME = re.compile(r"^(LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|UNLICENSE)", re.IGNORECASE)
+
+# A try push this old that has no results on Treeherder never will. (Results for a
+# new push appear within minutes.)
+TRY_RESULTS_GONE_DAYS = 7
 
 
 def _patch_exception_message(e):
@@ -143,7 +148,13 @@ class VendorTaskRunner(BaseTaskRunner):
         self.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)
 
         # If we are on TC, update to the HEAD commit to avoid stripping WIP commits on holly
-        self.cmdProvider.run(["hg", "status"])
+        status = self.cmdProvider.run(["hg", "status"]).stdout
+        head = os.environ.get("GECKO_HEAD_REV", "")
+        if not status.strip() and head and self.cmdProvider.run(["hg", "log", "-r", ".", "-T", "{node}"]).stdout.strip() == head:
+            # Most jobs we look at don't touch the checkout, and a full reset takes ~20s
+            self.logger.log("The working directory is clean and at %s, so there's nothing to reset." % head[:12], level=LogLevel.Info)
+            self.cmdProvider.run(HG_SHELVE + ["shelve", "--delete", SPURIOUS_CHECK_SHELF], clean_return=False)
+            return
         reset_repository(self.cmdProvider)
 
     # ====================================================================
@@ -447,6 +458,10 @@ class VendorTaskRunner(BaseTaskRunner):
 
         elif existing_job.status in (JOBSTATUS.RELINQUISHED, JOBSTATUS.AWAITING_INITIAL_PLATFORM_TRY_RESULTS):
             self.logger.log("Job ID %s has the (obsolete) status %s so I am not going to try to process it." % (existing_job.id, existing_job.status.name), level=LogLevel.Info)
+            if not existing_job.bugzilla_is_open:
+                # Nothing will ever happen to it, so stop looking at it every run
+                self.logger.log("Its bug is closed, so marking it done.", level=LogLevel.Info)
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
         else:
             assert len(existing_job.try_runs) == 1, "Status is %s, but we have %s try runs, not 1 (%s)." % (existing_job.status.name, len(existing_job.try_runs), existing_job.get_try_run_ids())
 
@@ -590,7 +605,13 @@ class VendorTaskRunner(BaseTaskRunner):
         job_list = [j for j in job_list if j.state != "unscheduled"]
 
         if not job_list:
-            self.logger.log("Try revision had no job results. Skipping this job.", level=LogLevel.Warning)
+            if not existing_job.bugzilla_is_open and existing_job.created < datetime.now() - timedelta(days=TRY_RESULTS_GONE_DAYS):
+                # Treeherder no longer has the try push's results, and the bug is closed,
+                # so nothing more can happen to this job. Stop looking at it every run.
+                self.logger.log("Try revision had no job results, the job is from %s and its bug is closed, so marking it done." % existing_job.created, level=LogLevel.Info)
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
+            else:
+                self.logger.log("Try revision had no job results. Skipping this job.", level=LogLevel.Warning)
             return False
 
         # If there's only one job, and it's an exception we hit a really bad luck

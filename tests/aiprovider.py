@@ -128,6 +128,24 @@ class TestAIProviderResolvePatchConflicts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             self.assertIsNone(ai.resolve_patch_conflicts("m/moz.yaml", "msg", cwd=d))
 
+    def test_prompt_names_the_stage(self):
+        def prompt(**kwargs):
+            cmd = RecordingCommandProvider(stdout='{"is_error": false}', result_file_contents="{}")
+            with tempfile.TemporaryDirectory() as d:
+                make_ai({}, cmd).resolve_patch_conflicts("gfx/angle/moz.yaml", "Bug 1 - fix patches", cwd=d, **kwargs)
+            return cmd.calls[0]["prompt"]
+
+        p = prompt(stage_name="fetch", stage_command="./mach vendor gfx/angle/moz.yaml --revision abc")
+        self.assertIn("Run `./mach vendor gfx/angle/moz.yaml --revision abc`", p)
+        self.assertIn("the `fetch` stage in its `vendoring` `stages`", p)
+        self.assertIn("`apply-patches` actions", p)
+        self.assertNotIn("{{", p)
+        # The old format, with one list of patches
+        p = prompt(uses_stages=False)
+        self.assertIn("Run `./mach vendor --patch-mode only gfx/angle/moz.yaml`", p)
+        self.assertIn("the list of patches in its `vendoring` `patches`", p)
+        self.assertNotIn("{{", p)
+
     def test_no_apikey_passes_no_env(self):
         canned = json.dumps({"outcome": "failure", "details": []})
         cmd = RecordingCommandProvider(stdout='{"is_error": false}', result_file_contents=canned)

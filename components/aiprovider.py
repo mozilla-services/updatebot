@@ -124,19 +124,31 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
 
     @logEntryExit
     def resolve_patch_conflicts(self, moz_yaml_path, commit_message, cwd=None,
-                                library_name=None, job_id=None):
+                                library_name=None, job_id=None, stage_name="patches",
+                                stage_command=None, uses_stages=True):
         # Ask the AI to resolve local-patch conflicts for a library. It works in
         # the checkout (cwd), updates the .patch files / moz.yaml so they apply,
         # and writes its verdict to CONFLICT_RESOLUTION_RESULT_FILE. Returns the
         # parsed {"outcome", "details"} dict, or None if it produced no result.
+        # stage_name is the vendoring stage whose patches didn't apply, and
+        # stage_command the `./mach vendor` command that runs it. uses_stages is
+        # False for a moz.yaml in the old format, with one list of patches.
         # library_name/job_id only label debug output; library_name defaults to
         # the moz.yaml's parent directory name.
         library = library_name or os.path.basename(os.path.dirname(moz_yaml_path)) or "library"
         self._debug_label = "%s_job%s" % (library, job_id if job_id is not None else "none")
 
+        if uses_stages:
+            patch_source = ("the `%s` stage in its `vendoring` `stages`, and the patch files that stage "
+                            "applies: its `patches`, or the `patches` of its `apply-patches` actions" % stage_name)
+        else:
+            patch_source = "the list of patches in its `vendoring` `patches`"
         instructions = load_prompt("conflict_resolution_details",
                                    moz_yaml_path=moz_yaml_path,
-                                   patch_fix_commit_message=commit_message)
+                                   patch_fix_commit_message=commit_message,
+                                   stage_name=stage_name,
+                                   stage_command=stage_command or "./mach vendor --patch-mode only %s" % moz_yaml_path,
+                                   patch_source=patch_source)
         prompt = load_prompt("conflict_resolution", conflict_resolution_instructions=instructions)
         system_prompt = load_prompt("system")
 

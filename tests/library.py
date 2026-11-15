@@ -13,6 +13,7 @@ sys.path.append(".")
 sys.path.append("..")
 
 from components.libraryprovider import LibraryProvider, Library
+from components.scmprovider import CommitTemplates
 from components.utilities import Struct
 from tests.mock_commandprovider import TestCommandProvider
 from components.logging import SimpleLoggerConfig
@@ -156,21 +157,85 @@ class TestLibraryProvider(unittest.TestCase):
         })
         cls.libraryprovider.update_config(additional_config)
 
-    def testLibraryHasPatches(self):
-        def has_patches(contents):
+    def testReadStages(self):
+        def read_stages(contents):
             with tempfile.TemporaryDirectory() as gecko:
                 if contents is not None:
                     with open(os.path.join(gecko, "moz.yaml"), "w") as f:
                         f.write(contents)
-                return self.libraryprovider.library_has_patches(gecko, Struct(yaml_path='moz.yaml'))
+                return self.libraryprovider.read_stages(gecko, Struct(yaml_path='moz.yaml'))
 
-        self.assertTrue(has_patches("vendoring:\n  url: https://example.invalid\n  patches:\n    - mozilla.patch\n"))
-        self.assertFalse(has_patches("vendoring:\n  url: https://example.invalid\n  patches: []\n"))
-        self.assertFalse(has_patches("vendoring:\n  url: https://example.invalid\n"))
+        def stage(name, patches=(), title=None):
+            return {'name': name, 'patches': list(patches), 'title': title}
+
+        # The old format: a vendoring step, then the patches
+        self.assertEqual(read_stages("vendoring:\n  url: https://example.invalid\n  patches:\n    - mozilla.patch\n"),
+                         ([stage('fetch'), stage('patches', ['mozilla.patch'])], False))
+        self.assertEqual(read_stages("vendoring:\n  url: https://example.invalid\n  patches: []\n"), ([stage('fetch')], False))
+        self.assertEqual(read_stages("vendoring:\n  url: https://example.invalid\n"), ([stage('fetch')], False))
+
+        # Stages
+        self.assertEqual(read_stages("""vendoring:
+  url: https://example.invalid
+  stages:
+    - name: fetch
+      actions:
+        - action: fetch
+        - action: apply-patches
+          patches: ['early/*.patch']
+    - name: patches
+      patches: [a.patch, b.patch]
+    - name: regen
+      title: Regenerate the sources
+      actions:
+        - action: delete-path
+          path: x
+"""), ([stage('fetch', ['early/*.patch']),
+            stage('patches', ['a.patch', 'b.patch']),
+            stage('regen', title='Regenerate the sources')], True))
+        self.assertEqual(read_stages("""vendoring:
+  url: https://example.invalid
+  skip-steps: [fetch]
+  stages:
+    - name: import
+      actions:
+        - action: run-script
+          script: import.py
+          cwd: '{yaml_dir}'
+"""), ([stage('import')], True))
+        # A bare fetch, or nothing at all
+        self.assertEqual(read_stages("vendoring:\n  url: https://example.invalid\n  skip-steps: [update-moz-build]\n"), ([stage('fetch')], True))
+        self.assertEqual(read_stages("vendoring:\n  url: https://example.invalid\n  skip-steps: [fetch]\n"), ([], True))
+
         # A broken moz.yaml is an error, not a library without patches.
         for broken in ["origin:\n  name: foo\n", "", "vendoring: [unclosed\n", None]:
             with self.assertRaises(Exception, msg=repr(broken)):
-                has_patches(broken)
+                read_stages(broken)
+
+    def testStageCommitMessages(self):
+        library = Struct(name='foo', stages=[
+            {'name': 'fetch', 'patches': ['early.patch'], 'title': None},
+            {'name': 'patches', 'patches': ['a.patch'], 'title': None},
+            {'name': 'security', 'patches': ['s.patch'], 'title': None},
+            {'name': 'regen', 'patches': [], 'title': None},
+            {'name': 'named', 'patches': [], 'title': 'Do the thing'},
+        ])
+        self.assertEqual([CommitTemplates.STAGE_COMMIT_MESSAGE(library, i, 'abc') for i in range(5)], [
+            "Update foo to abc",
+            "Apply mozilla patches for foo",
+            "Apply mozilla security patches for foo",
+            "Stage regen for foo",
+            "Do the thing",
+        ])
+
+    def testLibraryWithoutStagesIsTheOldFormat(self):
+        # Libraries made without 'stages' (as most tests do) have the old format's
+        # two steps.
+        self.assertEqual([s['name'] for s in LIBRARIES[-1].stages], ['fetch', 'patches'])
+        self.assertTrue(LIBRARIES[-1].has_patches)
+        self.assertFalse(LIBRARIES[-1].uses_stages)
+        self.assertEqual([s['name'] for s in LIBRARIES[0].stages], ['fetch'])
+        self.assertFalse(LIBRARIES[0].has_patches)
 
     def testLibraryFindAndImport(self):
         libs = self.libraryprovider.get_libraries(os.getcwd())

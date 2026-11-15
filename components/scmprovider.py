@@ -125,6 +125,23 @@ def _contains_commit(list_of_commits, revision):
     return False
 
 
+class CommitTemplates:
+    @staticmethod
+    def STAGE_COMMIT_MESSAGE(library, index, revision):
+        # The commit message for a vendoring stage, without the bug number, as mach
+        # vendor writes it
+        s = library.stages[index]
+        if s.get('title'):
+            return s['title']
+        if index == 0:
+            return "Update %s to %s" % (library.name, revision)
+        if s['patches']:
+            if s['name'] == 'patches':
+                return "Apply mozilla patches for %s" % library.name
+            return "Apply mozilla %s patches for %s" % (s['name'], library.name)
+        return "Stage %s for %s" % (s['name'], library.name)
+
+
 class RelativePreExistingRepoPath(Exception):
     pass
 

@@ -123,8 +123,7 @@ class LocalLogger(LoggerInstance):
             print(prefix, *args, flush=True)
 
     def log_exception(self, e):
-        bt = traceback.format_exc()
-        print(bt, flush=True)
+        print("".join(traceback.format_exception(e)), flush=True)
 
 
 # Sentry rejects events over 1 MB uncompressed or 200 KB compressed

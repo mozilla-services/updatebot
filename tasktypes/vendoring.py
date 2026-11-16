@@ -19,7 +19,7 @@ from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
-from components.hg import HG_SHELVE, SPURIOUS_CHECK_SHELF
+from components.scmprovider import CommitTemplates
 
 
 class VendoringUtilities:
@@ -45,7 +45,6 @@ class VendoringUtilities:
         if not status.strip() and head and vendoring_task.cmdProvider.run(["hg", "log", "-r", ".", "-T", "{node}"]).stdout.strip() == head:
             # Most jobs we look at don't touch the checkout, and a full reset takes ~20s
             vendoring_task.logger.log("The working directory is clean and at %s, so there's nothing to reset." % head[:12], level=LogLevel.Info)
-            vendoring_task.cmdProvider.run(HG_SHELVE + ["shelve", "--delete", SPURIOUS_CHECK_SHELF], clean_return=False)
             return
         vendoring_task.mercurialProvider.reset_repository()
 
@@ -62,9 +61,9 @@ class VendoringUtilities:
 
     @staticmethod
     @logEntryExit
-    def changed_license_files(vendoring_task, library):
+    def changed_license_files(vendoring_task, library, since):
         license_file = os.path.normpath(os.path.join(library.vendor_directory, library.license_file)) if library.license_file else None
-        return [f for f in vendoring_task.mercurialProvider.changed_files_in(library.vendor_directory)
+        return [f for f in vendoring_task.mercurialProvider.changed_files_in(library.vendor_directory, since)
                 if VendoringUtilities.LICENSE_FILE_NAME.match(os.path.basename(f)) or os.path.normpath(f) == license_file]
 
     @staticmethod
@@ -80,13 +79,6 @@ class VendoringUtilities:
 # A try push this old that has no results on Treeherder never will. (Results for a
 # new push appear within minutes.)
 TRY_RESULTS_GONE_DAYS = 7
-
-
-def _is_patch_conflict(e):
-    # `./mach vendor --patch-mode only` applies the patches and then runs the
-    # post-patch actions. Only a patch that didn't apply is something the AI can
-    # fix; mach logs this message for that case and not for a failed action.
-    return "Could not apply" in VendoringUtilities.exception_message(e)
 
 
 class VendorTaskRunner(BaseTaskRunner):
@@ -153,29 +145,100 @@ class VendorTaskRunner(BaseTaskRunner):
 
     # ====================================================================
     @logEntryExit
-    def _only_patches_changed(self, library):
-        # We vendor with --patch-mode none, so mach's spurious-update check sees our
-        # patches being removed as a change. Reapply them and see whether anything
-        # still differs from the tree, then put the working directory back as it was.
-        self.mercurialProvider.save_working_directory(SPURIOUS_CHECK_SHELF)
-        spurious = False
+    def _create_job_and_file_bug(self, library, task, new_version, timestamp, most_recent_job, start, messages):
+        """
+        Create the job for a new version that changes something, file its bug, deal
+        with the prior job's, and give the commits made since start their messages,
+        which need the bug number: messages(job) returns them, oldest first. Any uncommitted changes, from a stage that failed,
+        are counted in the bug's description and then discarded.
+        """
+        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING)
+        self.logger.set_context(library.name, created_job.id)
+
+        # File the bug ------------------------
+        commit_stats = self.mercurialProvider.diff_stats(start)
+        license_files = VendoringUtilities.changed_license_files(self, library, start)
+        if license_files:
+            self.logger.log("This update changes the license files %s." % ", ".join(license_files), level=LogLevel.Info)
+        license_note = CommentTemplates.LICENSE_FILES_CHANGED(license_files) if license_files else ""
         try:
-            try:
-                # The vendored changes are uncommitted here, so mach has to be told that's expected.
-                # The patches failing to apply isn't an error here; the normal flow handles it.
-                self.vendorProvider.patch(library, None, ignore_modified=True, log_failure=False)
-            except Exception as e:
-                # The normal flow will report the failure; we just can't tell if it's spurious.
-                self.logger.log("Couldn't apply the patches to check for a spurious update: %s" % e, level=LogLevel.Info)
-                return False
-            changed = self.mercurialProvider.changed_files(exclude=[library.yaml_path] + library.generated)
-            spurious = not changed
-            return spurious
-        finally:
-            if spurious:
-                self.mercurialProvider.forget_saved_working_directory(SPURIOUS_CHECK_SHELF)
+            all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
+            if library.should_show_commit_details:
+                author_summary = self.scmProvider.build_author_summary(all_upstream_commits)
+                commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - len(author_summary) - len(license_note) - 220, library.repo_url, options=task.options, new_commits=unseen_upstream_commits, compare_range=(library.revision, new_version))
             else:
-                self.mercurialProvider.restore_working_directory(SPURIOUS_CHECK_SHELF)
+                author_summary = ""
+                commit_chunks = [""]
+            bug_description = CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_chunks[0], author_summary)
+        except Exception as e:
+            # Listing the upstream commits means cloning the upstream repo, which
+            # fails if its host is down. Still file the bug: the job already exists,
+            # and without a bug a later run would treat this version as handled.
+            self.logger.log("Could not get the upstream commits for %s; filing the bug without them: %s" % (library.name, e), level=LogLevel.Warning)
+            commit_chunks = [""]
+            bug_description = CommentTemplates.UPDATE_DETAILS_WITHOUT_COMMITS(library, commit_stats, VendoringUtilities.exception_message(e))
+        bug_description = license_note + bug_description
+
+        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), bug_description, task.cc, blocks=task.blocking)
+        self.dbProvider.update_job_add_bug_id(created_job, created_job.bugzilla_id)
+        for chunk in commit_chunks[1:]:
+            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, chunk)
+
+        # Address any prior bug ---------------
+        if most_recent_job and not most_recent_job.relinquished:
+            self._process_prior_job(most_recent_job, created_job.bugzilla_id)
+
+        # Reword the commits ------------------
+        try:
+            self.mercurialProvider.discard_working_directory()
+            self.mercurialProvider.reword_commits_since(start, messages(created_job))
+        except Exception as e:
+            VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_COMMIT, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."))
+            raise e
+        return created_job
+
+    @logEntryExit
+    def _ai_fix_stage(self, job, library, stage, index, new_version, msg):
+        """
+        Ask the AI to fix the patches of a stage that failed with msg. Returns
+        whether it committed a fix, after which the library's stages are re-read;
+        if not, the job has been given up on.
+        """
+        gecko_path = self.config['General'].get('gecko-path')
+        self.mercurialProvider.discard_working_directory()
+        before = self.mercurialProvider.current_revision()
+        revision_before = self.libraryProvider.read_revision(gecko_path, library)
+        outcome, details = self.aiProvider.resolve_patch_conflicts(
+            library, stage, self.vendorProvider.stage_command(library, index, new_version),
+            "Bug %s - Update %s local patches to apply cleanly" % (job.bugzilla_id, library.name),
+            cwd=gecko_path, job_id=job.id)
+
+        if outcome == "failure":
+            VendoringUtilities.give_up(self, job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR_WITH_AI(
+                "%s." % CommitTemplates.STAGE_TASK_FOR_BUG_COMMENT(stage), initialerrormessage=msg, ai_outcome=outcome, ai_details=details))
+            return False
+        # Its fix has to be one commit on top of ours: anything uncommitted is discarded,
+        # and the Phabricator submission counts on one commit per fix
+        ai_commits = self.mercurialProvider.commits_since(before)
+        if len(ai_commits) != 1:
+            self.logger.log_exception(Exception("The AI reported '%s' for %s's '%s' stage but made %s commits on top of ours, not one." % (outcome, library.name, stage['name'], len(ai_commits))))
+            VendoringUtilities.give_up(self, job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.AI_DIDNT_COMMIT(CommitTemplates.STAGE_TASK_FOR_BUG_COMMENT(stage), outcome, details))
+            return False
+
+        self.mercurialProvider.discard_working_directory()
+        try:
+            self.libraryProvider.reload_stages(gecko_path, library)
+        except Exception as e:
+            # The AI may have broken the moz.yaml
+            VendoringUtilities.give_up(self, job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR(
+                "%s even after AI conflict resolution." % CommitTemplates.STAGE_TASK_FOR_BUG_COMMENT(stage), errormessage=VendoringUtilities.exception_message(e)))
+            return False
+        assert self.libraryProvider.read_revision(gecko_path, library) == revision_before, "The AI's fix for %s's '%s' stage changed the moz.yaml's revision from %s to %s" % (
+            library.name, stage['name'], revision_before, self.libraryProvider.read_revision(gecko_path, library))
+
+        self.bugzillaProvider.comment_on_bug(job.bugzilla_id, CommentTemplates.AI_RESOLVED_PATCH_CONFLICTS(outcome, details),
+                                             needinfo=library.maintainer_bz if outcome == "uncertain success" else None)
+        return True
 
     # ====================================================================
 
@@ -215,140 +278,107 @@ class VendorTaskRunner(BaseTaskRunner):
                 level=LogLevel.Info)
             return
 
+        # The AI's fixes can change the library's stages, which mustn't outlive this job
+        library = copy.copy(library)
+
         # Vendor ------------------------------
-        (result, msg) = self.vendorProvider.vendor(library, new_version)
+        # Each stage is run with `./mach vendor --stage N` and committed, so the next
+        # runs on top of it. Until a stage fails, or they've all run and changed
+        # something, there's no job or bug, so the commits have temporary messages.
+        start = self.mercurialProvider.current_revision()
+        commits = []  # ('stage', index) or ('ai', index), oldest first
+        created_job = None
+        ai_tried = set()  # The AI gets one try at each stage whose patches don't apply
+
+        def final_message(bug_id, index):
+            return "Bug %s - %s" % (bug_id, CommitTemplates.STAGE_COMMIT_MESSAGE(library, index, new_version))
+
+        def message(index):
+            if not created_job:
+                return "Updatebot: vendoring stage %s" % (index + 1)
+            return final_message(created_job.bugzilla_id, index)
+
+        def create_job_and_file_bug():
+            assert created_job is None, "Already created job %s for %s %s" % (created_job.id, library.name, new_version)
+            return self._create_job_and_file_bug(library, task, new_version, timestamp, most_recent_job, start,
+                                                 lambda job: [final_message(job.bugzilla_id, i) for (_, i) in commits])
+
+        index = 0
+        while index < len(library.stages):
+            stage = library.stages[index]
+            (result, msg) = self.vendorProvider.vendor_stage(library, index, new_version)
+
+            if result == VendorResult.SPURIOUS_UPDATE:
+                # Only mach's old format exits like this, from its first stage
+                assert index == 0, "mach reported a spurious update from %s's stage %s, not its first" % (library.name, index + 1)
+                self.logger.log("Version %s was a spurious update." % new_version, level=LogLevel.Info)
+                self.mercurialProvider.strip_commits_since(start)
+                self.mercurialProvider.reset_repository()
+                return
+
+            if result in (VendorResult.GENERAL_ERROR, VendorResult.PATCH_CONFLICT) and not created_job:
+                # If a stage failed, it will never be a spurious update, so create the bug
+                # and we'll be attaching something.
+                created_job = create_job_and_file_bug()
+
+            if result == VendorResult.GENERAL_ERROR:
+                if index == 0:
+                    return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_VENDOR, CommentTemplates.COULD_NOT_VENDOR(library, new_version, msg))
+                return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR(
+                    "%s (this wasn't a patch conflict, so Updatebot didn't ask its AI assistant to resolve it)" % CommitTemplates.STAGE_TASK_FOR_BUG_COMMENT(stage), errormessage=msg))
+            elif result == VendorResult.PATCH_CONFLICT:
+                if stage['name'] in ai_tried:
+                    # AI Conflict resolution succeeded previously, but the stage still failed.
+                    return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR(
+                        "%s even after AI conflict resolution." % CommitTemplates.STAGE_TASK_FOR_BUG_COMMENT(stage), errormessage=msg))
+
+                if not self._ai_fix_stage(created_job, library, stage, index, new_version, msg):
+                    return
+
+                # AI Conflict resolution seemed to work, so mark this stage as tried and record its commit
+                ai_tried.add(stage['name'])
+                commits.append(('ai', index))
+
+                # We either re-run this stage if it still exists, or move on to the next one
+                names = [s['name'] for s in library.stages]
+                index = names.index(stage['name']) if stage['name'] in names else index
+                continue
+
+            # Commit ------------------------------
+            try:
+                committed = self.mercurialProvider.commit_stage(library, index, message(index))
+            except Exception as e:
+                if not created_job:
+                    created_job = create_job_and_file_bug()
+                commit_msg = "commit the updated library." if index == 0 else "commit after the '%s' vendoring stage." % stage['name']
+                VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_COMMIT if index == 0 else JOBOUTCOME.COULD_NOT_COMMIT_PATCHES, CommentTemplates.COULD_NOT_GENERAL_ERROR(commit_msg))
+                raise e
+            if committed:
+                commits.append(('stage', index))
+            else:
+                self.logger.log("The '%s' stage changed nothing, so there's nothing to commit." % stage['name'], level=LogLevel.Info)
+
+            if result == VendorResult.MOZBUILD_ERROR:
+                # The stage ran, so it's committed (before creating the job, which discards
+                # uncommitted changes). Comment, but do not abort.
+                if not created_job:
+                    created_job = create_job_and_file_bug()
+                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, new_version, msg))
+            index += 1
 
         # Check for spurious update -----------
-        if result == VendorResult.SPURIOUS_UPDATE:
-            self.logger.log("Version %s was a spruious update." % new_version)
-            return
-        if result == VendorResult.SUCCESS and library.has_patches and self._only_patches_changed(library):
-            self.logger.log("Version %s only removes and reapplies our patches, so it was a spurious update." % new_version, level=LogLevel.Info)
-            self.mercurialProvider.reset_repository()
-            return
+        if not created_job:
+            if not self.mercurialProvider.changes_since(start, exclude=[library.yaml_path] + library.generated):
+                self.logger.log("Version %s changes nothing once every vendoring stage has run, so it was a spurious update." % new_version, level=LogLevel.Info)
+                self.mercurialProvider.strip_commits_since(start)
+                self.mercurialProvider.reset_repository()
+                return
+            created_job = create_job_and_file_bug()
 
-        # Create the job ----------------------
-        created_job = self.dbProvider.create_job(JOBTYPE.VENDORING, library, new_version, JOBSTATUS.CREATED, JOBOUTCOME.PENDING)
-        self.logger.set_context(library.name, created_job.id)
-
-        # File the bug ------------------------
-        commit_stats = self.mercurialProvider.diff_stats()
-        license_files = VendoringUtilities.changed_license_files(self, library)
-        if license_files:
-            self.logger.log("This update changes the license files %s." % ", ".join(license_files), level=LogLevel.Info)
-        license_note = CommentTemplates.LICENSE_FILES_CHANGED(license_files) if license_files else ""
-        try:
-            all_upstream_commits, unseen_upstream_commits = self.scmProvider.check_for_update(library, task, new_version, most_recent_job.version if most_recent_job else None)
-            if library.should_show_commit_details:
-                author_summary = self.scmProvider.build_author_summary(all_upstream_commits)
-                commit_chunks = self.scmProvider.build_bug_description(all_upstream_commits, 65534 - len(commit_stats) - len(author_summary) - len(license_note) - 220, library.repo_url, options=task.options, new_commits=unseen_upstream_commits, compare_range=(library.revision, new_version))
-            else:
-                author_summary = ""
-                commit_chunks = [""]
-            bug_description = CommentTemplates.UPDATE_DETAILS(len(all_upstream_commits), len(unseen_upstream_commits), commit_stats, commit_chunks[0], author_summary)
-        except Exception as e:
-            # Listing the upstream commits means cloning the upstream repo, which
-            # fails if its host is down. Still file the bug: the job already exists,
-            # and without a bug a later run would treat this version as handled.
-            self.logger.log("Could not get the upstream commits for %s; filing the bug without them: %s" % (library.name, e), level=LogLevel.Warning)
-            commit_chunks = [""]
-            bug_description = CommentTemplates.UPDATE_DETAILS_WITHOUT_COMMITS(library, commit_stats, VendoringUtilities.exception_message(e))
-        bug_description = license_note + bug_description
-
-        created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), bug_description, task.cc, blocks=task.blocking)
-        self.dbProvider.update_job_add_bug_id(created_job, created_job.bugzilla_id)
-        for chunk in commit_chunks[1:]:
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, chunk)
-
-        # Address any prior bug ---------------
-        if most_recent_job and not most_recent_job.relinquished:
-            self._process_prior_job(most_recent_job, created_job.bugzilla_id)
-
-        # Handle other vendoring outcomes -----
-        if result == VendorResult.GENERAL_ERROR:
-            # We're not going to commit these changes; so clean them out.
-            self.mercurialProvider.reset_repository()
-
-            # Handle `./mach vendor` failing
-            return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_VENDOR, CommentTemplates.COULD_NOT_VENDOR(library, new_version, msg))
-        elif result == VendorResult.MOZBUILD_ERROR:
-            # Add a comment but do not abort
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, new_version, msg))
-        elif result == VendorResult.SUCCESS:
-            pass
-        else:
-            raise Exception("Unexpected VendorResult: %s " % result)
-
-        # Commit ------------------------------
-        try:
-            self.mercurialProvider.commit(library, created_job.bugzilla_id, new_version)
-        except Exception as e:
-            VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_COMMIT, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."))
-            raise e
-
-        ai_resolved_conflicts = False
-        # Whether there's a separate commit applying the mozilla patches. Normally
-        # the same as library.has_patches, but the AI may remove every patch.
-        has_patches_commit = library.has_patches
-        if library.has_patches:
-            # Apply Patches -------------------
-            try:
-                self.vendorProvider.patch(library, new_version)
-            except Exception as e:
-                msg = VendoringUtilities.exception_message(e)
-
-                if not _is_patch_conflict(e):
-                    # Something other than a patch conflict failed (e.g. a
-                    # post-patch action), which the AI can't resolve.
-                    return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches (this wasn't a patch conflict, so Updatebot didn't ask its AI assistant to resolve it)", errormessage=msg))
-
-                # The mozilla patches didn't apply cleanly. Ask the AI to try to
-                # resolve the conflicts (updating the .patch files / moz.yaml).
-                potential_commit_message = "Bug %s - Update %s local patches to apply cleanly" % (
-                    created_job.bugzilla_id, library.name)
-                resolution = self.aiProvider.resolve_patch_conflicts(
-                    library.yaml_path, potential_commit_message, cwd=self.config['General'].get('gecko-path'),
-                    library_name=library.name, job_id=created_job.id)
-                outcome = resolution.get("outcome") if resolution else "failure"
-                ai_details = "\n".join(resolution.get("details", [])) if resolution else ""
-
-                if outcome == "failure":
-                    return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR_WITH_AI("apply the mozilla patches.", initialerrormessage=msg, ai_outcome=outcome, ai_details=ai_details))
-
-                # The AI reports it resolved the conflicts (and committed the
-                # updated .patch files). Record the outcome on the bug, flagging
-                # the maintainer for review when it's only 'uncertain success'.
-                needinfo = library.maintainer_bz if outcome == "uncertain success" else None
-                self.bugzillaProvider.comment_on_bug(
-                    created_job.bugzilla_id,
-                    CommentTemplates.AI_RESOLVED_PATCH_CONFLICTS(outcome, ai_details),
-                    needinfo=needinfo)
-
-                try:
-                    # If the AI removed every patch (e.g. because they were all
-                    # upstreamed), there is nothing left to re-apply or commit.
-                    # Re-reading the moz.yaml is inside this handler because the
-                    # AI may have left it broken.
-                    has_patches_commit = self.libraryProvider.library_has_patches(
-                        self.config['General'].get('gecko-path'), library)
-                    if has_patches_commit:
-                        # Re-apply the now-updated patches so the vendored tree is patched.
-                        self.vendorProvider.patch(library, new_version)
-                    else:
-                        self.logger.log("The AI removed every mozilla patch, so there are none to re-apply or commit.", level=LogLevel.Info)
-                except Exception as e2:
-                    return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=VendoringUtilities.exception_message(e2)))
-
-                # The AI added its own commit for the .patch/moz.yaml fixes, so
-                # there is now an extra commit to submit to Phabricator.
-                ai_resolved_conflicts = True
-        if has_patches_commit:
-            # Commit Patches ------------------
-            try:
-                self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)
-            except Exception as e:
-                VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit after applying mozilla patches."))
-                raise e
+        # The first stage always updates the moz.yaml's revision, so there's a commit to submit
+        assert commits, "Job %s for %s %s has no commits to submit" % (created_job.id, library.name, new_version)
+        assert len(self.mercurialProvider.commits_since(start)) == len(commits), "Job %s for %s %s made %s commits, but recorded %s" % (
+            created_job.id, library.name, new_version, len(self.mercurialProvider.commits_since(start)), len(commits))
 
         # Submit to Try -----------------------
         try:
@@ -367,17 +397,13 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # Submit Phab Revision ----------------
         try:
-            # One commit for the vendoring, plus one for the patches (if any),
-            # plus one more if the AI added a commit resolving patch conflicts.
-            num_commits = 1 + (1 if has_patches_commit else 0) + (1 if ai_resolved_conflicts else 0)
+            # A commit for each stage that changed something, plus one for each fix
+            # from the AI.
+            num_commits = len(commits)
             phab_revisions = self.phabricatorProvider.submit_patches(created_job.bugzilla_id, num_commits)
             assert len(phab_revisions) == num_commits, "We don't have the correct number of phabricator patches; we have %s, expected %s" % (len(phab_revisions), num_commits)
             # Revisions come back bottom-up, matching the order the commits were made.
-            purposes = ['vendoring commit']
-            if ai_resolved_conflicts:
-                purposes.append('patch conflict resolution commit')
-            if has_patches_commit:
-                purposes.append('patches commit')
+            purposes = [CommitTemplates.PHAB_REVISION_PURPOSE(library, c) for c in commits]
             for revision, purpose in zip(phab_revisions, purposes):
                 self.dbProvider.add_phab_revision(created_job, revision, purpose)
         except DiffTooLargeError as e:

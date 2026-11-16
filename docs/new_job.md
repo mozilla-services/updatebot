@@ -6,49 +6,51 @@ graph TD
     A --> FrequencyCheck
     
     FrequencyCheck{Should process <br />according to <br/>frequency rules?}
-    FrequencyCheck -->|Yes| CreateJob
+    FrequencyCheck -->|Yes| RunStage
     FrequencyCheck -->|No| Done
 
-    CreateJob[Create the Job in the DB]
-    CreateJob --> VendorTheNewVersion
+    RunStage[Run the next vendoring stage<br />with ./mach vendor --stage N]
+    RunStage --> StageOutcome
 
-    VendorTheNewVersion[Run ./mach vendor <br/>for the new version]
-    VendorTheNewVersion --> SpuriousCheck
-    
-    SpuriousCheck{Is a spurious update?}
-    SpuriousCheck -->|No| FileBug
-    SpuriousCheck -->|Yes| X1[Mark job as a spurious update.] --> Done
+    StageOutcome{How did the stage go?}
+    StageOutcome --> |It ran| CommitStage
+    StageOutcome --> |It couldn't<br />update a moz.build| FileBugForStage
+    StageOutcome --> |It failed| FileBugForFailure
 
-    FileBug[File a new bug<br />in Bugzilla]
-    FileBug --> PriorBug
+    FileBugForStage[Create the job and file the bug,<br />if that isn't done yet]
+    FileBugForStage --> CommentMozBuild[Comment on the bug about it] --> CommitStage
 
-    PriorBug[Is there a prior job?]
-    PriorBug -->|Yes| IsPriorBugOpen
-    PriorBug --> |No| HandleVendoringOutcomes
+    FileBugForFailure[Create the job and file the bug,<br />if that isn't done yet]
+    FileBugForFailure --> PatchConflict
 
-    IsPriorBugOpen[Is the prior bug open] 
-    IsPriorBugOpen --> |Yes| HandleOpenPriorBug
-    IsPriorBugOpen --> |No| RelinquishPriorBug
+    PatchConflict{Did a patch not apply,<br />and the AI not try this stage yet?}
+    PatchConflict --> |No| X2[Update job status to done<br />comment on bugzilla it failed.] --> Done
+    PatchConflict --> |Yes| AskAI
 
-    RelinquishPriorBug[Relinquish the prior bug]
+    AskAI[Ask the AI to fix the stage's patches,<br />and commit the fix before the stage]
+    AskAI --> AIOutcome
 
-    HandleOpenPriorBug[Dupe the prior bug to the new bug<br />Abandon the phabricator revision]
-    HandleOpenPriorBug --> RelinquishPriorBug
+    AIOutcome{Did the AI succeed,<br />and commit its fix?}
+    AIOutcome --> |No| X2
+    AIOutcome --> |Yes| RunStage
 
-    RelinquishPriorBug --> HandleVendoringOutcomes
+    CommitStage[Commit it, if it changed anything,<br />with the bug number if there's a bug yet]
+    CommitStage --> MoreStages
 
-    HandleVendoringOutcomes{What was the<br />vendoring Outcome}
-    HandleVendoringOutcomes --> |General Error| X2[Update job status to done<br />comment on bugzilla it failed.] --> Done
-    HandleVendoringOutcomes --> |Could not <br />update mozbuild| CommentMozBuild
-    HandleVendoringOutcomes --> |Success| Commit
+    MoreStages{Another stage?}
+    MoreStages --> |Yes| RunStage
+    MoreStages --> |No| HaveBug
 
-    CommentMozBuild[Comment on<br />the bug about error] --> Commit
+    HaveBug{Is there a bug yet?}
+    HaveBug --> |Yes| PushToTry
+    HaveBug --> |No| SpuriousCheck
 
-    Commit[Mercurial Commit] -->HasPatches
+    SpuriousCheck{Do the commits change anything<br />but the moz.yaml and generated files?}
+    SpuriousCheck -->|Yes| FileBug
+    SpuriousCheck -->|No: a spurious update| X1[Strip the commits] --> Done
 
-    HasPatches{Are there <br />patches to <br />apply?}
-    HasPatches --> |Yes| ApplyPatches[Apply Patches] --> CommitPatches[Commit Patches] --> PushToTry
-    HasPatches --> |No| PushToTry
+    FileBug[Create the job and file the bug]
+    FileBug --> PushToTry
 
     PushToTry[Push to try]
     PushToTry --> CommentOnBug
@@ -56,6 +58,10 @@ graph TD
     CommentOnBug[Comment on bug]
     CommentOnBug --> SubmitPhab
 
-    SubmitPhab[Submit revision to phabricator]
+    SubmitPhab[Submit a revision to phabricator<br />for each commit]
     SubmitPhab --> Done
 ```
+
+Creating the job and filing the bug also deals with any prior job's bug (duping it
+to the new one, and abandoning its revisions), and gives the commits made so far
+their messages, with the bug number.

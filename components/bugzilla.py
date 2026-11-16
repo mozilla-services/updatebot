@@ -12,7 +12,11 @@ class CommentTemplates:
     @staticmethod
     def VENDOR_COMMAND(library, revision):
         # The revision we vendored, so the command reproduces our patch even after upstream moves on
-        return "./mach vendor %s --revision %s" % (library.yaml_path, revision)
+        command = "./mach vendor %s --revision %s" % (library.yaml_path, revision)
+        if getattr(library, 'uses_stages', False) and len(library.stages) > 1:
+            # mach requires a stage; all of them makes the same commits Updatebot did
+            command += " --stage all"
+        return command
 
     @staticmethod
     def UPDATE_SUMMARY(library, new_release_version, release_timestamp):
@@ -215,6 +219,16 @@ Updatebot will be unable to do anything more for this library version.
             s += ", which reported an outcome of '%s'." % ai_outcome
         else:
             s += ", which seemingly failed with no outcome at all."
+        if ai_details:
+            s += "\n\n"
+            for line in ai_details.split("\n"):
+                s += "> " + line + "\n"
+        s += "\nUpdatebot will be unable to do anything more for this library version."
+        return s
+
+    @staticmethod
+    def AI_DIDNT_COMMIT(action, ai_outcome, ai_details=None):
+        s = "Updatebot asked its AI assistant to help %s. It reported an outcome of '%s', but it didn't make exactly one commit with its fix, so there was nothing for Updatebot to use." % (action, ai_outcome)
         if ai_details:
             s += "\n\n"
             for line in ai_details.split("\n"):

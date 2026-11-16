@@ -123,31 +123,28 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
         return AIResult(success, data.get("result", ""), data.get("session_id"))
 
     @logEntryExit
-    def resolve_patch_conflicts(self, moz_yaml_path, commit_message, cwd=None,
-                                library_name=None, job_id=None, stage_name="patches",
-                                stage_command=None, uses_stages=True):
-        # Ask the AI to resolve local-patch conflicts for a library. It works in
-        # the checkout (cwd), updates the .patch files / moz.yaml so they apply,
-        # and writes its verdict to CONFLICT_RESOLUTION_RESULT_FILE. Returns the
-        # parsed {"outcome", "details"} dict, or None if it produced no result.
-        # stage_name is the vendoring stage whose patches didn't apply, and
-        # stage_command the `./mach vendor` command that runs it. uses_stages is
-        # False for a moz.yaml in the old format, with one list of patches.
-        # library_name/job_id only label debug output; library_name defaults to
-        # the moz.yaml's parent directory name.
-        library = library_name or os.path.basename(os.path.dirname(moz_yaml_path)) or "library"
-        self._debug_label = "%s_job%s" % (library, job_id if job_id is not None else "none")
+    def resolve_patch_conflicts(self, library, stage, stage_command, commit_message, cwd=None, job_id=None):
+        """
+        Ask the AI to fix the patches of the library's stage, whose stage_command
+        (a list) fails with a patch conflict. It works in the checkout (cwd),
+        commits its fix with commit_message, and writes its verdict to
+        CONFLICT_RESOLUTION_RESULT_FILE. Returns (outcome, details): outcome is
+        'trivial success', 'uncertain success' or 'failure' (also when there's no
+        verdict), and details its explanation, one line per item. job_id only
+        labels debug output.
+        """
+        self._debug_label = "%s_job%s" % (library.name, job_id if job_id is not None else "none")
 
-        if uses_stages:
+        if library.uses_stages:
             patch_source = ("the `%s` stage in its `vendoring` `stages`, and the patch files that stage "
-                            "applies: its `patches`, or the `patches` of its `apply-patches` actions" % stage_name)
+                            "applies: its `patches`, or the `patches` of its `apply-patches` actions" % stage['name'])
         else:
             patch_source = "the list of patches in its `vendoring` `patches`"
         instructions = load_prompt("conflict_resolution_details",
-                                   moz_yaml_path=moz_yaml_path,
+                                   moz_yaml_path=library.yaml_path,
                                    patch_fix_commit_message=commit_message,
-                                   stage_name=stage_name,
-                                   stage_command=stage_command or "./mach vendor --patch-mode only %s" % moz_yaml_path,
+                                   stage_name=stage['name'],
+                                   stage_command=" ".join(stage_command),
                                    patch_source=patch_source)
         prompt = load_prompt("conflict_resolution", conflict_resolution_instructions=instructions)
         system_prompt = load_prompt("system")
@@ -161,6 +158,15 @@ class AIProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
             os.remove(result_path)
         except (OSError, ValueError):
             self.logger.log("Could not read %s after AI conflict resolution." % CONFLICT_RESOLUTION_RESULT_FILE, level=LogLevel.Warning)
-            return None
-        self.logger.log("AI conflict resolution outcome: %s" % resolution.get("outcome"), level=LogLevel.Info)
-        return resolution
+            return ("failure", "")
+        if not isinstance(resolution, dict):
+            resolution = {}
+        outcome = resolution.get("outcome")
+        self.logger.log("AI conflict resolution outcome: %s" % outcome, level=LogLevel.Info)
+        if outcome not in ("trivial success", "uncertain success", "failure"):
+            self.logger.log("Treating the unrecognised outcome %r as a failure." % outcome, level=LogLevel.Warning)
+            outcome = "failure"
+        details = resolution.get("details")
+        if not isinstance(details, list) or not all(isinstance(d, str) for d in details):
+            details = []
+        return (outcome, "\n".join(details))

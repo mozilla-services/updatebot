@@ -12,7 +12,7 @@ sys.path.append(".")
 sys.path.append("..")
 
 from components.logging import SimpleLoggerConfig
-from components.mach_vendor import VendorProvider
+from components.mach_vendor import VendorProvider, VendorResult
 from components.utilities import Struct
 from tests.mock_commandprovider import TestCommandProvider
 
@@ -61,33 +61,57 @@ class TestVendorProvider(unittest.TestCase):
     def testNoUpdateAvailable(self):
         self.assertEqual(self._check_for_update(""), (None, None))
 
-    def _patch(self, returncode, **kwargs):
+    def _library(self, stages, uses_stages=True):
+        return Struct(yaml_path='media/libyuv/moz.yaml', uses_stages=uses_stages,
+                      has_patches=any(s['patches'] for s in stages), stages=stages)
+
+    def testStageCommands(self):
+        vendorProvider = VendorProvider({})
+        fetch = {'name': 'fetch', 'patches': [], 'title': None}
+        patches = {'name': 'patches', 'patches': ['a.patch'], 'title': None}
+
+        one = self._library([fetch])
+        self.assertEqual(vendorProvider.stage_command(one, 0, REVISION),
+                         ["./mach", "vendor", "media/libyuv/moz.yaml", "--revision", REVISION])
+        # Only the first stage takes the revision; later ones use what it recorded.
+        two = self._library([fetch, patches])
+        self.assertEqual(vendorProvider.stage_command(two, 0, REVISION),
+                         ["./mach", "vendor", "media/libyuv/moz.yaml", "--revision", REVISION, "--stage", "1"])
+        self.assertEqual(vendorProvider.stage_command(two, 1, REVISION),
+                         ["./mach", "vendor", "media/libyuv/moz.yaml", "--stage", "2"])
+
+        old = self._library([fetch, patches], uses_stages=False)
+        self.assertEqual(vendorProvider.stage_command(old, 0, REVISION),
+                         ["./mach", "vendor", "media/libyuv/moz.yaml", "--revision", REVISION, "--patch-mode", "none"])
+        self.assertEqual(vendorProvider.stage_command(old, 1, REVISION),
+                         ["./mach", "vendor", "--patch-mode", "only", "media/libyuv/moz.yaml"])
+        self.assertEqual(vendorProvider.stage_command(self._library([fetch], uses_stages=False), 0, REVISION),
+                         ["./mach", "vendor", "media/libyuv/moz.yaml", "--revision", REVISION])
+
+    def _vendor_stage(self, returncode, uses_stages=True, output="Error running mach"):
         calls = []
 
         def run(cmd, clean_return=True, **run_kwargs):
             calls.append(clean_return)
-            return subprocess.CompletedProcess(cmd, returncode, stdout="Could not apply foo.patch", stderr="")
+            return subprocess.CompletedProcess(cmd, returncode, stdout=output, stderr="")
 
         vendorProvider = VendorProvider({})
         vendorProvider.update_config(dict(SimpleLoggerConfig, CommandProvider=Struct(run=run)))
-        try:
-            vendorProvider.patch(LIBRARY, REVISION, **kwargs)
-            return (calls, None)
-        except subprocess.CalledProcessError as e:
-            return (calls, e)
-
-    def testPatchLogsFailuresByDefault(self):
-        (calls, e) = self._patch(0)
-        self.assertEqual(calls, [True])
-        self.assertIsNone(e)
-
-    def testPatchFailureCanBeQuiet(self):
-        # The spurious-update check expects the patches may not apply, so mustn't log it
-        # as an error, but still needs the same exception and output
-        (calls, e) = self._patch(1, ignore_modified=True, log_failure=False)
+        stages = [{'name': 'fetch', 'patches': [], 'title': None}, {'name': 'patches', 'patches': ['foo.patch'], 'title': None}]
+        result = vendorProvider.vendor_stage(self._library(stages, uses_stages), 1, REVISION)
+        # A failure is reported, not logged as an error by the CommandProvider
         self.assertEqual(calls, [False])
-        self.assertIsInstance(e, subprocess.CalledProcessError)
-        self.assertEqual(e.output, "Could not apply foo.patch")
+        return result
+
+    def testVendorStageResults(self):
+        self.assertEqual(self._vendor_stage(0), (VendorResult.SUCCESS, ""))
+        self.assertEqual(self._vendor_stage(1), (VendorResult.GENERAL_ERROR, "Error running mach"))
+        self.assertEqual(self._vendor_stage(1, output="Could not apply foo.patch"), (VendorResult.PATCH_CONFLICT, "Could not apply foo.patch"))
+        self.assertEqual(self._vendor_stage(255), (VendorResult.MOZBUILD_ERROR, "Error running mach"))
+        # 254 was the old spurious-update check's exit status; mach vendor with
+        # stages has none.
+        self.assertEqual(self._vendor_stage(254, uses_stages=False)[0], VendorResult.SPURIOUS_UPDATE)
+        self.assertEqual(self._vendor_stage(254)[0], VendorResult.GENERAL_ERROR)
 
 
 if __name__ == "__main__":

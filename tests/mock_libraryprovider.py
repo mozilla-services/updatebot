@@ -18,12 +18,22 @@ class MockLibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
     def __init__(self, config):
         self.config = config
 
-    def library_has_patches(self, gecko_path, library):
-        # Tests set 'patches_after_ai' to simulate the AI removing every patch,
-        # or to 'broken' to simulate it leaving the moz.yaml unreadable.
+    def reload_stages(self, gecko_path, library):
+        library.stages, library.uses_stages = self.read_stages(gecko_path, library)
+
+    def read_stages(self, gecko_path, library):
+        # Tests set 'patches_after_ai' to False to simulate the AI removing every
+        # patch (and so the patches stage), or to 'broken' to simulate it leaving
+        # the moz.yaml unreadable.
         if self.config.get('patches_after_ai') == 'broken':
             raise Exception("moz.yaml has no vendoring section")
-        return self.config.get('patches_after_ai', library.has_patches)
+        if self.config.get('patches_after_ai') is False:
+            return [s for s in library.stages if not s['patches']], library.uses_stages
+        return library.stages, library.uses_stages
+
+    def read_revision(self, gecko_path, library):
+        # There's no moz.yaml, and the mocked AI doesn't change one
+        return library.revision
 
     def get_libraries(self, gecko_path):
         return [

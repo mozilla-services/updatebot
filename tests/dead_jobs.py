@@ -40,7 +40,9 @@ def runner(commands=None, outputs=None):
     if commands is not None:
         def run(args, clean_return=True, **kwargs):
             commands.append(args)
-            return Struct(stdout=next((v for k, v in outputs.items() if k in " ".join(args)), ""), stderr="", returncode=0)
+            # An output is a string, or a function returning one, to change between calls
+            out = next((v for k, v in outputs.items() if k in " ".join(args)), "")
+            return Struct(stdout=out() if callable(out) else out, stderr="", returncode=0)
         r.cmdProvider = Struct(run=run)
         r.mercurialProvider = MercurialProvider({})
         r.mercurialProvider.update_config({'CommandProvider': r.cmdProvider, 'LoggingProvider': r.logger})
@@ -96,7 +98,7 @@ class TestDeadJobs(unittest.TestCase):
         r = runner(commands, {"hg log": HEAD})
         with mock.patch.dict(os.environ, {"GECKO_HEAD_REV": HEAD}):
             VendoringUtilities.reset_for_new_job(r)
-        self.assertEqual([c[:2] for c in commands], [["hg", "status"], ["hg", "log"], ["hg", "--config"]])
+        self.assertEqual([c[:2] for c in commands], [["hg", "status"], ["hg", "log"]])
 
     def testChangedCheckoutIsReset(self):
         for outputs in ({"hg status": "M some/file.c", "hg log": HEAD}, {"hg log": "b" * 40}):
@@ -106,6 +108,34 @@ class TestDeadJobs(unittest.TestCase):
                 VendoringUtilities.reset_for_new_job(r)
             self.assertIn(["hg", "checkout", "-C", "."], commands, outputs)
             self.assertIn(["hg", "update", HEAD], commands, outputs)
+
+
+class TestHistoryChecks(unittest.TestCase):
+    BASE = "a" * 40
+    COMMITS = "b" * 40 + "\n" + "c" * 40 + "\n"
+
+    def testStripReturnsToTheRevision(self):
+        r = runner([], {"hg log -r . ": self.BASE, "hg log": self.COMMITS})
+        r.mercurialProvider.strip_commits_since(self.BASE)
+
+    def testStripThatLeavesTheCheckoutElsewhereIsAnError(self):
+        r = runner([], {"hg log -r . ": "c" * 40, "hg log": self.COMMITS})
+        with self.assertRaisesRegex(AssertionError, "left the checkout at"):
+            r.mercurialProvider.strip_commits_since(self.BASE)
+
+    def testRewordKeepsTheCommits(self):
+        r = runner([], {"hg log": self.COMMITS})
+        r.mercurialProvider.reword_commits_since(self.BASE, ["one", "two"])
+
+    def testRewordThatLosesACommitIsAnError(self):
+        calls = []
+
+        def commits_since():
+            calls.append(1)
+            return self.COMMITS if len(calls) == 1 else "d" * 40 + "\n"
+        r = runner([], {"hg log": commits_since})
+        with self.assertRaisesRegex(AssertionError, "Expected 2 commits after rewording, found 1"):
+            r.mercurialProvider.reword_commits_since(self.BASE, ["one", "two"])
 
 
 class TestMissingTryPush(unittest.TestCase):

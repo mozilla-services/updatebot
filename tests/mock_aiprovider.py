@@ -20,7 +20,7 @@ class MockAIProvider(BaseProvider, INeedsLoggingProvider):
 
       'ai_outcome':  the 'outcome' value to report ('trivial success',
                      'uncertain success', 'failure'), or None to simulate the
-                     AI producing no parseable result (resolve returns None).
+                     AI producing no parseable result (reported as 'failure').
       'ai_details':  the list of detail strings to report.
       'ai_fix':      optional; called with the checkout's path and the commit
                      message to use, to do what the AI would (fix the patches
@@ -39,15 +39,13 @@ class MockAIProvider(BaseProvider, INeedsLoggingProvider):
         self.resolve_call_count = 0
         self.resolve_calls = []
 
-    def resolve_patch_conflicts(self, moz_yaml_path, commit_message, cwd=None,
-                                library_name=None, job_id=None, stage_name="patches",
-                                stage_command=None, uses_stages=True):
+    def resolve_patch_conflicts(self, library, stage, stage_command, commit_message, cwd=None, job_id=None):
         self.resolve_call_count += 1
-        self.resolve_calls.append({'stage_name': stage_name, 'stage_command': stage_command, 'commit_message': commit_message})
+        self.resolve_calls.append({'stage_name': stage['name'], 'stage_command': " ".join(stage_command), 'commit_message': commit_message})
         self.logger.log("MockAIProvider.resolve_patch_conflicts called for %s (outcome=%s)" % (
-            moz_yaml_path, self.ai_outcome), level=LogLevel.Info)
+            library.yaml_path, self.ai_outcome), level=LogLevel.Info)
         if self.ai_fix:
             self.ai_fix(cwd, commit_message)
         if self.ai_outcome is None:
-            return None
-        return {"outcome": self.ai_outcome, "details": self.ai_details}
+            return ("failure", "")
+        return (self.ai_outcome, "\n".join(self.ai_details))

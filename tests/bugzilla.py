@@ -313,6 +313,14 @@ class TestBugzillaProvider(unittest.TestCase):
         self.assertEqual(sent[1]['flags'][0]['requestee'], 'Jon', "The replacement should keep the needinfo")
 
     def testVendorCommandsIncludeTheRevision(self):
+        stage = {'name': 'fetch', 'patches': [], 'title': None}
+        patches = {'name': 'patches', 'patches': ['a.patch'], 'title': None}
+        # A library with several stages needs --stage
+        self.assertEqual(CommentTemplates.VENDOR_COMMAND(Struct(yaml_path="media/libfoo/moz.yaml", uses_stages=True, stages=[stage, patches]), "1.2.3"),
+                         "./mach vendor media/libfoo/moz.yaml --revision 1.2.3 --stage all")
+        self.assertEqual(CommentTemplates.VENDOR_COMMAND(Struct(yaml_path="media/libfoo/moz.yaml", uses_stages=True, stages=[stage]), "1.2.3"),
+                         "./mach vendor media/libfoo/moz.yaml --revision 1.2.3")
+
         library = Struct(yaml_path="media/libfoo/moz.yaml")
         command = "./mach vendor media/libfoo/moz.yaml --revision 1.2.3"
         self.assertEqual(command, CommentTemplates.VENDOR_COMMAND(library, "1.2.3"))

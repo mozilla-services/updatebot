@@ -10,8 +10,12 @@ Runs the vendoring flow against a real Mercurial repository.
 Unlike the other functionality tests, every hg command really runs, in a
 throwaway repository with a fake library in it. `./mach vendor` is
 tests/vendoring_hg/fake_mach.py, which behaves like mozbuild's vendoring code
-(including its spurious-update check). Try, Phabricator, Bugzilla, the upstream
-git repository and the AI are still mocked.
+(in the old format, including its spurious-update check). Try, Phabricator,
+Bugzilla, the upstream git repository and the AI are still mocked.
+
+Most tests use the old moz.yaml format, a vendoring step and then the patches,
+which Updatebot still reads until every moz.yaml uses stages; the tests named
+testStages... use stages.
 """
 
 import os
@@ -20,6 +24,7 @@ import shutil
 import difflib
 import tempfile
 import unittest
+from unittest import mock
 import subprocess
 from collections import OrderedDict
 
@@ -42,7 +47,7 @@ from components.libraryprovider import LibraryProvider, Library
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 
-from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, MockedBugzillaProvider
+from tests.functionality_utilities import SHARED_COMMAND_MAPPINGS, TRY_OUTPUT, ARC_OUTPUT, MockedBugzillaProvider
 from tests.mock_commandprovider import TestCommandProvider, DO_EXECUTE
 from tests.mock_aiprovider import MockAIProvider
 from tests.mock_libraryprovider import MockLibraryProvider
@@ -110,14 +115,21 @@ class HgLibraryProvider(MockLibraryProvider):
             "revision": "_current",
             "repo_url": "https://example.invalid",
             "has_patches": self.config['has_patches'],
+            "stages": self.config.get('stages'),
             "flavor": "regular",
             "tasks": [LibraryProvider.validate_task({"type": "vendoring", "enabled": True}, "fakelib")],
             "yaml_path": YAML_PATH,
             "generated": self.config.get('generated', []),
         })]
 
-    def library_has_patches(self, gecko_path, library):
-        return library.has_patches
+    def read_stages(self, gecko_path, library):
+        if self.config.get('stages_after_ai') is not None:
+            return self.config['stages_after_ai'], True
+        return library.stages, library.uses_stages
+
+    def read_revision(self, gecko_path, library):
+        with open(os.path.join(gecko_path, library.yaml_path)) as f:
+            return next(line.split(":", 1)[1].strip() for line in f if line.startswith("revision:"))
 
 
 PROVIDERS = {
@@ -177,18 +189,40 @@ class TestVendoringWithMercurial(SimpleLoggingTest):
     def _hg(self, *args):
         return subprocess.run(["hg"] + list(args), cwd=self.repo, check=True, capture_output=True, text=True).stdout
 
-    def _make_repo(self, has_patches, generated=None, patch=FIX_PATCH, extra_upstream_files=None, post_patch_scripts=None, kept_files=None):
+    def _make_repo(self, has_patches=False, generated=None, patch=FIX_PATCH, extra_upstream_files=None, post_patch_scripts=None, kept_files=None, stages=None, mozbuild_error=None):
         """The in-tree library at upstream v1 (plus extra_upstream_files), with our patch
         (or list of patches, applied in order) applied if has_patches.
 
         post_patch_scripts ({name: source}) run after the patches, as a post-patch
         action would; kept_files ({name: contents}) are in-tree files that aren't from
-        upstream. Both, and any files the scripts write, are kept when vendoring."""
+        upstream. Both, and any files the scripts write, are kept when vendoring.
+
+        With stages, an OrderedDict of {stage name: list of patches}, the moz.yaml
+        has vendoring stages instead, and each stage's patches are applied in turn.
+        mozbuild_error names a stage that can't edit moz.build files."""
         patches = patch if isinstance(patch, list) else [patch]
         post_patch_scripts = post_patch_scripts or {}
         kept_files = kept_files or {}
         manifest = "revision: v1\n"
-        if has_patches:
+        self.stages = None
+        if stages:
+            manifest += "stages: %s\n" % " ".join(stages)
+            if mozbuild_error:
+                manifest += "%s-mozbuild-error: yes\n" % mozbuild_error
+            self.stages = []
+            n = 0
+            for name, stage_patches in stages.items():
+                files = []
+                for p in stage_patches:
+                    files.append("patches/%d.patch" % n)
+                    write(os.path.join(self.repo, VENDOR_DIR, files[-1]), p)
+                    n += 1
+                if files:
+                    manifest += "%s-patches: %s\n" % (name, " ".join(files))
+                self.stages.append({'name': name, 'patches': files, 'title': None})
+            patches = [p for stage_patches in stages.values() for p in stage_patches]
+            has_patches = bool(patches)
+        elif has_patches:
             manifest += "patches: %s\n" % " ".join("patches/%d.patch" % i for i in range(len(patches)))
             for i, p in enumerate(patches):
                 write(os.path.join(self.repo, VENDOR_DIR, "patches/%d.patch" % i), p)
@@ -254,7 +288,14 @@ class TestVendoringWithMercurial(SimpleLoggingTest):
             ("hg next", lambda: ""),
             ("hg ", DO_EXECUTE),
         ])
-        for prefix, response in SHARED_COMMAND_MAPPINGS(expected_values, {}).items():
+        phab_calls = [0]
+
+        def phab_submit():
+            phab_calls[0] += 1
+            v = 83000 + phab_calls[0]
+            return ARC_OUTPUT % (v, v)
+
+        for prefix, response in SHARED_COMMAND_MAPPINGS(expected_values, {'phab_submit': phab_submit}).items():
             if not prefix.startswith("./mach vendor") and not prefix.startswith("hg "):
                 mappings[prefix] = response
 
@@ -282,8 +323,11 @@ class TestVendoringWithMercurial(SimpleLoggingTest):
             'Taskcluster': {'url_treeherder': 'http://localhost:27491/', 'url_taskcluster': 'http://localhost:27491/'},
             'Phabricator': {},
             'AI': {},
-            'Library': {'has_patches': self.has_patches, 'generated': self.generated},
+            'Library': {'has_patches': self.has_patches, 'generated': self.generated, 'stages': self.stages,
+                        'stages_after_ai': getattr(self, 'stages_after_ai', None)},
         }
+        if getattr(self, 'ai_fix', None):
+            configs['AI'] = {'ai_outcome': 'trivial success', 'ai_details': ['Rebased the patch.'], 'ai_fix': self.ai_fix}
 
         u = Updatebot(configs, PROVIDERS)
         real_runner.update_config({'LoggingProvider': u.logger})
@@ -291,6 +335,15 @@ class TestVendoringWithMercurial(SimpleLoggingTest):
         filed_bugs = []
         original_file_bug = u.bugzillaProvider.file_bug
         u.bugzillaProvider.file_bug = lambda *args, **kwargs: (filed_bugs.append(args[1]), original_file_bug(*args, **kwargs))[1]
+        # Every task runner logs through its own copy of the logging provider
+        exceptions = []
+        original_log_exception = LoggingProvider.log_exception
+        log_exception = mock.patch.object(LoggingProvider, "log_exception", lambda self, e: (exceptions.append(e), original_log_exception(self, e))[1])
+        log_exception.start()
+        self.addCleanup(log_exception.stop)
+        comments = []
+        original_comment = u.bugzillaProvider.comment_on_bug
+        u.bugzillaProvider.comment_on_bug = lambda bug_id, text, *args, **kwargs: (comments.append(text), original_comment(bug_id, text, *args, **kwargs))[1]
 
         try:
             u.run(library_filter="fakelib")
@@ -301,7 +354,8 @@ class TestVendoringWithMercurial(SimpleLoggingTest):
         job = u.dbProvider.get_job(lib, NEW_VERSION)
         if job:
             u.dbProvider.delete_job(library=lib, version=NEW_VERSION)
-        return Struct(**{'job': job, 'filed_bugs': filed_bugs, 'ai_calls': u.aiProvider.resolve_call_count})
+        return Struct(**{'job': job, 'filed_bugs': filed_bugs, 'ai_calls': u.aiProvider.resolve_call_count,
+                         'ai_requests': u.aiProvider.resolve_calls, 'comments': comments, 'exceptions': exceptions})
 
     def _new_commits(self):
         """(description, {path: status}) for each commit Updatebot made, oldest first."""
@@ -369,7 +423,6 @@ class TestVendoringWithMercurial(SimpleLoggingTest):
             if rel != "." and not any(t == rel or t.startswith(rel + "/") for t in tracked_dirs):
                 self.fail("Left an untracked directory behind: " + rel)
         self.assertEqual(self._hg("log", "-r", ".", "-T", "{node}").strip(), self.base, "Didn't return to the starting revision")
-        self.assertNotIn("updatebot-spurious-check", self._hg("--config", "extensions.shelve=", "shelve", "--list"), "Left its shelved change behind")
 
     # ----------------------------------------------------------------
     # Positive: a real update to a library with patches goes through the whole flow,
@@ -724,6 +777,284 @@ class TestVendoringWithMercurial(SimpleLoggingTest):
         self._add_upstream(NEW_VERSION, dict(self.v1, **{"gen.h": "#define GENERATED 2\n"}))
 
         self._assert_nothing_happened(self._run())
+
+    # ----------------------------------------------------------------
+    # The stages format. Each stage is a commit, and Updatebot checks the whole stack
+    # for a spurious update, rather than mach checking the first stage.
+    UPSTREAM_CONFLICT = LIB_C[:4] + ["line 5, changed upstream\n"] + LIB_C[5:8] + ["line 9, changed upstream\n"] + LIB_C[9:]
+    REBASED = LIB_C[:4] + ["line 5 (with a mozilla fix)\n"] + LIB_C[5:8] + ["line 9, changed upstream\n"] + LIB_C[9:]
+    REBASED_FIX_PATCH = "".join(difflib.unified_diff(UPSTREAM_CONFLICT, REBASED, "a/lib.c", "b/lib.c"))
+    UTIL_PATCH = "--- a/util.c\n+++ b/util.c\n@@ -1 +1 @@\n-int util;\n+int util = 42;\n"
+
+    def _ai_rewrites_patch(self, patch_file, contents):
+        """An ai_fix that rewrites one patch file and commits it, as the AI would."""
+        def fix(cwd, commit_message):
+            self.assertEqual(self._hg("status"), "", "The AI should start from a clean working directory")
+            write(os.path.join(self.repo, VENDOR_DIR, patch_file), contents)
+            self._hg("commit", "-q", "-m", commit_message)
+        return fix
+
+    @logEntryExitHeaderLine
+    def testStagesRealChange(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        v2_lib_c = LIB_C[:8] + ["line 9, changed upstream\n"] + LIB_C[9:]
+        self._add_upstream(NEW_VERSION, {"lib.c": "".join(v2_lib_c), "util.c": "int util = 2;\n", "new.c": "int added;\n"})
+
+        result = self._run()
+
+        self._assert_job_and_commits(result, {"moz.yaml": "M", "lib.c": "M", "util.c": "M", "new.c": "A", "old.c": "R"}, {"lib.c": "M"})
+        vendoring_commit, patch_commit = self._new_commit_nodes()
+        self.assertEqual(self._vendored(vendoring_commit, "lib.c"), "".join(v2_lib_c), "The vendoring commit should be pristine upstream")
+        self.assertEqual([p.purpose for p in result.job.phab_revisions], ['vendoring commit', 'patches commit'])
+
+    # Upstream changed nothing: the fetch removes our patch and the next stage puts it
+    # back. Both stages are committed, and then stripped.
+    @logEntryExitHeaderLine
+    def testStagesPatchesCancelOut(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1))
+
+        self._assert_nothing_happened(self._run())
+
+    # A file only a later stage's patch adds, with nothing changed upstream
+    @logEntryExitHeaderLine
+    def testStagesFileAddedByLaterStageNoUpstreamChange(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH]), ("extra", [ADD_FILE_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1))
+
+        self._assert_nothing_happened(self._run())
+
+    # Like ANGLE: the patches are part of the fetch stage, so there's one commit,
+    # already patched.
+    @logEntryExitHeaderLine
+    def testStagesPatchesInTheFetchStage(self):
+        self._make_repo(stages=OrderedDict([("fetch", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"util.c": "int util = 2;\n"}))
+
+        result = self._run()
+
+        self.assertEqual(result.job.status, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
+        commits = self._new_commits()
+        self.assertEqual([c[0] for c in commits], ["Bug %d - Update fakelib to %s" % (BUG_ID, NEW_VERSION)])
+        self.assertEqual(commits[0][1], {VENDOR_DIR + "/moz.yaml": "M", VENDOR_DIR + "/util.c": "M"})
+        self.assertEqual(self._vendored(self._new_commit_nodes()[0], "lib.c"), "".join(PATCHED_LIB_C))
+        self._assert_tree_is_clean()
+
+    # A stage that changes nothing isn't committed.
+    @logEntryExitHeaderLine
+    def testStagesEmptyStageIsNotCommitted(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("tidy", []), ("patches", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"util.c": "int util = 2;\n"}))
+
+        result = self._run()
+
+        self._assert_job_and_commits(result, {"moz.yaml": "M", "lib.c": "M", "util.c": "M"}, {"lib.c": "M"})
+
+    # A patch in the fetch stage doesn't apply: the AI's fix goes before the stage's
+    # commit, which is then made with the fixed patch.
+    @logEntryExitHeaderLine
+    def testStagesConflictInFetchStageResolvedByAI(self):
+        self._make_repo(stages=OrderedDict([("fetch", [FIX_PATCH]), ("patches", [self.UTIL_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"lib.c": "".join(self.UPSTREAM_CONFLICT)}))
+        self.ai_fix = self._ai_rewrites_patch("patches/0.patch", self.REBASED_FIX_PATCH)
+
+        result = self._run()
+
+        self.assertEqual(result.ai_calls, 1)
+        self.assertEqual(result.ai_requests[0]['stage_name'], 'fetch')
+        self.assertEqual(result.ai_requests[0]['stage_command'], "./mach vendor %s --revision %s --stage 1" % (YAML_PATH, NEW_VERSION))
+        self.assertEqual(result.job.status, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
+        commits = self._new_commits()
+        self.assertEqual([c[0] for c in commits], [
+            "Bug %d - Update fakelib local patches to apply cleanly" % BUG_ID,
+            "Bug %d - Update fakelib to %s" % (BUG_ID, NEW_VERSION),
+            "Bug %d - Apply mozilla patches for fakelib" % BUG_ID])
+        self.assertEqual(commits[0][1], {VENDOR_DIR + "/patches/0.patch": "M"})
+        # The fetch stage's own patch is in its commit; the next stage's isn't yet
+        self.assertEqual(commits[1][1], {VENDOR_DIR + "/moz.yaml": "M", VENDOR_DIR + "/lib.c": "M", VENDOR_DIR + "/util.c": "M"})
+        self.assertEqual(self._vendored(self._new_commit_nodes()[1], "lib.c"), "".join(self.REBASED))
+        self.assertEqual(commits[2][1], {VENDOR_DIR + "/util.c": "M"})
+        self.assertEqual([p.purpose for p in result.job.phab_revisions],
+                         ['patch conflict resolution commit', 'vendoring commit', 'patches commit'])
+        self._assert_tree_is_clean()
+
+    # A later stage's patch doesn't apply: the AI's fix goes between the vendoring
+    # commit and that stage's.
+    @logEntryExitHeaderLine
+    def testStagesConflictInLaterStageResolvedByAI(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"lib.c": "".join(self.UPSTREAM_CONFLICT)}))
+        self.ai_fix = self._ai_rewrites_patch("patches/0.patch", self.REBASED_FIX_PATCH)
+
+        result = self._run()
+
+        self.assertEqual(result.ai_requests[0]['stage_name'], 'patches')
+        self.assertEqual(result.ai_requests[0]['stage_command'], "./mach vendor %s --stage 2" % YAML_PATH)
+        self.assertEqual([c[0] for c in self._new_commits()], [
+            "Bug %d - Update fakelib to %s" % (BUG_ID, NEW_VERSION),
+            "Bug %d - Update fakelib local patches to apply cleanly" % BUG_ID,
+            "Bug %d - Apply mozilla patches for fakelib" % BUG_ID])
+        self.assertEqual([p.purpose for p in result.job.phab_revisions],
+                         ['vendoring commit', 'patch conflict resolution commit', 'patches commit'])
+        self._assert_tree_is_clean()
+
+    # Upstream took our patch: the AI removes it, and its stage.
+    @logEntryExitHeaderLine
+    def testStagesAIRemovesTheStage(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"lib.c": "".join(PATCHED_LIB_C), "util.c": "int util = 2;\n"}))
+
+        def remove_the_stage(cwd, commit_message):
+            write(os.path.join(self.repo, YAML_PATH), "revision: %s\nstages: fetch\n" % NEW_VERSION)
+            self._hg("rm", "-q", os.path.join(VENDOR_DIR, "patches/0.patch"))
+            self._hg("commit", "-q", "-m", commit_message)
+        self.ai_fix = remove_the_stage
+        self.stages_after_ai = [{'name': 'fetch', 'patches': [], 'title': None}]
+
+        result = self._run()
+
+        self.assertEqual(result.job.status, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
+        self.assertEqual([c[0] for c in self._new_commits()], [
+            "Bug %d - Update fakelib to %s" % (BUG_ID, NEW_VERSION),
+            "Bug %d - Update fakelib local patches to apply cleanly" % BUG_ID])
+        self.assertEqual([p.purpose for p in result.job.phab_revisions], ['vendoring commit', 'patch conflict resolution commit'])
+        self.assertIn("revision: %s\n" % NEW_VERSION, self._hg("cat", "-r", "max(descendants(%s))" % self.base, YAML_PATH))
+        self._assert_tree_is_clean()
+
+    # The AI's fix puts the old revision back in the moz.yaml: that's an error, not a
+    # fix to submit
+    @logEntryExitHeaderLine
+    def testStagesAIRollsBackTheRevision(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"lib.c": "".join(PATCHED_LIB_C), "util.c": "int util = 2;\n"}))
+
+        def roll_back_the_revision(cwd, commit_message):
+            write(os.path.join(self.repo, YAML_PATH), "revision: v1\nstages: fetch\n")
+            self._hg("rm", "-q", os.path.join(VENDOR_DIR, "patches/0.patch"))
+            self._hg("commit", "-q", "-m", commit_message)
+        self.ai_fix = roll_back_the_revision
+        self.stages_after_ai = [{'name': 'fetch', 'patches': [], 'title': None}]
+
+        result = self._run()
+
+        self.assertEqual(len(result.exceptions), 1, result.exceptions)
+        self.assertIn("changed the moz.yaml's revision from %s to v1" % NEW_VERSION, str(result.exceptions[0]))
+        self.assertFalse(any("resolved conflicts" in c for c in result.comments), "Said the AI resolved the conflicts")
+
+    def _leave_an_earlier_librarys_commit(self):
+        """Like an earlier library in the same run: with GECKO_HEAD_REV set, its commits
+        stay behind, as another child of the revision every job starts from."""
+        write(os.path.join(self.repo, "other/lib.c"), "int other;\n")
+        self._hg("commit", "-q", "-A", "-m", "Bug 1 - Update otherlib to v9")
+        earlier = self._hg("log", "-r", ".", "-T", "{node}").strip()
+        self._hg("update", "-q", self.base)
+        return earlier
+
+    def _commits_after_base_except(self, earlier):
+        return [c for c in self._new_commits()
+                if c[0] != self._hg("log", "-r", earlier, "-T", "{desc}")]
+
+    # Rewording only takes this library's commits, not the earlier library's
+    @logEntryExitHeaderLine
+    def testStagesWithAnEarlierLibrarysCommits(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        earlier = self._leave_an_earlier_librarys_commit()
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"util.c": "int util = 2;\n"}))
+
+        result = self._run()
+
+        self.assertEqual(result.job.status, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
+        self.assertEqual([c[0] for c in self._commits_after_base_except(earlier)], [
+            "Bug %d - Update fakelib to %s" % (BUG_ID, NEW_VERSION),
+            "Bug %d - Apply mozilla patches for fakelib" % BUG_ID])
+        self.assertEqual(self._hg("log", "-r", earlier, "-T", "{desc}"), "Bug 1 - Update otherlib to v9", "Changed the earlier library's commit")
+
+    # A spurious update strips only its own commits
+    @logEntryExitHeaderLine
+    def testStagesSpuriousWithAnEarlierLibrarysCommits(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        earlier = self._leave_an_earlier_librarys_commit()
+        self._add_upstream(NEW_VERSION, dict(self.v1))
+
+        result = self._run()
+
+        self.assertIsNone(result.job, "Created a job for an update with no net change")
+        self.assertEqual(self._commits_after_base_except(earlier), [], "Left this update's commits behind")
+        self.assertEqual(self._hg("log", "-r", earlier, "-T", "{desc}"), "Bug 1 - Update otherlib to v9", "Stripped the earlier library's commit")
+
+    # A stage that can't edit a moz.build file is still committed, and reported
+    @logEntryExitHeaderLine
+    def testStagesMozbuildErrorIsCommitted(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]), mozbuild_error="fetch")
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"new.c": "int added;\n"}))
+
+        result = self._run()
+
+        self.assertEqual(result.job.status, JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS)
+        self._assert_job_and_commits(result, {"moz.yaml": "M", "lib.c": "M", "new.c": "A"}, {"lib.c": "M"})
+        self.assertTrue(any("reported an error editing moz.build files" in c for c in result.comments), result.comments)
+
+    # The AI says it fixed the patch, but leaves its fix uncommitted: that's a
+    # failure, not something to use or to throw away silently.
+    @logEntryExitHeaderLine
+    def testStagesAIDoesntCommit(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"lib.c": "".join(self.UPSTREAM_CONFLICT)}))
+
+        def fix_without_committing(cwd, commit_message):
+            write(os.path.join(self.repo, VENDOR_DIR, "patches/0.patch"), self.REBASED_FIX_PATCH)
+        self.ai_fix = fix_without_committing
+
+        result = self._run()
+
+        self.assertEqual(result.ai_calls, 1)
+        self.assertEqual(result.job.status, JOBSTATUS.DONE)
+        self.assertEqual(result.job.outcome, JOBOUTCOME.COULD_NOT_PATCH)
+        self.assertTrue(any("didn't make exactly one commit with its fix" in c for c in result.comments), result.comments)
+        self.assertEqual(len(result.exceptions), 1, "Not reported to Sentry")
+        self.assertIn("made 0 commits on top of ours", str(result.exceptions[0]))
+        self.assertFalse(any("resolved conflicts" in c for c in result.comments), "Said the AI resolved the conflicts")
+        self.assertEqual([c[0] for c in self._new_commits()], ["Bug %d - Update fakelib to %s" % (BUG_ID, NEW_VERSION)])
+        self._assert_tree_is_clean()
+
+    # The AI commits its fix in two: Phabricator would be sent the wrong commits, so
+    # that's a failure too.
+    @logEntryExitHeaderLine
+    def testStagesAIMakesTwoCommits(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"lib.c": "".join(self.UPSTREAM_CONFLICT)}))
+
+        def fix_in_two_commits(cwd, commit_message):
+            write(os.path.join(self.repo, VENDOR_DIR, "patches/0.patch"), self.REBASED_FIX_PATCH)
+            self._hg("commit", "-q", "-m", commit_message)
+            write(os.path.join(self.repo, VENDOR_DIR, "patches/notes.txt"), "Rebased.\n")
+            self._hg("commit", "-q", "-A", "-m", commit_message)
+        self.ai_fix = fix_in_two_commits
+
+        result = self._run()
+
+        self.assertEqual(result.ai_calls, 1)
+        self.assertEqual(result.job.status, JOBSTATUS.DONE)
+        self.assertEqual(result.job.outcome, JOBOUTCOME.COULD_NOT_PATCH)
+        self.assertTrue(any("didn't make exactly one commit with its fix" in c for c in result.comments), result.comments)
+        self.assertEqual(len(result.exceptions), 1, "Not reported to Sentry")
+        self.assertIn("made 2 commits on top of ours", str(result.exceptions[0]))
+        self.assertFalse(any("resolved conflicts" in c for c in result.comments), "Said the AI resolved the conflicts")
+        self._assert_tree_is_clean()
+
+    # The AI's fix doesn't apply either: reported, and nothing left behind
+    @logEntryExitHeaderLine
+    def testStagesConflictTheAICantFix(self):
+        self._make_repo(stages=OrderedDict([("fetch", []), ("patches", [FIX_PATCH])]))
+        self._add_upstream(NEW_VERSION, dict(self.v1, **{"lib.c": "".join(self.UPSTREAM_CONFLICT)}))
+        self.ai_fix = self._ai_rewrites_patch("patches/0.patch", FIX_PATCH.replace("line 4", "line four"))
+
+        result = self._run()
+
+        self.assertEqual(result.ai_calls, 1)
+        self.assertEqual(result.job.status, JOBSTATUS.DONE)
+        self.assertEqual(result.job.outcome, JOBOUTCOME.COULD_NOT_PATCH)
+        self._assert_tree_is_clean()
 
 
 if __name__ == '__main__':

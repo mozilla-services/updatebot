@@ -29,7 +29,7 @@ Required Callbacks
     If these commands are run, callbacks must be supplied or it will cause errors.
 
 abandon         echo {\"transactions\": [{\"type\": \"abandon\"")
-patch           ./mach vendor --patch-mode only
+patch           ./mach vendor --patch-mode only (a library's second stage, in the old format)
 
 
 The callbacks MAY take a single parameter - if they do, they will receive
@@ -77,48 +77,84 @@ def SHARED_COMMAND_MAPPINGS(expected_values, command_callbacks):
 
         return ARC_OUTPUT % (value, value)
 
-    # For libraries with patches, Updatebot runs `./mach vendor --patch-mode only`
-    # twice: first while checking for a spurious update (between shelving and
-    # unshelving the working directory), then again in the normal flow. Tests'
-    # 'patch' callbacks are written for the normal flow only, so the check's call
-    # goes to 'spurious_check_patch' instead; with the default 'changed_files'
-    # it finds a real change and the normal flow carries on.
-    #
-    # True while Updatebot is inside that check: set by the `hg shelve --keep`
-    # that starts it, cleared by the `hg unshelve` or `hg shelve --delete` that
-    # ends it. (A one-element list so the callbacks below can change it.)
-    in_spurious_check = [False]
-
-    def set_in_spurious_check(value):
-        def callback():
-            in_spurious_check[0] = value
-            return ""
-        return callback
-
     def call(callback, cmd):
         return callback(cmd) if len(inspect.signature(callback).parameters) > 0 else callback()
 
-    def patch(cmd):
-        if in_spurious_check[0]:
-            return call(command_callbacks.get('spurious_check_patch', lambda: ""), cmd)
-        return call(command_callbacks.get('patch', AssertFalse), cmd)
+    # A model of the checkout's history, as the line of commits from the base revision
+    # to the working directory's parent, enough for committing each vendoring stage,
+    # rewording the commits by grafting them, and stripping them.
+    base = "%040x" % 0
+    history = {'line': [], 'made': 0}
+
+    def new_node():
+        history['made'] += 1
+        return "%040x" % (1000 + history['made'])
+
+    def commit(cmd):
+        ret = call(command_callbacks.get('commit', lambda: ""), cmd)
+        history['line'].append(new_node())
+        return ret
+
+    def amend():
+        history['line'][-1] = new_node()
+        return ""
+
+    def current_revision():
+        return history['line'][-1] if history['line'] else base
+
+    def commits_since(cmd):
+        # hg log -r REV::. - REV
+        revision = cmd.split()[3].split("::")[0]
+        if revision == base:
+            return "".join(n + "\n" for n in history['line'])
+        if revision in history['line']:
+            return "".join(n + "\n" for n in history['line'][history['line'].index(revision) + 1:])
+        return ""
+
+    def update(cmd):
+        revision = cmd.split()[-1]
+        history['line'] = history['line'][:history['line'].index(revision) + 1] if revision in history['line'] else []
+        return ""
+
+    def graft():
+        history['line'].append(new_node())
+        return ""
+
+    def strip(cmd):
+        if "roots(outgoing())" in cmd:
+            history['line'] = []
+        else:
+            # Only commits on the working directory's line; the others are elsewhere
+            revision = cmd.split()[-1]
+            if revision in history['line']:
+                history['line'] = history['line'][:history['line'].index(revision)]
+        return ""
+
+    def reset():
+        history['line'] = []
+        return ""
 
     return OrderedDict([
-        ("hg --config extensions.shelve= shelve --keep", set_in_spurious_check(True)),
-        ("hg --config extensions.shelve= unshelve", set_in_spurious_check(False)),
-        ("hg --config extensions.shelve= shelve --delete", set_in_spurious_check(False)),
         ("hg revert --all --no-backup", lambda: ""),
         ("hg addremove", lambda: ""),
         ("hg --config ui.relative-paths=no status", command_callbacks.get('changed_files', lambda: "media/libdav1d/src/changed.c")),
-        ("./mach vendor --patch-mode only", patch),
+        ("./mach vendor --patch-mode only", command_callbacks.get('patch', AssertFalse)),
         ("./mach vendor --check-for-update", command_callbacks.get('check_for_update', lambda: expected_values.library_new_version_id() + " 2020-08-21T15:13:49.000+02:00")),
         ("./mach vendor ", command_callbacks.get('vendor', lambda: "")),
-        ("hg commit", command_callbacks.get('commit', lambda: "")),
-        ("hg checkout -C .", lambda: ""),
+        ("hg commit --amend", amend),
+        ("hg commit", commit),
+        ("hg status --modified --added --removed", command_callbacks.get('stage_changes', lambda: "M media/libdav1d/src/changed.c")),
+        ("hg log -r . -l 1 -T {node}", current_revision),
+        ("hg log -r ", commits_since),
+        ("hg update -r", update),
+        ("hg update -C -r", update),
+        ("hg graft", graft),
+        ("hg checkout -C .", reset),
         ("hg purge .", lambda: ""),
         ("hg status", lambda: ""),
-        ("hg strip", lambda: ""),
+        ("hg strip", strip),
         ("hg log -r tip --template", lambda: "a61d07a72763"),
+        ("hg diff --git", command_callbacks.get('stack_diff', lambda: "diff --git a/media/libdav1d/src/changed.c b/media/libdav1d/src/changed.c\n")),
         ("hg diff --stat", lambda: " accessible/interfaces/ia2/moz.build |  6 +++---\n 1 files changed, 3 insertions(+), 3 deletions(-)\n"),
         ("arc diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),
         ("arcanist diff --verbatim", command_callbacks.get('phab_submit', default_phab_submit)),

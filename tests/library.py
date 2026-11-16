@@ -212,6 +212,12 @@ class TestLibraryProvider(unittest.TestCase):
             with self.assertRaises(Exception, msg=repr(broken)):
                 read_stages(broken)
 
+    def testReadRevision(self):
+        with tempfile.TemporaryDirectory() as gecko:
+            with open(os.path.join(gecko, "moz.yaml"), "w") as f:
+                f.write("origin:\n  name: foo\n  revision: abc123\nvendoring:\n  url: https://example.invalid\n")
+            self.assertEqual(self.libraryprovider.read_revision(gecko, Struct(yaml_path='moz.yaml')), "abc123")
+
     def testStageCommitMessages(self):
         library = Struct(name='foo', stages=[
             {'name': 'fetch', 'patches': ['early.patch'], 'title': None},

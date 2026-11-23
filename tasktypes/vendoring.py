@@ -28,6 +28,12 @@ class VendoringUtilities:
     LICENSE_FILE_NAME = re.compile(r"^(LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|UNLICENSE)", re.IGNORECASE)
 
     @staticmethod
+    def give_up(vendoring_task, job, library, outcome, comment):
+        # Mark a new job done with outcome, and tell the maintainer why on its bug
+        vendoring_task.dbProvider.update_job_status(job, JOBSTATUS.DONE, outcome)
+        vendoring_task.bugzillaProvider.comment_on_bug(job.bugzilla_id, comment, needinfo=library.maintainer_bz)
+
+    @staticmethod
     @logEntryExit
     def reset_for_new_job(vendoring_task):
         # Remove the commits made processing this library, if there are any
@@ -264,9 +270,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.mercurialProvider.reset_repository()
 
             # Handle `./mach vendor` failing
-            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR(library, new_version, msg), needinfo=library.maintainer_bz)
-            return
+            return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_VENDOR, CommentTemplates.COULD_NOT_VENDOR(library, new_version, msg))
         elif result == VendorResult.MOZBUILD_ERROR:
             # Add a comment but do not abort
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_VENDOR_ALL_FILES(library, new_version, msg))
@@ -279,8 +283,7 @@ class VendorTaskRunner(BaseTaskRunner):
         try:
             self.mercurialProvider.commit(library, created_job.bugzilla_id, new_version)
         except Exception as e:
-            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."), needinfo=library.maintainer_bz)
+            VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_COMMIT, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit the updated library."))
             raise e
 
         ai_resolved_conflicts = False
@@ -297,9 +300,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 if not _is_patch_conflict(e):
                     # Something other than a patch conflict failed (e.g. a
                     # post-patch action), which the AI can't resolve.
-                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches (this wasn't a patch conflict, so Updatebot didn't ask its AI assistant to resolve it)", errormessage=msg), needinfo=library.maintainer_bz)
-                    return
+                    return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches (this wasn't a patch conflict, so Updatebot didn't ask its AI assistant to resolve it)", errormessage=msg))
 
                 # The mozilla patches didn't apply cleanly. Ask the AI to try to
                 # resolve the conflicts (updating the .patch files / moz.yaml).
@@ -312,9 +313,7 @@ class VendorTaskRunner(BaseTaskRunner):
                 ai_details = "\n".join(resolution.get("details", [])) if resolution else ""
 
                 if outcome == "failure":
-                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR_WITH_AI("apply the mozilla patches.", initialerrormessage=msg, ai_outcome=outcome, ai_details=ai_details), needinfo=library.maintainer_bz)
-                    return
+                    return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR_WITH_AI("apply the mozilla patches.", initialerrormessage=msg, ai_outcome=outcome, ai_details=ai_details))
 
                 # The AI reports it resolved the conflicts (and committed the
                 # updated .patch files). Record the outcome on the bug, flagging
@@ -338,9 +337,7 @@ class VendorTaskRunner(BaseTaskRunner):
                     else:
                         self.logger.log("The AI removed every mozilla patch, so there are none to re-apply or commit.", level=LogLevel.Info)
                 except Exception as e2:
-                    self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=VendoringUtilities.exception_message(e2)), needinfo=library.maintainer_bz)
-                    return
+                    return VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_PATCH, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=VendoringUtilities.exception_message(e2)))
 
                 # The AI added its own commit for the .patch/moz.yaml fixes, so
                 # there is now an extra commit to submit to Phabricator.
@@ -350,8 +347,7 @@ class VendorTaskRunner(BaseTaskRunner):
             try:
                 self.mercurialProvider.commit_patches(library, created_job.bugzilla_id, new_version)
             except Exception as e:
-                self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES)
-                self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit after applying mozilla patches."), needinfo=library.maintainer_bz)
+                VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_COMMIT_PATCHES, CommentTemplates.COULD_NOT_GENERAL_ERROR("commit after applying mozilla patches."))
                 raise e
 
         # Submit to Try -----------------------
@@ -366,8 +362,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
             self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.TRY_CLOSED(e.reason, e.try_command), needinfo=library.maintainer_bz)
         except Exception as e:
-            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to try."), needinfo=library.maintainer_bz)
+            VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to try."))
             raise e
 
         # Submit Phab Revision ----------------
@@ -386,13 +381,11 @@ class VendorTaskRunner(BaseTaskRunner):
             for revision, purpose in zip(phab_revisions, purposes):
                 self.dbProvider.add_phab_revision(created_job, revision, purpose)
         except DiffTooLargeError as e:
-            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, new_version, str(e)), needinfo=library.maintainer_bz)
+            VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, CommentTemplates.COULD_NOT_SUBMIT_DIFF_TOO_LARGE(library, new_version, str(e)))
             self.logger.log(str(e), level=LogLevel.Warning)
         except Exception as e:
-            self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB)
             errormessage = str(e) if isinstance(e, ArcNeedsInputError) else None
-            self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to phabricator.", errormessage), needinfo=library.maintainer_bz)
+            VendoringUtilities.give_up(self, created_job, library, JOBOUTCOME.COULD_NOT_SUBMIT_TO_PHAB, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to phabricator.", errormessage))
             raise e
 
     # ====================================================================

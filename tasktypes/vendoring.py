@@ -19,30 +19,68 @@ from components.bugzilla import CommentTemplates
 from components.mach_vendor import VendorResult
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.logging import LogLevel, logEntryExit, logEntryExitNoArgs
-from components.hg import reset_repository, HG_SHELVE, SPURIOUS_CHECK_SHELF
+from components.hg import HG_SHELVE, SPURIOUS_CHECK_SHELF
 
-# Upstream's license files are usually named like these (LICENSE.txt, COPYING.LIB,
-# LICENSE_FOXIT, ...); moz.yaml's license-file covers any that aren't.
-LICENSE_FILE_NAME = re.compile(r"^(LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|UNLICENSE)", re.IGNORECASE)
+
+class VendoringUtilities:
+    # Upstream's license files are usually named like these (LICENSE.txt, COPYING.LIB,
+    # LICENSE_FOXIT, ...); moz.yaml's license-file covers any that aren't.
+    LICENSE_FILE_NAME = re.compile(r"^(LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|UNLICENSE)", re.IGNORECASE)
+
+    @staticmethod
+    @logEntryExit
+    def reset_for_new_job(vendoring_task):
+        # Remove the commits made processing this library, if there are any
+        vendoring_task.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)
+
+        # If we are on TC, update to the HEAD commit to avoid stripping WIP commits on holly
+        status = vendoring_task.cmdProvider.run(["hg", "status"]).stdout
+        head = os.environ.get("GECKO_HEAD_REV", "")
+        if not status.strip() and head and vendoring_task.cmdProvider.run(["hg", "log", "-r", ".", "-T", "{node}"]).stdout.strip() == head:
+            # Most jobs we look at don't touch the checkout, and a full reset takes ~20s
+            vendoring_task.logger.log("The working directory is clean and at %s, so there's nothing to reset." % head[:12], level=LogLevel.Info)
+            vendoring_task.cmdProvider.run(HG_SHELVE + ["shelve", "--delete", SPURIOUS_CHECK_SHELF], clean_return=False)
+            return
+        vendoring_task.mercurialProvider.reset_repository()
+
+    @staticmethod
+    def has_commandeered_revision(vendoring_task, job):
+        for p in job.phab_revisions:
+            try:
+                if vendoring_task.phabricatorProvider.is_commandeered(p.revision):
+                    return True
+            except Exception as e:
+                # If we can't tell, close the bug as we always have
+                vendoring_task.logger.log_exception(e)
+        return False
+
+    @staticmethod
+    @logEntryExit
+    def changed_license_files(vendoring_task, library):
+        license_file = os.path.normpath(os.path.join(library.vendor_directory, library.license_file)) if library.license_file else None
+        return [f for f in vendoring_task.mercurialProvider.changed_files_in(library.vendor_directory)
+                if VendoringUtilities.LICENSE_FILE_NAME.match(os.path.basename(f)) or os.path.normpath(f) == license_file]
+
+    @staticmethod
+    def exception_message(e):
+        # A failed command's output, or any other exception's message, for a bug comment
+        if isinstance(e, subprocess.CalledProcessError):
+            msg = ("stderr:\n" + e.stderr.rstrip() + "\n\n") if e.stderr else ""
+            msg += ("stdout:\n" + e.stdout.rstrip()) if e.stdout else ""
+            return msg
+        return str(e)
+
 
 # A try push this old that has no results on Treeherder never will. (Results for a
 # new push appear within minutes.)
 TRY_RESULTS_GONE_DAYS = 7
 
 
-def _patch_exception_message(e):
-    if isinstance(e, subprocess.CalledProcessError):
-        msg = ("stderr:\n" + e.stderr.rstrip() + "\n\n") if e.stderr else ""
-        msg += ("stdout:\n" + e.stdout.rstrip()) if e.stdout else ""
-        return msg
-    return str(e)
-
-
 def _is_patch_conflict(e):
     # `./mach vendor --patch-mode only` applies the patches and then runs the
     # post-patch actions. Only a patch that didn't apply is something the AI can
     # fix; mach logs this message for that case and not for a failed action.
-    return "Could not apply" in _patch_exception_message(e)
+    return "Could not apply" in VendoringUtilities.exception_message(e)
 
 
 class VendorTaskRunner(BaseTaskRunner):
@@ -74,7 +112,7 @@ class VendorTaskRunner(BaseTaskRunner):
             self.logger.set_context(library.name, j.id)
             self.logger.log("Processing job id %s for %s which is currently %s and has a %s bug" % (j.id, library.name, j.status.name, "open" if j.bugzilla_is_open else "closed"))
             self._process_existing_job(library, task, j)
-            self._reset_for_new_job()
+            VendoringUtilities.reset_for_new_job(self)
         self.logger.set_context(library.name)
 
         # See if we have a new upstream commit to process
@@ -105,14 +143,7 @@ class VendorTaskRunner(BaseTaskRunner):
         # Now process it.
         self.logger.log("Processing %s for a new upstream revision %s, the most recent job is %s." % (library.name, new_version, most_recent_job.id if most_recent_job else "(none)"), level=LogLevel.Info)
         self._process_new_job(library, task, new_version, timestamp, most_recent_job)
-        self._reset_for_new_job()
-
-    # ====================================================================
-    @logEntryExit
-    def _changed_license_files(self, library):
-        license_file = os.path.normpath(os.path.join(library.vendor_directory, library.license_file)) if library.license_file else None
-        return [f for f in self.mercurialProvider.changed_files_in(library.vendor_directory)
-                if LICENSE_FILE_NAME.match(os.path.basename(f)) or os.path.normpath(f) == license_file]
+        VendoringUtilities.reset_for_new_job(self)
 
     # ====================================================================
     @logEntryExit
@@ -141,30 +172,14 @@ class VendorTaskRunner(BaseTaskRunner):
                 self.mercurialProvider.restore_working_directory(SPURIOUS_CHECK_SHELF)
 
     # ====================================================================
-    @logEntryExit
-    def _reset_for_new_job(self):
-        # remove commits generated from processing this library, will return success
-        # regardless of if outgoing commits exist or not.
-        self.logger.log("Removing any outgoing commits before moving on.", level=LogLevel.Info)
 
-        # If we are on TC, update to the HEAD commit to avoid stripping WIP commits on holly
-        status = self.cmdProvider.run(["hg", "status"]).stdout
-        head = os.environ.get("GECKO_HEAD_REV", "")
-        if not status.strip() and head and self.cmdProvider.run(["hg", "log", "-r", ".", "-T", "{node}"]).stdout.strip() == head:
-            # Most jobs we look at don't touch the checkout, and a full reset takes ~20s
-            self.logger.log("The working directory is clean and at %s, so there's nothing to reset." % head[:12], level=LogLevel.Info)
-            self.cmdProvider.run(HG_SHELVE + ["shelve", "--delete", SPURIOUS_CHECK_SHELF], clean_return=False)
-            return
-        reset_repository(self.cmdProvider)
-
-    # ====================================================================
     @logEntryExit
     def _process_prior_job(self, prior_job, superseceding_bugzilla_id):
         self.logger.log("The prior job id %s is not relinquished, so processing it." % prior_job.id, level=LogLevel.Info)
 
         if not prior_job.bugzilla_is_open or self.bugzillaProvider.bug_has_landing_link(prior_job.bugzilla_id):
             self.logger.log("The prior job's bugzilla bug is closed or about to be closed, so we only need to relinquish it.", level=LogLevel.Info)
-        elif superseceding_bugzilla_id and self._has_commandeered_revision(prior_job):
+        elif superseceding_bugzilla_id and VendoringUtilities.has_commandeered_revision(self, prior_job):
             # Someone is working on the revision themselves, so it isn't ours to close
             self.logger.log("The prior job's phabricator revision has been commandeered, so we're leaving its bug open.", level=LogLevel.Info)
             self.bugzillaProvider.comment_on_bug(prior_job.bugzilla_id, CommentTemplates.BUG_SUPERSEDED_BUT_COMMANDEERED(superseceding_bugzilla_id))
@@ -181,16 +196,6 @@ class VendorTaskRunner(BaseTaskRunner):
                         self.logger.log_exception(e)  # We're going to log this exception, but not stop processing the new job
 
         self.dbProvider.update_job_relinquish(prior_job)
-
-    def _has_commandeered_revision(self, job):
-        for p in job.phab_revisions:
-            try:
-                if self.phabricatorProvider.is_commandeered(p.revision):
-                    return True
-            except Exception as e:
-                # If we can't tell, close the bug as we always have
-                self.logger.log_exception(e)
-        return False
 
     @logEntryExit
     def _process_new_job(self, library, task, new_version, timestamp, most_recent_job):
@@ -213,7 +218,7 @@ class VendorTaskRunner(BaseTaskRunner):
             return
         if result == VendorResult.SUCCESS and library.has_patches and self._only_patches_changed(library):
             self.logger.log("Version %s only removes and reapplies our patches, so it was a spurious update." % new_version, level=LogLevel.Info)
-            reset_repository(self.cmdProvider)
+            self.mercurialProvider.reset_repository()
             return
 
         # Create the job ----------------------
@@ -222,7 +227,7 @@ class VendorTaskRunner(BaseTaskRunner):
 
         # File the bug ------------------------
         commit_stats = self.mercurialProvider.diff_stats()
-        license_files = self._changed_license_files(library)
+        license_files = VendoringUtilities.changed_license_files(self, library)
         if license_files:
             self.logger.log("This update changes the license files %s." % ", ".join(license_files), level=LogLevel.Info)
         license_note = CommentTemplates.LICENSE_FILES_CHANGED(license_files) if license_files else ""
@@ -241,7 +246,7 @@ class VendorTaskRunner(BaseTaskRunner):
             # and without a bug a later run would treat this version as handled.
             self.logger.log("Could not get the upstream commits for %s; filing the bug without them: %s" % (library.name, e), level=LogLevel.Warning)
             commit_chunks = [""]
-            bug_description = CommentTemplates.UPDATE_DETAILS_WITHOUT_COMMITS(library, commit_stats, _patch_exception_message(e))
+            bug_description = CommentTemplates.UPDATE_DETAILS_WITHOUT_COMMITS(library, commit_stats, VendoringUtilities.exception_message(e))
         bug_description = license_note + bug_description
 
         created_job.bugzilla_id = self.bugzillaProvider.file_bug(library, CommentTemplates.UPDATE_SUMMARY(library, new_version, timestamp), bug_description, task.cc, blocks=task.blocking)
@@ -256,7 +261,7 @@ class VendorTaskRunner(BaseTaskRunner):
         # Handle other vendoring outcomes -----
         if result == VendorResult.GENERAL_ERROR:
             # We're not going to commit these changes; so clean them out.
-            reset_repository(self.cmdProvider)
+            self.mercurialProvider.reset_repository()
 
             # Handle `./mach vendor` failing
             self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_VENDOR)
@@ -287,7 +292,7 @@ class VendorTaskRunner(BaseTaskRunner):
             try:
                 self.vendorProvider.patch(library, new_version)
             except Exception as e:
-                msg = _patch_exception_message(e)
+                msg = VendoringUtilities.exception_message(e)
 
                 if not _is_patch_conflict(e):
                     # Something other than a patch conflict failed (e.g. a
@@ -334,7 +339,7 @@ class VendorTaskRunner(BaseTaskRunner):
                         self.logger.log("The AI removed every mozilla patch, so there are none to re-apply or commit.", level=LogLevel.Info)
                 except Exception as e2:
                     self.dbProvider.update_job_status(created_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_PATCH)
-                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=_patch_exception_message(e2)), needinfo=library.maintainer_bz)
+                    self.bugzillaProvider.comment_on_bug(created_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("apply the mozilla patches even after AI conflict resolution.", errormessage=VendoringUtilities.exception_message(e2)), needinfo=library.maintainer_bz)
                     return
 
                 # The AI added its own commit for the .patch/moz.yaml fixes, so

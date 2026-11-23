@@ -12,15 +12,13 @@ sys.path.append("..")
 from components.bugzilla import CommentTemplates
 from components.logging import SimpleLogger
 from components.utilities import Struct
-from tasktypes.vendoring import VendorTaskRunner
+from tasktypes.vendoring import VendoringUtilities
 
 
 class TestChangedLicenseFiles(unittest.TestCase):
     def _changed_license_files(self, changed, license_file=None):
-        runner = VendorTaskRunner.__new__(VendorTaskRunner)
-        runner.logger = SimpleLogger()
-        runner.mercurialProvider = Struct(changed_files_in=lambda directory: changed)
-        return runner._changed_license_files(Struct(vendor_directory="third_party/foo", license_file=license_file))
+        vendoring_task = Struct(logger=SimpleLogger(), mercurialProvider=Struct(changed_files_in=lambda directory: changed))
+        return VendoringUtilities.changed_license_files(vendoring_task, Struct(vendor_directory="third_party/foo", license_file=license_file))
 
     def testConventionalNames(self):
         changed = [

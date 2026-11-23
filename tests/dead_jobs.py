@@ -17,7 +17,8 @@ from apis.taskcluster import TaskclusterProvider, TryPushNotFoundError
 from components.dbmodels import JOBSTATUS, JOBOUTCOME
 from components.logging import SimpleLogger, SimpleLoggerConfig
 from components.utilities import Struct
-from tasktypes.vendoring import VendorTaskRunner
+from components.hg import MercurialProvider
+from tasktypes.vendoring import VendorTaskRunner, VendoringUtilities
 
 HEAD = "a" * 40
 
@@ -41,6 +42,8 @@ def runner(commands=None, outputs=None):
             commands.append(args)
             return Struct(stdout=next((v for k, v in outputs.items() if k in " ".join(args)), ""), stderr="", returncode=0)
         r.cmdProvider = Struct(run=run)
+        r.mercurialProvider = MercurialProvider({})
+        r.mercurialProvider.update_config({'CommandProvider': r.cmdProvider, 'LoggingProvider': r.logger})
     return r
 
 
@@ -92,7 +95,7 @@ class TestDeadJobs(unittest.TestCase):
         commands = []
         r = runner(commands, {"hg log": HEAD})
         with mock.patch.dict(os.environ, {"GECKO_HEAD_REV": HEAD}):
-            r._reset_for_new_job()
+            VendoringUtilities.reset_for_new_job(r)
         self.assertEqual([c[:2] for c in commands], [["hg", "status"], ["hg", "log"], ["hg", "--config"]])
 
     def testChangedCheckoutIsReset(self):
@@ -100,7 +103,7 @@ class TestDeadJobs(unittest.TestCase):
             commands = []
             r = runner(commands, outputs)
             with mock.patch.dict(os.environ, {"GECKO_HEAD_REV": HEAD}):
-                r._reset_for_new_job()
+                VendoringUtilities.reset_for_new_job(r)
             self.assertIn(["hg", "checkout", "-C", "."], commands, outputs)
             self.assertIn(["hg", "update", HEAD], commands, outputs)
 

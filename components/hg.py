@@ -13,26 +13,28 @@ HG_SHELVE = ["hg", "--config", "extensions.shelve="]
 SPURIOUS_CHECK_SHELF = "updatebot-spurious-check"
 
 
-def reset_repository(cmdrunner):
-    cmdrunner.run(["hg", "checkout", "-C", "."])
-    cmdrunner.run(["hg", "purge", "."])
-    # Drop the shelf if a run was interrupted partway through the spurious-update
-    # check. Only ours: the checkout may have other shelves. It's usually not there.
-    cmdrunner.run(HG_SHELVE + ["shelve", "--delete", SPURIOUS_CHECK_SHELF], clean_return=False)
-
-    original_revision = os.environ.get("GECKO_HEAD_REV", "")
-    if original_revision:
-        ret = cmdrunner.run(["hg", "update", original_revision])
-    else:
-        ret = cmdrunner.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
-        if ret.returncode == 255:
-            if "abort: empty revision set" not in ret.stderr:
-                ret.check_returncode()
-
-
 class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
     def __init__(self, config):
         pass
+
+    @logEntryExit
+    def reset_repository(self):
+        # Throws away everything Updatebot did to the checkout: uncommitted changes,
+        # and its commits.
+        self.run(["hg", "checkout", "-C", "."])
+        self.run(["hg", "purge", "."])
+        # Drop the shelf if a run was interrupted partway through the spurious-update
+        # check. Only ours: the checkout may have other shelves. It's usually not there.
+        self.run(HG_SHELVE + ["shelve", "--delete", SPURIOUS_CHECK_SHELF], clean_return=False)
+
+        original_revision = os.environ.get("GECKO_HEAD_REV", "")
+        if original_revision:
+            self.run(["hg", "update", original_revision])
+        else:
+            ret = self.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
+            if ret.returncode == 255:
+                if "abort: empty revision set" not in ret.stderr:
+                    ret.check_returncode()
 
     @logEntryExit
     def commit(self, library, bug_id, new_release_version):

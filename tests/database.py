@@ -16,6 +16,7 @@ import pymysql
 
 sys.path.append(".")
 sys.path.append("..")
+import components.db
 from components.dbmodels import JOBSTATUS, JOBOUTCOME, JOBTYPE
 from components.dbc import DatabaseProvider
 from components.logging import SimpleLoggerConfig, log
@@ -135,6 +136,31 @@ class TestDatabaseConnection(unittest.TestCase):
         db.check_database()
         self.assertTrue(db.updatebot_is_enabled())
         del db
+
+    def testFirstLoginWithoutTLS(self):
+        # On Taskcluster Updatebot connects to cloud_sql_proxy on 127.0.0.1 without
+        # TLS, so the first caching_sha2_password login after the server starts (or
+        # flushes privileges) exchanges the password with RSA. PyMySQL 1.2.3 crashed
+        # there; MySQL 8.4 makes caching_sha2_password the only default.
+        config = localconfig['Database']
+        admin = pymysql.connect(host=config['host'], user=config['user'], password=config['password'], autocommit=True)
+        user = "updatebot_tls_test_%d" % random.randint(0, 100000)
+        password = "pw%d" % random.randint(0, 10 ** 9)
+        with admin.cursor() as cursor:
+            cursor.execute("CREATE USER %s@'%%' IDENTIFIED WITH caching_sha2_password BY %s", (user, password))
+            cursor.execute("FLUSH PRIVILEGES")  # Empties the cache, forcing the full exchange
+        try:
+            real_connect = pymysql.connect
+            with mock.patch("components.db.pymysql.connect", side_effect=lambda *a, **kw: real_connect(*a, ssl_disabled=True, **kw)):
+                connection = components.db._connect(dict(config, user=user, password=password))
+            with connection.cursor() as cursor:
+                cursor.execute("SHOW SESSION STATUS LIKE 'Ssl_cipher'")
+                self.assertEqual(cursor.fetchone()['Value'], "", "The connection used TLS, so this doesn't test anything")
+            connection.close()
+        finally:
+            with admin.cursor() as cursor:
+                cursor.execute("DROP USER %s@'%%'", (user,))
+            admin.close()
 
 
 if __name__ == '__main__':

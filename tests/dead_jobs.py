@@ -29,6 +29,7 @@ class FakeDatabase:
     def update_job_status(self, job, newstatus=None, newoutcome=None):
         self.updates.append((job.id, newstatus))
         job.status = newstatus or job.status
+        job.outcome = newoutcome or job.outcome
 
 
 def runner(commands=None, outputs=None):
@@ -46,7 +47,19 @@ def runner(commands=None, outputs=None):
 
 def job(status, bug_open, age_days=30):
     return Struct(id=7, status=status, outcome=JOBOUTCOME.PENDING, bugzilla_is_open=bug_open, bugzilla_id=123,
-                  created=datetime.now() - timedelta(days=age_days))
+                  created=datetime.now() - timedelta(days=age_days), try_runs=[Struct(revision="abcdef")])
+
+
+def with_try(r, has_decision_task):
+    """Fake Taskcluster's answer about the decision task, and record comments and the revisions asked about."""
+    r.decision_task_requests = []
+    r.comments = []
+    r.taskclusterProvider = Struct(has_decision_task=lambda revision: (r.decision_task_requests.append(revision), has_decision_task)[1])
+    r.bugzillaProvider = Struct(comment_on_bug=lambda bug_id, text, needinfo=None: r.comments.append((bug_id, text, needinfo)))
+    return r
+
+
+LIBRARY = Struct(maintainer_bz="maintainer@example.com")
 
 
 class TestDeadJobs(unittest.TestCase):
@@ -69,9 +82,31 @@ class TestDeadJobs(unittest.TestCase):
     def testTryRunWithoutResultsIsOtherwiseWaitedFor(self):
         for j in (job(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, bug_open=False, age_days=1),
                   job(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, bug_open=True)):
-            r = runner()
-            self.assertFalse(r._job_is_completed_without_build_failures(None, j, []))
+            r = with_try(runner(), has_decision_task=True)
+            self.assertFalse(r._job_is_completed_without_build_failures(LIBRARY, j, []))
             self.assertEqual(r.dbProvider.updates, [], "bug open: %s, created %s" % (j.bugzilla_is_open, j.created))
+
+    def testTryPushWithoutDecisionTaskIsGivenUpOn(self):
+        for bug_open in (True, False):
+            r = with_try(runner(), has_decision_task=False)
+            j = job(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, bug_open=bug_open, age_days=1)
+            self.assertFalse(r._job_is_completed_without_build_failures(LIBRARY, j, []))
+            self.assertEqual(r.decision_task_requests, ["abcdef"])
+            self.assertEqual(r.dbProvider.updates, [(7, JOBSTATUS.DONE)])
+            self.assertEqual(j.outcome, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
+            if bug_open:
+                self.assertEqual(len(r.comments), 1)
+                self.assertIn("never started the push's Decision task", r.comments[0][1])
+                self.assertEqual(r.comments[0][2], "maintainer@example.com")
+            else:
+                self.assertEqual(r.comments, [], "Commented on a closed bug")
+
+    def testNewTryPushWithoutJobsIsWaitedFor(self):
+        r = with_try(runner(), has_decision_task=False)
+        j = job(JOBSTATUS.AWAITING_SECOND_PLATFORMS_TRY_RESULTS, bug_open=True, age_days=1 / 24)
+        self.assertFalse(r._job_is_completed_without_build_failures(LIBRARY, j, []))
+        self.assertEqual(r.decision_task_requests, [], "Gave the decision task no time to start")
+        self.assertEqual(r.dbProvider.updates, [])
 
     def testTryPushTreeherderNoLongerHas(self):
         # Through the whole existing-job path, as Treeherder eventually deletes old pushes
@@ -121,6 +156,33 @@ class TestMissingTryPush(unittest.TestCase):
                 provider.get_job_details("abcdef")
             except Exception as e:
                 return e, len(requests_made)
+
+    def _has_decision_task(self, status_code):
+        provider = TaskclusterProvider({'url_treeherder': 'http://treeherder.invalid/', 'url_taskcluster': 'http://taskcluster.invalid/'})
+        provider.update_config(dict(SimpleLoggerConfig, CommandProvider=Struct(run=None)))
+        requests_made = []
+
+        def get(url, **kwargs):
+            requests_made.append(url)
+            response = mock.Mock(status_code=status_code)
+            if status_code >= 400:
+                response.raise_for_status.side_effect = Exception("HTTP %s" % status_code)
+            return response
+        with mock.patch("apis.taskcluster.requests.get", get), \
+                mock.patch.object(components.utilities, "RETRY_TIMES_OVERRIDE", 3), \
+                mock.patch.object(components.utilities.time, "sleep", lambda s: None):
+            try:
+                return provider.has_decision_task("abcdef"), requests_made
+            except Exception as e:
+                return e, requests_made
+
+    def testDecisionTaskInTheIndex(self):
+        self.assertEqual(self._has_decision_task(200), (True, ["http://taskcluster.invalid/api/index/v1/task/gecko.v2.try.revision.abcdef.taskgraph.decision"]))
+        found, requests_made = self._has_decision_task(404)
+        self.assertEqual((found, len(requests_made)), (False, 1))
+        e, requests_made = self._has_decision_task(500)
+        self.assertIsInstance(e, Exception)
+        self.assertEqual(len(requests_made), 3, "Expected a failed request to be retried")
 
     def testMissingPushIsNotRetried(self):
         e, requests_made = self._get_job_details((True, {"results": []}))

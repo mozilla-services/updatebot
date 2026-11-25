@@ -28,6 +28,8 @@ LICENSE_FILE_NAME = re.compile(r"^(LICEN[CS]E|COPYING|COPYRIGHT|NOTICE|UNLICENSE
 # A try push this old that has no results on Treeherder never will. (Results for a
 # new push appear within minutes.)
 TRY_RESULTS_GONE_DAYS = 7
+# How long a try push can go without any jobs before we decide its decision task will never run
+DECISION_TASK_GRACE_HOURS = 10
 
 
 def _patch_exception_message(e):
@@ -617,6 +619,13 @@ class VendorTaskRunner(BaseTaskRunner):
                 # so nothing more can happen to this job. Stop looking at it every run.
                 self.logger.log("Try revision had no job results, the job is from %s and its bug is closed, so marking it done." % existing_job.created, level=LogLevel.Info)
                 self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE)
+            elif datetime.now() - timedelta(days=TRY_RESULTS_GONE_DAYS) < existing_job.created < datetime.now() - timedelta(hours=DECISION_TASK_GRACE_HOURS) \
+                    and not self.taskclusterProvider.has_decision_task(existing_job.try_runs[0].revision):
+                # Try never started the push's decision task (e.g. during an outage), so nothing will ever run on it
+                self.logger.log("Try revision had no job results and no decision task, from %s, so it will never run." % existing_job.created, level=LogLevel.Warning)
+                if existing_job.bugzilla_is_open:
+                    self.bugzillaProvider.comment_on_bug(existing_job.bugzilla_id, CommentTemplates.COULD_NOT_GENERAL_ERROR("submit to try. Try never started the push's Decision task, so no tests ran."), needinfo=library.maintainer_bz)
+                self.dbProvider.update_job_status(existing_job, JOBSTATUS.DONE, JOBOUTCOME.COULD_NOT_SUBMIT_TO_TRY)
             else:
                 self.logger.log("Try revision had no job results. Skipping this job.", level=LogLevel.Warning)
             return False

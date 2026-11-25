@@ -453,6 +453,22 @@ class TaskclusterProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProv
             raise Exception("Could not find the action's clientId in the task definition. Url: %s Response:\n%s" % (task_url, r.text))
         return client_id.startswith("task-client/")
 
+    @logEntryExit
+    @retry
+    def has_decision_task(self, revision):
+        """
+        Whether the try push of revision has a decision task that finished, according
+        to the Taskcluster index (which only lists finished decision tasks).
+        """
+        index_url = self.url_taskcluster + "api/index/v1/task/gecko.v2.try.revision.%s.taskgraph.decision" % revision
+        self.logger.log("Looking for the decision task of try revision %s at %s" % (revision, index_url), level=LogLevel.Info)
+
+        r = requests.get(index_url, headers=self.HEADERS)
+        if r.status_code == 404:
+            return False
+        r.raise_for_status()
+        return True
+
     @logEntryExitNoArgs
     def is_known_intermittent(self, job):
         """

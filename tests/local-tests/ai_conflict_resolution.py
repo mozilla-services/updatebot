@@ -192,6 +192,7 @@ class TestAIConflictResolutionLive(unittest.TestCase):
         from components.commandprovider import CommandProvider
         from components.logging import SimpleLogger
         from components.aiprovider import AIProvider
+        from components.utilities import Struct
 
         logger = SimpleLogger({"local": True, "level": 5})
         command_provider = CommandProvider({})
@@ -212,8 +213,10 @@ class TestAIConflictResolutionLive(unittest.TestCase):
         ai = AIProvider(ai_config)
         ai.update_config({"CommandProvider": command_provider, "LoggingProvider": logger})
 
+        library = Struct(name="nestegg", yaml_path=MOZ_YAML, uses_stages=False)
         return ai.resolve_patch_conflicts(
-            MOZ_YAML,
+            library, {'name': 'patches', 'patches': [], 'title': None},
+            ["./mach", "vendor", "--patch-mode", "only", MOZ_YAML],
             "Bug 0 - update nestegg local patches to apply cleanly (test)",
             cwd=self.gecko_path)
 
@@ -221,10 +224,9 @@ class TestAIConflictResolutionLive(unittest.TestCase):
         print("Running the live AI conflict resolution (this calls the real claude CLI)...")
         result = self._resolve_with_real_ai()
 
-        self.assertIsNotNone(result, "resolve_patch_conflicts produced no result file.")
-        outcome = result.get("outcome")
+        outcome, details = result
         print("AI outcome: %s" % outcome)
-        print("AI details:\n  - " + "\n  - ".join(result.get("details", [])))
+        print("AI details:\n  - " + details.replace("\n", "\n  - "))
         self.assertIn(outcome, ("trivial success", "uncertain success"),
                       "AI reported outcome %r; expected a success." % outcome)
 

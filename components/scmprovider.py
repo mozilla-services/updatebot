@@ -125,6 +125,45 @@ def _contains_commit(list_of_commits, revision):
     return False
 
 
+class CommitTemplates:
+    @staticmethod
+    def STAGE_COMMIT_MESSAGE(library, index, revision):
+        # The commit message for a vendoring stage, without the bug number, as mach
+        # vendor writes it
+        s = library.stages[index]
+        if s.get('title'):
+            return s['title']
+        if index == 0:
+            return "Update %s to %s" % (library.name, revision)
+        if s['patches']:
+            if s['name'] == 'patches':
+                return "Apply mozilla patches for %s" % library.name
+            return "Apply mozilla %s patches for %s" % (s['name'], library.name)
+        return "Stage %s for %s" % (s['name'], library.name)
+
+    @staticmethod
+    def STAGE_TASK_FOR_BUG_COMMENT(stage):
+        # What Updatebot couldn't do when a vendoring stage failed, for the
+        # "Updatebot encountered an error while trying to ..." bug comments
+        if stage['name'] == 'patches':
+            return "apply the mozilla patches"
+        return "run the '%s' vendoring stage" % stage['name']
+
+    @staticmethod
+    def PHAB_REVISION_PURPOSE(library, commit):
+        # The purpose recorded for a commit's Phabricator revision. commit is
+        # ('stage', index) for a vendoring stage, or ('ai', index) for the AI's fix
+        # to that stage's patches.
+        kind, index = commit
+        if kind == 'ai':
+            return 'patch conflict resolution commit'
+        if index == 0:
+            return 'vendoring commit'
+        if library.stages[index]['patches']:
+            return 'patches commit'
+        return "'%s' stage commit" % library.stages[index]['name']
+
+
 class RelativePreExistingRepoPath(Exception):
     pass
 

@@ -16,7 +16,7 @@ from components.mach_vendor import VendorProvider
 from components.bugzilla import BugzillaProvider
 from components.aiprovider import AIProvider
 from components.scmprovider import SCMProvider
-from components.hg import MercurialProvider, reset_repository
+from components.hg import MercurialProvider
 from apis.taskcluster import TaskclusterProvider
 from apis.phabricator import PhabricatorProvider
 from tasktypes.vendoring import VendorTaskRunner
@@ -234,7 +234,7 @@ class Updatebot:
                         self.runOnProviders(lambda x: x.reset())
                     except Exception as e:
                         # Clean up any changes to the repo we may have made
-                        reset_repository(self.cmdProvider)
+                        self.provider_dictionary['mercurialProvider'].reset_repository()
                         self.logger.log("Caught an exception while processing library %s task type %s" % (lib.name, task.type), level=LogLevel.Error)
                         self.logger.log_exception(e)
 

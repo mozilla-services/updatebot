@@ -149,6 +149,9 @@ class TestFunctionality(SimpleLoggingTest):
         configs['Command']['test_mappings'] = COMMAND_MAPPINGS(expected_values, command_callbacks)
 
         u = Updatebot(configs, PROVIDERS)
+        if ai_config and ai_config.get('ai_outcome') in ("trivial success", "uncertain success") and 'ai_fix' not in ai_config:
+            # Commit the fix, as the real AI does
+            u.aiProvider.ai_fix = lambda cwd, commit_message: u.cmdProvider.run(["hg", "commit", "-m", commit_message])
         _check_jobs = functools.partial(TestFunctionality._check_jobs, u, library_filter, expected_values)
 
         # Ensure we don't have a dirty database with existing jobs
@@ -468,6 +471,29 @@ class TestFunctionality(SimpleLoggingTest):
             j = u.dbProvider.get_job(lib, expected_values.library_new_version_id())
             self.assertEqual(JOBSTATUS.DONE, j.status)
             self.assertEqual(JOBOUTCOME.COULD_NOT_PATCH, j.outcome)
+        finally:
+            self._cleanup(u, expected_values)
+
+    # Only the first stage reports a spurious update: from a later one it's an error,
+    # not a reason to throw the work away
+    @logEntryExitHeaderLine
+    def testSpuriousUpdateFromALaterStageIsAnError(self):
+        library_filter = 'png'
+        (u, expected_values, _check_jobs) = self._setup(
+            library_filter,
+            lambda b: ["try_rev|2021-02-09 15:30:04 -0500|2021-02-12 17:40:01 +0000"],
+            lambda: 58,  # get_filed_bug_id_func
+            lambda b: {},  # filed_bug_ids_func
+            AssertFalse,  # treeherder_response
+            command_callbacks={'patch': lambda: (254, "")},
+        )
+        exceptions = []
+        original_log_exception = u.logger.log_exception
+        u.logger.log_exception = lambda e: (exceptions.append(e), original_log_exception(e))
+        try:
+            u.run(library_filter=library_filter)
+            self.assertEqual(len(exceptions), 1, exceptions)
+            self.assertIn("spurious update from libpng's stage 2", str(exceptions[0]))
         finally:
             self._cleanup(u, expected_values)
 

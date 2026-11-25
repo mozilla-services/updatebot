@@ -51,6 +51,13 @@ class RecordingCommandProvider:
                          "check_returncode": lambda: None})
 
 
+def library(yaml_path="media/libfoo/moz.yaml", uses_stages=True):
+    return Struct(name=os.path.basename(os.path.dirname(yaml_path)), yaml_path=yaml_path, uses_stages=uses_stages)
+
+
+PATCHES_STAGE = {'name': 'patches', 'patches': ['foo.patch'], 'title': None}
+
+
 def make_ai(config, command_provider):
     ai = AIProvider(config)
     ai.update_config({
@@ -93,12 +100,11 @@ class TestAIProviderResolvePatchConflicts(unittest.TestCase):
         ai = make_ai({"apikey": "sk-test", "model": "claude-test-model"}, cmd)
 
         with tempfile.TemporaryDirectory() as d:
-            resolution = ai.resolve_patch_conflicts("media/libfoo/moz.yaml", "Bug 1 - fix patches", cwd=d)
+            resolution = ai.resolve_patch_conflicts(library(), PATCHES_STAGE, ["./mach", "vendor", "media/libfoo/moz.yaml", "--stage", "2"], "Bug 1 - fix patches", cwd=d)
             # The result file is consumed (removed) after being read.
             self.assertFalse(os.path.exists(os.path.join(d, CONFLICT_RESOLUTION_RESULT_FILE)))
 
-        self.assertEqual(resolution["outcome"], "trivial success")
-        self.assertEqual(resolution["details"], ["updated foo.patch"])
+        self.assertEqual(resolution, ("trivial success", "updated foo.patch"))
 
         call = cmd.calls[0]
         self.assertEqual(call["args"][0], "claude")
@@ -116,24 +122,49 @@ class TestAIProviderResolvePatchConflicts(unittest.TestCase):
         # The system prompt is prompts/system.md.
         self.assertIn("Updatebot", call["system_prompt"])
 
-    def test_missing_result_file_returns_none(self):
-        cmd = RecordingCommandProvider(stdout='{"is_error": false}', result_file_contents=None)
-        ai = make_ai({"apikey": "sk-test"}, cmd)
+    def _resolve(self, result_file_contents):
+        cmd = RecordingCommandProvider(stdout='{"is_error": false}', result_file_contents=result_file_contents)
         with tempfile.TemporaryDirectory() as d:
-            self.assertIsNone(ai.resolve_patch_conflicts("m/moz.yaml", "msg", cwd=d))
+            return make_ai({"apikey": "sk-test"}, cmd).resolve_patch_conflicts(library(), PATCHES_STAGE, ["./mach"], "msg", cwd=d)
 
-    def test_garbage_result_file_returns_none(self):
-        cmd = RecordingCommandProvider(stdout='{"is_error": false}', result_file_contents="not json")
-        ai = make_ai({"apikey": "sk-test"}, cmd)
-        with tempfile.TemporaryDirectory() as d:
-            self.assertIsNone(ai.resolve_patch_conflicts("m/moz.yaml", "msg", cwd=d))
+    def test_no_verdict_is_a_failure(self):
+        self.assertEqual(self._resolve(None), ("failure", ""))
+        self.assertEqual(self._resolve("not json"), ("failure", ""))
+        self.assertEqual(self._resolve(json.dumps({"details": ["no outcome"]})), ("failure", "no outcome"))
+        self.assertEqual(self._resolve(json.dumps([])), ("failure", ""))
+        self.assertEqual(self._resolve(json.dumps({"outcome": "success", "details": ["?"]})), ("failure", "?"))
+
+    def test_malformed_details_are_dropped(self):
+        self.assertEqual(self._resolve(json.dumps({"outcome": "trivial success", "details": None})), ("trivial success", ""))
+        self.assertEqual(self._resolve(json.dumps({"outcome": "trivial success", "details": "one line"})), ("trivial success", ""))
+        self.assertEqual(self._resolve(json.dumps({"outcome": "trivial success", "details": ["ok", 3]})), ("trivial success", ""))
+
+    def test_prompt_names_the_stage(self):
+        def prompt(lib, stage, command):
+            cmd = RecordingCommandProvider(stdout='{"is_error": false}', result_file_contents="{}")
+            with tempfile.TemporaryDirectory() as d:
+                make_ai({}, cmd).resolve_patch_conflicts(lib, stage, command, "Bug 1 - fix patches", cwd=d)
+            return cmd.calls[0]["prompt"]
+
+        p = prompt(library("gfx/angle/moz.yaml"), {'name': 'fetch', 'patches': ['patches/*.patch'], 'title': None},
+                   ["./mach", "vendor", "gfx/angle/moz.yaml", "--revision", "abc"])
+        self.assertIn("Run `./mach vendor gfx/angle/moz.yaml --revision abc`", p)
+        self.assertIn("the `fetch` stage in its `vendoring` `stages`", p)
+        self.assertIn("`apply-patches` actions", p)
+        self.assertNotIn("{{", p)
+        # The old format, with one list of patches
+        p = prompt(library("gfx/angle/moz.yaml", uses_stages=False), PATCHES_STAGE,
+                   ["./mach", "vendor", "--patch-mode", "only", "gfx/angle/moz.yaml"])
+        self.assertIn("Run `./mach vendor --patch-mode only gfx/angle/moz.yaml`", p)
+        self.assertIn("the list of patches in its `vendoring` `patches`", p)
+        self.assertNotIn("{{", p)
 
     def test_no_apikey_passes_no_env(self):
         canned = json.dumps({"outcome": "failure", "details": []})
         cmd = RecordingCommandProvider(stdout='{"is_error": false}', result_file_contents=canned)
         ai = make_ai({}, cmd)  # no apikey configured
         with tempfile.TemporaryDirectory() as d:
-            ai.resolve_patch_conflicts("m/moz.yaml", "msg", cwd=d)
+            ai.resolve_patch_conflicts(library(), PATCHES_STAGE, ["./mach"], "msg", cwd=d)
         self.assertIsNone(cmd.calls[0]["env"])
 
 

@@ -3,31 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import re
 
 from components.logging import logEntryExit
 from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
-
-# Shelve is part of Mercurial but not enabled by default.
-HG_SHELVE = ["hg", "--config", "extensions.shelve="]
-# The shelf the spurious-update check saves the working directory in.
-SPURIOUS_CHECK_SHELF = "updatebot-spurious-check"
-
-
-def reset_repository(cmdrunner):
-    cmdrunner.run(["hg", "checkout", "-C", "."])
-    cmdrunner.run(["hg", "purge", "."])
-    # Drop the shelf if a run was interrupted partway through the spurious-update
-    # check. Only ours: the checkout may have other shelves. It's usually not there.
-    cmdrunner.run(HG_SHELVE + ["shelve", "--delete", SPURIOUS_CHECK_SHELF], clean_return=False)
-
-    original_revision = os.environ.get("GECKO_HEAD_REV", "")
-    if original_revision:
-        ret = cmdrunner.run(["hg", "update", original_revision])
-    else:
-        ret = cmdrunner.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
-        if ret.returncode == 255:
-            if "abort: empty revision set" not in ret.stderr:
-                ret.check_returncode()
 
 
 class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
@@ -35,59 +14,99 @@ class MercurialProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvid
         pass
 
     @logEntryExit
-    def commit(self, library, bug_id, new_release_version):
-        # Note that this commit message format changes, one must also edit the
-        # Updatebot Verify job in mozilla-central ( verify-updatebot.py )
-        bug_id = "Bug {0}".format(bug_id)
-        self.run(["hg", "commit", "-m", "%s - Update %s to %s" %
-                  (bug_id, library.name, new_release_version)])
+    def reset_repository(self):
+        # Throws away everything Updatebot did to the checkout: uncommitted changes,
+        # and its commits.
+        self.run(["hg", "checkout", "-C", "."])
+        self.run(["hg", "purge", "."])
+
+        original_revision = os.environ.get("GECKO_HEAD_REV", "")
+        if original_revision:
+            self.run(["hg", "update", original_revision])
+        else:
+            ret = self.run(["hg", "strip", "roots(outgoing())", "--no-backup"], clean_return=False)
+            if ret.returncode == 255:
+                if "abort: empty revision set" not in ret.stderr:
+                    ret.check_returncode()
 
     @logEntryExit
-    def commit_patches(self, library, bug_id, new_release_version):
-        # Note that this commit message format changes, one must also edit the
-        # Updatebot Verify job in mozilla-central ( verify-updatebot.py )
-        bug_id = "Bug {0}".format(bug_id)
-        # `./mach vendor --patch-mode only` doesn't register files the patches add or
-        # delete (only a full vendor does), so do that here or they'd be left out.
-        self.run(["hg", "addremove", "-q", library.vendor_directory, os.path.dirname(library.yaml_path)])
-        self.run(["hg", "commit", "-m", "%s - Apply mozilla patches for %s" %
-                  (bug_id, library.name)])
+    def current_revision(self):
+        # -l 1: some hg configurations make `hg log` follow history, listing more than one
+        return self.run(["hg", "log", "-r", ".", "-l", "1", "-T", "{node}"]).stdout.strip()
 
     @logEntryExit
-    def save_working_directory(self, name):
-        # Saves the uncommitted changes (including added, removed and untracked
-        # files) without changing the working directory.
-        self.run(HG_SHELVE + ["shelve", "--keep", "--unknown", "--name", name])
+    def commit_stage(self, library, index, message):
+        """Commit what a vendoring stage changed. Returns False, committing nothing, if
+        it changed nothing."""
+        if index > 0:
+            # The old format's `./mach vendor --patch-mode only` doesn't register files
+            # the patches add or delete (only a full vendor does), so do that here or
+            # they'd be left out.
+            self.run(["hg", "addremove", "-q", library.vendor_directory, os.path.dirname(library.yaml_path)])
+        if not self.run(["hg", "status", "--modified", "--added", "--removed"]).stdout.strip():
+            return False
+        self.run(["hg", "commit", "-m", message])
+        return True
 
     @logEntryExit
-    def restore_working_directory(self, name):
-        # Discards the uncommitted changes and puts back the ones saved as name.
+    def changes_since(self, revision, exclude=()):
+        # Files whose contents differ between revision and the working directory, with
+        # paths relative to the root of the checkout. Not `hg status --rev`, which
+        # counts a file changed and then changed back as modified.
+        excluded = set(os.path.normpath(p) for p in exclude)
+        diff = self.run(["hg", "diff", "--git", "-r", revision]).stdout
+        files = set()
+        for line in diff.splitlines():
+            m = re.match(r"^diff --git a/(.*) b/(.*)$", line)
+            if m:
+                files.update(m.groups())
+        return sorted(f for f in files if os.path.normpath(f) not in excluded)
+
+    def commits_since(self, revision):
+        # Not every descendant: other libraries' commits stay behind as other children
+        # of the same revision when GECKO_HEAD_REV is set, as reset_repository() then
+        # updates rather than strips.
+        return self.run(["hg", "log", "-r", "%s::. - %s" % (revision, revision), "-T", "{node}\n"]).stdout.split()
+
+    @logEntryExit
+    def reword_commits_since(self, revision, messages):
+        """Give the commits between revision and the working directory's parent these
+        messages, oldest first. Done by copying them with graft and amending each copy,
+        which needs no extensions, unlike evolve's metaedit on a commit with children."""
+        commits = self.commits_since(revision)
+        assert len(commits) == len(messages), "Expected %s commits to reword, found %s" % (len(messages), len(commits))
+        if not commits:
+            return
+        self.run(["hg", "update", "-r", revision])
+        for commit, message in zip(commits, messages):
+            self.run(["hg", "graft", "-q", "-r", commit])
+            self.run(["hg", "commit", "--amend", "-m", message])
+        self.run(["hg", "strip", "--no-backup", "-r", commits[0]])
+        assert len(self.commits_since(revision)) == len(messages), "Expected %s commits after rewording, found %s" % (len(messages), len(self.commits_since(revision)))
+
+    @logEntryExit
+    def strip_commits_since(self, revision):
+        commits = self.commits_since(revision)
+        if commits:
+            self.run(["hg", "update", "-C", "-r", revision])
+            self.run(["hg", "strip", "--no-backup", "-r", commits[0]])
+        assert self.current_revision() == revision, "Stripping the commits since %s left the checkout at %s" % (revision, self.current_revision())
+
+    @logEntryExit
+    def discard_working_directory(self):
+        # Discards the uncommitted changes, keeping the commits.
         self.run(["hg", "revert", "--all", "--no-backup"])
         self.run(["hg", "purge", "."])
-        self.run(HG_SHELVE + ["unshelve", "--name", name])
 
     @logEntryExit
-    def forget_saved_working_directory(self, name):
-        self.run(HG_SHELVE + ["shelve", "--delete", name])
-
-    @logEntryExit
-    def changed_files(self, exclude=()):
-        # Files that differ from the working directory's parent, counting new and
-        # deleted files, with paths relative to the root of the checkout.
-        self.run(["hg", "addremove", "-q"])
-        excluded = set(os.path.normpath(p) for p in exclude)
-        files = self.run(["hg", "--config", "ui.relative-paths=no", "status", "--no-status"]).stdout.splitlines()
-        return [f for f in files if f and os.path.normpath(f) not in excluded]
-
-    @logEntryExit
-    def changed_files_in(self, directory):
-        # Modified, added, removed, missing and untracked files under directory, with
-        # paths relative to the root of the checkout. Unlike changed_files, this doesn't
-        # change what's registered with hg.
-        files = self.run(["hg", "--config", "ui.relative-paths=no", "status", "--no-status", directory]).stdout.splitlines()
+    def changed_files_in(self, directory, since):
+        # Files under directory that differ between the revision since and the working
+        # directory (including untracked ones), with paths relative to the root of the
+        # checkout.
+        files = self.run(["hg", "--config", "ui.relative-paths=no", "status", "--no-status", "--rev", since, directory]).stdout.splitlines()
         return [f for f in files if f]
 
     @logEntryExit
-    def diff_stats(self):
-        ret = self.run(["hg", "diff", "--stat"])
+    def diff_stats(self, since):
+        ret = self.run(["hg", "diff", "--stat", "-r", since])
         return ret.stdout.rstrip()

@@ -36,6 +36,43 @@ from components.providerbase import BaseProvider, INeedsCommandProvider, INeedsL
 # },
 # 'yaml_path': '/Users/nobody/mozilla-central/media/libdav1d/moz.yaml'
 
+def stage(name, patches=None, title=None):
+    return {'name': name, 'patches': list(patches or []), 'title': title}
+
+
+def parse_stages(vendoring):
+    """
+    The vendoring stages of a moz.yaml's vendoring section, in order, as
+    {'name', 'patches', 'title'} dicts, where 'patches' is the patch files the stage
+    applies. Returns (stages, uses_stages).
+
+    moz.yaml files describe an update as `stages` now (see mozbuild's moz_yaml.py).
+    Until every moz.yaml in the tree uses them, the old format, a vendoring step and
+    then the `patches`, is read as the stages it amounts to, and uses_stages is
+    False, because `./mach vendor` runs it with --patch-mode rather than --stage.
+    """
+    if 'stages' in vendoring or 'skip-steps' in vendoring:
+        if 'stages' in vendoring:
+            raw = vendoring['stages']
+        elif 'fetch' in vendoring['skip-steps']:
+            raw = []
+        else:
+            raw = [{'name': 'fetch'}]
+        stages = []
+        for s in raw:
+            patches = list(s.get('patches', []))
+            for action in s.get('actions', []):
+                if action.get('action') == 'apply-patches':
+                    patches += action.get('patches', [])
+            stages.append(stage(s['name'], patches, s.get('title')))
+        return stages, True
+
+    stages = [stage('fetch')]
+    if vendoring.get('patches'):
+        stages.append(stage('patches', vendoring['patches']))
+    return stages, False
+
+
 class Library:
     def __init__(self, dict):
         self.name = dict['name']
@@ -43,7 +80,13 @@ class Library:
         self.bugzilla_component = dict['bugzilla_component']
         self.revision = dict['revision']
         self.repo_url = dict['repo_url']
-        self.has_patches = dict['has_patches']
+        if dict.get('stages') is not None:
+            self.stages = dict['stages']
+            self.uses_stages = dict.get('uses_stages', True)
+        else:
+            # The old format: a vendoring step, then the patches if there are any
+            self.stages = [stage('fetch')] + ([stage('patches', ['*'])] if dict['has_patches'] else [])
+            self.uses_stages = False
         self.flavor = dict['flavor']
         self.maintainer_bz = dict['maintainer_bz']
         self.maintainer_phab = dict['maintainer_phab']
@@ -62,6 +105,11 @@ class Library:
 
         for t in dict['tasks']:
             self.tasks.append(Task(t))
+
+    @property
+    def has_patches(self):
+        # Whether any stage applies patches
+        return any(s['patches'] for s in self.stages)
 
     def __eq__(self, other):
         if not isinstance(other, Library):
@@ -197,17 +245,26 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
 
         return self._libraries
 
-    def library_has_patches(self, gecko_path, library):
-        # Re-read the moz.yaml rather than trusting library.has_patches, which
-        # reflects the file as it was when the run started (the AI conflict
-        # resolver may since have removed every patch).
-        yaml_path = os.path.join(gecko_path, library.yaml_path)
-        with open(yaml_path, "r") as mozyaml:
-            contents = yaml.load(mozyaml.read(), Loader=yaml.BaseLoader)
+    def reload_stages(self, gecko_path, library):
+        library.stages, library.uses_stages = self.read_stages(gecko_path, library)
+
+    def read_stages(self, gecko_path, library):
+        # Re-read the moz.yaml rather than trusting library.stages, which reflects
+        # the file as it was when the run started (the AI conflict resolver may
+        # since have changed the patches, or removed a stage's last one).
+        contents = self._read_moz_yaml(gecko_path, library)
         # A moz.yaml without a vendoring section is broken, not patch-free.
         if not isinstance(contents, dict) or not isinstance(contents.get('vendoring'), dict):
-            raise Exception("%s has no vendoring section" % yaml_path)
-        return not not contents['vendoring'].get('patches')
+            raise Exception("%s has no vendoring section" % library.yaml_path)
+        return parse_stages(contents['vendoring'])
+
+    def read_revision(self, gecko_path, library):
+        # The revision the moz.yaml records, as it is now
+        return self._read_moz_yaml(gecko_path, library)['origin']['revision']
+
+    def _read_moz_yaml(self, gecko_path, library):
+        with open(os.path.join(gecko_path, library.yaml_path), "r") as mozyaml:
+            return yaml.load(mozyaml.read(), Loader=yaml.BaseLoader)
 
     @staticmethod
     def validate_library(yaml_contents, yaml_path):
@@ -220,6 +277,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
             'revision': None,
             'repo_url': '',
             'has_patches': False,
+            'stages': None,
+            'uses_stages': False,
             'flavor': '',
             'maintainer_bz': '',
             'maintainer_phab': '',
@@ -259,10 +318,8 @@ class LibraryProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider
         else:
             validated_library['repo_url'] = None
 
-        if 'vendoring' in library and 'patches' in library['vendoring']:
-            validated_library['has_patches'] = not not library['vendoring']['patches']
-        else:
-            validated_library['has_patches'] = False
+        if 'vendoring' in library:
+            validated_library['stages'], validated_library['uses_stages'] = parse_stages(library['vendoring'])
 
         if 'vendoring' in library:
             validated_library['vendor_directory'] = library['vendoring'].get('vendor-directory', '')

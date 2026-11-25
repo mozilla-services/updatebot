@@ -14,6 +14,7 @@ class VendorResult:
     MOZBUILD_ERROR = 2
     SPURIOUS_UPDATE = 3
     GENERAL_ERROR = 4
+    PATCH_CONFLICT = 5
 
 
 class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider):
@@ -40,13 +41,28 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
         revision, timestamp = result.split(" ", 1)
         return (revision, string_date_to_uniform_string_date(timestamp))
 
+    def stage_command(self, library, index, revision):
+        """The `./mach vendor` command that runs one of the library's stages, on top of
+        the working directory. Only the first takes the revision: later ones use the
+        one it recorded in the moz.yaml."""
+        if not library.uses_stages:
+            # The old format, until every moz.yaml uses stages
+            if index == 0:
+                return ["./mach", "vendor", library.yaml_path, "--revision", revision] + (
+                    ["--patch-mode", "none"] if library.has_patches else [])
+            return ["./mach", "vendor", "--patch-mode", "only", library.yaml_path]
+
+        cmd = ["./mach", "vendor", library.yaml_path]
+        if index == 0:
+            cmd += ["--revision", revision]
+        if len(library.stages) > 1:
+            cmd += ["--stage", str(index + 1)]
+        return cmd
+
     @logEntryExit
-    def vendor(self, library, revision):
+    def vendor_stage(self, library, index, revision):
         try:
-            cmd = ["./mach", "vendor", library.yaml_path, "--revision", revision]
-            if library.has_patches:
-                cmd += ["--patch-mode", "none"]
-            ret = self.run(cmd, clean_return=False)
+            ret = self.run(self.stage_command(library, index, revision), clean_return=False)
 
             if ret.returncode == 0:
                 return (VendorResult.SUCCESS, "")
@@ -56,26 +72,16 @@ class VendorProvider(BaseProvider, INeedsCommandProvider, INeedsLoggingProvider)
 
             if ret.returncode == 255:
                 return (VendorResult.MOZBUILD_ERROR, msg)
-            elif ret.returncode == 254:
+            elif ret.returncode == 254 and not library.uses_stages:
+                # The old format's spurious-update check
                 return (VendorResult.SPURIOUS_UPDATE, msg)
-            else:
-                return (VendorResult.GENERAL_ERROR, msg)
         except Exception as e:
             if isinstance(e, subprocess.CalledProcessError):
                 msg = e.stderr.rstrip() + "\n\n" if e.stderr else ""
                 msg += (e.stdout or "").rstrip()
             else:
                 msg = str(e)
-            return (VendorResult.GENERAL_ERROR, msg)
-
-    @logEntryExit
-    def patch(self, library, revision, ignore_modified=False, log_failure=True):
-        """
-        Raises CalledProcessError if mach fails. Pass log_failure=False when a failure
-        is expected and handled, so it isn't logged as an error.
-        """
-        cmd = ["./mach", "vendor", "--patch-mode", "only", library.yaml_path]
-        if ignore_modified:
-            # mach otherwise refuses to run while any tracked file is modified
-            cmd.append("--ignore-modified")
-        self.run(cmd, clean_return=log_failure).check_returncode()
+        # mach logs this for a patch that doesn't apply, and not for a failed action
+        if "Could not apply" in msg:
+            return (VendorResult.PATCH_CONFLICT, msg)
+        return (VendorResult.GENERAL_ERROR, msg)
